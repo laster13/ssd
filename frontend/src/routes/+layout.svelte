@@ -10,6 +10,7 @@
 		<a href="/app-store" style="text-decoration:none; color:#cbd5e1;">App Store</a>
 		<a href="/servers" style="text-decoration:none; color:#cbd5e1;">Serveurs</a>
 		<a href="/installations" style="text-decoration:none; color:#cbd5e1;">Installations</a>
+                <a href="/applications">Applications</a>
 
 		{#if data.user}
 			<a href="/settings/security" style="text-decoration:none; color:#cbd5e1;">Sécurité</a>

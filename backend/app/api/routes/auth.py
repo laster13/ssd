@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 import pyotp
@@ -6,6 +6,7 @@ import pyotp
 from app.api.deps import get_current_user
 from app.core.auth import create_access_token, hash_password, verify_password
 from app.core.database import get_db
+from app.core.rate_limit import enforce_rate_limit, get_client_ip
 from app.models.user import User
 from app.schemas.auth import (
     AuthTokenResponse,
@@ -24,16 +25,23 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 @router.post("/register", response_model=UserResponse)
 def register(
     payload: RegisterRequest,
+    request: Request,
     db: Session = Depends(get_db),
 ):
-    existing = db.execute(select(User).where(User.email == payload.email).limit(1)).scalar_one_or_none()
+    email = payload.email.strip().lower()
+    client_ip = get_client_ip(request)
+
+    enforce_rate_limit(f"auth:register:ip:{client_ip}", limit=10, window_seconds=3600)
+    enforce_rate_limit(f"auth:register:email:{email}", limit=3, window_seconds=3600)
+
+    existing = db.execute(select(User).where(User.email == email).limit(1)).scalar_one_or_none()
     if existing:
         raise HTTPException(status_code=409, detail="Email already registered")
 
     is_first_user = db.execute(select(User)).scalars().first() is None
 
     user = User(
-        email=payload.email,
+        email=email,
         password_hash=hash_password(payload.password),
         is_active=True,
         is_admin=is_first_user,
@@ -58,9 +66,17 @@ def register(
 @router.post("/login", response_model=AuthTokenResponse)
 def login(
     payload: LoginRequest,
+    request: Request,
     db: Session = Depends(get_db),
 ):
-    user = db.execute(select(User).where(User.email == payload.email).limit(1)).scalar_one_or_none()
+    email = payload.email.strip().lower()
+    client_ip = get_client_ip(request)
+
+    enforce_rate_limit(f"auth:login:ip:{client_ip}", limit=20, window_seconds=600)
+    enforce_rate_limit(f"auth:login:email:{email}", limit=8, window_seconds=600)
+
+    user = db.execute(select(User).where(User.email == email).limit(1)).scalar_one_or_none()
+
     if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
@@ -71,6 +87,8 @@ def login(
         raise HTTPException(status_code=403, detail="Inactive user")
 
     if user.two_factor_enabled:
+        enforce_rate_limit(f"auth:login:otp:{email}", limit=10, window_seconds=600)
+
         if not payload.otp_code:
             raise HTTPException(status_code=401, detail="OTP code required")
 
@@ -111,9 +129,15 @@ def two_factor_status(current_user: User = Depends(get_current_user)):
 
 @router.post("/2fa/setup", response_model=TwoFactorSetupResponse)
 def setup_two_factor(
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    client_ip = get_client_ip(request)
+
+    enforce_rate_limit(f"auth:2fa:setup:ip:{client_ip}", limit=10, window_seconds=3600)
+    enforce_rate_limit(f"auth:2fa:setup:user:{current_user.id}", limit=5, window_seconds=3600)
+
     if not current_user.two_factor_secret:
         current_user.two_factor_secret = pyotp.random_base32()
         db.add(current_user)
@@ -121,10 +145,7 @@ def setup_two_factor(
         db.refresh(current_user)
 
     totp = pyotp.TOTP(current_user.two_factor_secret)
-    otpauth_url = totp.provisioning_uri(
-        name=current_user.email,
-        issuer_name="SSD"
-    )
+    otpauth_url = totp.provisioning_uri(name=current_user.email, issuer_name="SSD")
 
     return TwoFactorSetupResponse(
         secret=current_user.two_factor_secret,
@@ -136,9 +157,15 @@ def setup_two_factor(
 @router.post("/2fa/confirm", response_model=TwoFactorStatusResponse)
 def confirm_two_factor(
     payload: TwoFactorConfirmRequest,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    client_ip = get_client_ip(request)
+
+    enforce_rate_limit(f"auth:2fa:confirm:ip:{client_ip}", limit=20, window_seconds=600)
+    enforce_rate_limit(f"auth:2fa:confirm:user:{current_user.id}", limit=8, window_seconds=600)
+
     if not current_user.two_factor_secret:
         raise HTTPException(status_code=400, detail="2FA setup not initialized")
 
@@ -157,9 +184,15 @@ def confirm_two_factor(
 @router.post("/2fa/disable", response_model=TwoFactorStatusResponse)
 def disable_two_factor(
     payload: TwoFactorDisableRequest,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    client_ip = get_client_ip(request)
+
+    enforce_rate_limit(f"auth:2fa:disable:ip:{client_ip}", limit=10, window_seconds=600)
+    enforce_rate_limit(f"auth:2fa:disable:user:{current_user.id}", limit=5, window_seconds=600)
+
     if not verify_password(payload.password, current_user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid password")
 

@@ -31,7 +31,9 @@
 <section
 	style="position:relative; overflow:hidden; border:1px solid rgba(255,255,255,0.08); border-radius:28px; padding:2rem; background:linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03)); box-shadow: 0 20px 80px rgba(0,0,0,0.35); margin-bottom:1.5rem;"
 >
-	<div style="display:grid; grid-template-columns: minmax(0,1.3fr) minmax(280px,0.7fr); gap:2rem; align-items:center;">
+	<div
+		style="display:grid; grid-template-columns: minmax(0,1.3fr) minmax(280px,0.7fr); gap:2rem; align-items:center;"
+	>
 		<div>
 			<div
 				style="display:inline-flex; align-items:center; gap:0.5rem; padding:0.45rem 0.8rem; border-radius:999px; background:rgba(56,189,248,0.12); border:1px solid rgba(56,189,248,0.25); color:#7dd3fc; font-size:0.9rem; margin-bottom:1rem;"
@@ -40,7 +42,9 @@
 				<span>Premium App Store</span>
 			</div>
 
-			<h1 style="font-size:clamp(2rem, 4vw, 4rem); line-height:1.02; margin:0 0 0.9rem 0; letter-spacing:-0.04em;">
+			<h1
+				style="font-size:clamp(2rem, 4vw, 4rem); line-height:1.02; margin:0 0 0.9rem 0; letter-spacing:-0.04em;"
+			>
 				Installe tes apps
 				<span
 					style="background:linear-gradient(90deg, #38bdf8 0%, #a855f7 45%, #22c55e 100%); -webkit-background-clip:text; background-clip:text; color:transparent;"
@@ -61,7 +65,7 @@
 			<div style="display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:0.9rem;">
 				<div style="padding:1rem; border-radius:18px; background:rgba(255,255,255,0.04);">
 					<div style="color:#64748b; font-size:0.85rem;">Apps initiales</div>
-					<div style="font-size:1.8rem; font-weight:700; margin-top:0.35rem;">4</div>
+					<div style="font-size:1.8rem; font-weight:700; margin-top:0.35rem;">{apps.length}</div>
 				</div>
 				<div style="padding:1rem; border-radius:18px; background:rgba(255,255,255,0.04);">
 					<div style="color:#64748b; font-size:0.85rem;">Objectif catalogue</div>
@@ -119,7 +123,9 @@
 				style={`position:absolute; inset:0 auto auto 0; width:100%; height:5px; background:${app.accent}; opacity:0.95;`}
 			/>
 
-			<div style="display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; margin-bottom:1rem;">
+			<div
+				style="display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; margin-bottom:1rem;"
+			>
 				<div style="display:flex; align-items:center; gap:0.9rem;">
 					<div
 						style={`width:60px; height:60px; border-radius:18px; background:${app.accent}; padding:1px; box-shadow:0 10px 30px rgba(0,0,0,0.25);`}
@@ -168,7 +174,7 @@
 
 			<div style="display:flex; align-items:center; justify-content:space-between; gap:0.8rem;">
 				<a
-					href={`/app-store/${app.slug}`}
+					href={`/installations/new?app=${encodeURIComponent(app.slug)}`}
 					style={`display:inline-flex; align-items:center; justify-content:center; gap:0.5rem; padding:0.85rem 1rem; border-radius:16px; text-decoration:none; color:white; font-weight:600; background:${app.accent}; min-width:140px;`}
 				>
 					Installer

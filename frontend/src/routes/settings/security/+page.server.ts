@@ -2,7 +2,15 @@ import { fail, redirect, error } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { apiFetchWithAuth } from '$lib/server/api';
 
-export const load: PageServerLoad = async ({ locals }) => {
+function getSafeNext(url: URL): string | null {
+	const next = url.searchParams.get('next')?.trim();
+	if (!next) return null;
+	if (!next.startsWith('/')) return null;
+	if (next.startsWith('//')) return null;
+	return next;
+}
+
+export const load: PageServerLoad = async ({ locals, url }) => {
 	if (!locals.user || !locals.token) {
 		throw redirect(303, '/login');
 	}
@@ -18,7 +26,9 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const status = await statusResponse.json();
 
 	return {
-		status
+		status,
+		required: url.searchParams.get('required') ?? null,
+		next: getSafeNext(url)
 	};
 };
 
@@ -33,19 +43,14 @@ export const actions: Actions = {
 		});
 
 		if (!response.ok) {
-			return fail(response.status, {
-				error: 'Impossible de préparer le 2FA'
-			});
+			return fail(response.status, { error: 'Impossible de préparer le 2FA' });
 		}
 
 		const setup = await response.json();
-
-		return {
-			setup
-		};
+		return { setup };
 	},
 
-	confirm: async ({ locals, request }) => {
+	confirm: async ({ locals, request, url }) => {
 		if (!locals.user || !locals.token) {
 			throw redirect(303, '/login');
 		}
@@ -54,10 +59,7 @@ export const actions: Actions = {
 		const otp_code = String(formData.get('otp_code') ?? '').trim();
 
 		if (!otp_code) {
-			return fail(400, {
-				error: 'Code 2FA requis',
-				otp_code
-			});
+			return fail(400, { error: 'Code 2FA requis', otp_code });
 		}
 
 		const response = await apiFetchWithAuth(locals.token, '/auth/2fa/confirm', {
@@ -77,15 +79,15 @@ export const actions: Actions = {
 				// no-op
 			}
 
-			return fail(response.status, {
-				error: message,
-				otp_code
-			});
+			return fail(response.status, { error: message, otp_code });
 		}
 
-		return {
-			confirmed: true
-		};
+		const next = getSafeNext(url);
+		if (next) {
+			throw redirect(303, next);
+		}
+
+		return { confirmed: true };
 	},
 
 	disable: async ({ locals, request }) => {
@@ -107,10 +109,7 @@ export const actions: Actions = {
 
 		const response = await apiFetchWithAuth(locals.token, '/auth/2fa/disable', {
 			method: 'POST',
-			body: JSON.stringify({
-				password,
-				otp_code
-			})
+			body: JSON.stringify({ password, otp_code })
 		});
 
 		if (!response.ok) {
@@ -132,8 +131,6 @@ export const actions: Actions = {
 			});
 		}
 
-		return {
-			disabled: true
-		};
+		return { disabled: true };
 	}
 };

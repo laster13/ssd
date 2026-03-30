@@ -8,8 +8,12 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 	}
 
 	const [jobResponse, logsResponse] = await Promise.all([
-		apiFetchWithAuth(locals.token, `/admin/jobs/${params.id}`, { method: 'GET' }),
-		apiFetchWithAuth(locals.token, `/admin/jobs/${params.id}/logs`, { method: 'GET' })
+		apiFetchWithAuth(locals.token, `/me/installations/${params.id}`, {
+			method: 'GET'
+		}),
+		apiFetchWithAuth(locals.token, `/me/installations/${params.id}/logs`, {
+			method: 'GET'
+		})
 	]);
 
 	if (!jobResponse.ok) {
@@ -19,8 +23,5 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 	const job = await jobResponse.json();
 	const logs = logsResponse.ok ? await logsResponse.json() : [];
 
-	return {
-		job,
-		logs
-	};
+	return { job, logs };
 };

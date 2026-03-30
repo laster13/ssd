@@ -18,6 +18,13 @@ class CreateMachineJobResponse(BaseModel):
     payload: dict | None = None
 
 
+class CreateMyInstallationRequest(BaseModel):
+    machine_id: UUID
+    app_slug: str
+    subdomain: str
+    auth_type: str
+
+
 class AgentFetchJobResponse(BaseModel):
     has_job: bool
     job_id: UUID | None = None
@@ -58,5 +65,6 @@ class AdminJobListItem(BaseModel):
     machine_id: UUID
     type: str
     status: str
+    payload: dict | None = None
     created_at: datetime
     updated_at: datetime

@@ -7,13 +7,11 @@ export const load: PageServerLoad = async ({ locals }) => {
 		throw redirect(303, '/login');
 	}
 
-	const response = await apiFetchWithAuth(locals.token, '/admin/jobs', {
+	const response = await apiFetchWithAuth(locals.token, '/me/installations', {
 		method: 'GET'
 	});
 
 	const jobs = response.ok ? await response.json() : [];
 
-	return {
-		jobs
-	};
+	return { jobs };
 };

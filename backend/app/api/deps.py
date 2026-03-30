@@ -70,4 +70,8 @@ def get_current_user(
 def get_current_admin(user: User = Depends(get_current_user)) -> User:
     if not user.is_admin:
         raise HTTPException(status_code=403, detail="Admin access required")
+
+    if not user.two_factor_enabled:
+        raise HTTPException(status_code=403, detail="Admin 2FA required")
+
     return user

@@ -9,6 +9,7 @@
 	);
 
 	const setup = $derived(form?.setup ?? null);
+        const requiredForAdmin = $derived(data.required === 'admin-2fa');
 
 	let qrDataUrl = $state('');
 
@@ -35,6 +36,15 @@
 		Protège ton compte avec la double authentification. Une fois activée, une application TOTP
 		te demandera un code à 6 chiffres lors de la connexion.
 	</p>
+
+	{#if requiredForAdmin}
+		<div
+			style="margin:1rem 0 1.25rem 0; padding:1rem 1.1rem; border-radius:18px; background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.28); color:#fde68a;"
+		>
+			<strong>Accès admin protégé :</strong> active le 2FA pour pouvoir accéder à l’interface
+			admin.
+		</div>
+	{/if}
 
 	<div
 		style="margin:1.25rem 0 1.5rem 0; padding:1rem 1.1rem; border-radius:18px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08);"

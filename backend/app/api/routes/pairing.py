@@ -1,11 +1,12 @@
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.core.database import get_db
+from app.core.rate_limit import enforce_rate_limit, get_client_ip
 from app.core.security import (
     generate_machine_token,
     generate_pairing_code,
@@ -26,9 +27,15 @@ router = APIRouter(prefix="/pairing", tags=["pairing"])
 
 @router.post("/register", response_model=PairingRegisterResponse)
 def register_pairing(
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    client_ip = get_client_ip(request)
+
+    enforce_rate_limit(f"pairing:register:ip:{client_ip}", limit=20, window_seconds=3600)
+    enforce_rate_limit(f"pairing:register:user:{current_user.id}", limit=10, window_seconds=3600)
+
     machine = Machine(
         owner_id=current_user.id,
         status="pending_pairing",
@@ -55,9 +62,19 @@ def register_pairing(
 
 
 @router.post("/verify", response_model=PairingVerifyResponse)
-def verify_pairing(payload: PairingVerifyRequest, db: Session = Depends(get_db)):
+def verify_pairing(
+    payload: PairingVerifyRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    client_ip = get_client_ip(request)
+    pairing_code = payload.pairing_code.strip()
+
+    enforce_rate_limit(f"pairing:verify:ip:{client_ip}", limit=30, window_seconds=600)
+    enforce_rate_limit(f"pairing:verify:code:{pairing_code}", limit=10, window_seconds=600)
+
     now = datetime.now(timezone.utc)
-    code_hash = hash_pairing_code(payload.pairing_code)
+    code_hash = hash_pairing_code(pairing_code)
 
     stmt = (
         select(PairingToken, Machine)
@@ -67,7 +84,6 @@ def verify_pairing(payload: PairingVerifyRequest, db: Session = Depends(get_db))
         .where(PairingToken.expires_at > now)
         .limit(1)
     )
-
     result = db.execute(stmt).first()
 
     if not result:
@@ -76,7 +92,6 @@ def verify_pairing(payload: PairingVerifyRequest, db: Session = Depends(get_db))
     token, machine = result
 
     machine_token = generate_machine_token()
-
     token.used_at = now
     machine.status = "paired"
     machine.auth_token_hash = hash_machine_token(machine_token)
