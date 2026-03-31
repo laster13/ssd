@@ -1,8 +1,5 @@
-<svelte:options runes={false} />
-
 <script lang="ts">
-	export let data;
-	export let form;
+	let { data, form } = $props();
 
 	const app = data.app;
 	const machines = data.machines ?? [];
@@ -31,7 +28,12 @@
 	{/if}
 
 	<div class="card">
-		<form method="POST" action={`?/createInstallation&app=${encodeURIComponent(app.slug)}`} class="form">
+		<form
+			method="POST"
+			action={`?/createInstallation&app=${encodeURIComponent(app.slug)}`}
+			class="form"
+		>
+			<input type="hidden" name="_csrf" value={data.csrfToken} />
 			<input type="hidden" name="app_slug" value={app.slug} />
 
 			<div class="field">
@@ -44,10 +46,7 @@
 				<select id="machine_id" name="machine_id" required disabled={machines.length === 0}>
 					<option value="">Sélectionne un serveur</option>
 					{#each machines as machine}
-						<option
-							value={machine.id}
-							selected={form?.machine_id === machine.id}
-						>
+						<option value={machine.id} selected={form?.machine_id === machine.id}>
 							{machine.hostname || machine.machine_uuid} — {machine.status}
 						</option>
 					{/each}
@@ -69,10 +68,7 @@
 				<label for="auth_type">Auth</label>
 				<select id="auth_type" name="auth_type" required>
 					{#each authOptions as option}
-						<option
-							value={option}
-							selected={(form?.auth_type ?? 'aucune') === option}
-						>
+						<option value={option} selected={(form?.auth_type ?? 'aucune') === option}>
 							{option}
 						</option>
 					{/each}

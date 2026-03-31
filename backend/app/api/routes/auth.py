@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 import pyotp
 
 from app.api.deps import get_current_user
+from app.core.audit import audit_event
 from app.core.auth import create_access_token, hash_password, verify_password
 from app.core.database import get_db
 from app.core.rate_limit import enforce_rate_limit, get_client_ip
@@ -36,6 +37,16 @@ def register(
 
     existing = db.execute(select(User).where(User.email == email).limit(1)).scalar_one_or_none()
     if existing:
+        audit_event(
+            event_type="auth.register.conflict",
+            severity="warning",
+            success=False,
+            status_code=409,
+            actor_type="anonymous",
+            request=request,
+            description="Register attempted with already registered email",
+            details={"email": email},
+        )
         raise HTTPException(status_code=409, detail="Email already registered")
 
     is_first_user = db.execute(select(User)).scalars().first() is None
@@ -52,6 +63,19 @@ def register(
     db.add(user)
     db.commit()
     db.refresh(user)
+
+    audit_event(
+        event_type="auth.register.success",
+        severity="info",
+        success=True,
+        status_code=200,
+        actor_type="user",
+        actor_user_id=user.id,
+        target_user_id=user.id,
+        request=request,
+        description="User registered successfully",
+        details={"email": user.email, "is_admin": user.is_admin},
+    )
 
     return UserResponse(
         id=user.id,
@@ -78,30 +102,113 @@ def login(
     user = db.execute(select(User).where(User.email == email).limit(1)).scalar_one_or_none()
 
     if not user:
+        audit_event(
+            event_type="auth.login.failed",
+            severity="warning",
+            success=False,
+            status_code=401,
+            actor_type="anonymous",
+            request=request,
+            description="Login failed: unknown email",
+            details={"email": email},
+        )
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     if not verify_password(payload.password, user.password_hash):
+        audit_event(
+            event_type="auth.login.failed",
+            severity="warning",
+            success=False,
+            status_code=401,
+            actor_type="user",
+            actor_user_id=user.id,
+            target_user_id=user.id,
+            request=request,
+            description="Login failed: invalid password",
+            details={"email": email},
+        )
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     if not user.is_active:
+        audit_event(
+            event_type="auth.login.blocked",
+            severity="warning",
+            success=False,
+            status_code=403,
+            actor_type="user",
+            actor_user_id=user.id,
+            target_user_id=user.id,
+            request=request,
+            description="Login blocked: inactive user",
+            details={"email": email},
+        )
         raise HTTPException(status_code=403, detail="Inactive user")
 
     if user.two_factor_enabled:
         enforce_rate_limit(f"auth:login:otp:{email}", limit=10, window_seconds=600)
 
         if not payload.otp_code:
+            audit_event(
+                event_type="auth.login.otp_required",
+                severity="warning",
+                success=False,
+                status_code=401,
+                actor_type="user",
+                actor_user_id=user.id,
+                target_user_id=user.id,
+                request=request,
+                description="Login blocked: OTP code required",
+                details={"email": email},
+            )
             raise HTTPException(status_code=401, detail="OTP code required")
 
         if not user.two_factor_secret:
+            audit_event(
+                event_type="auth.login.otp_misconfigured",
+                severity="critical",
+                success=False,
+                status_code=500,
+                actor_type="user",
+                actor_user_id=user.id,
+                target_user_id=user.id,
+                request=request,
+                description="Login blocked: 2FA enabled but secret missing",
+                details={"email": email},
+            )
             raise HTTPException(status_code=500, detail="2FA is enabled but secret is missing")
 
         totp = pyotp.TOTP(user.two_factor_secret)
         if not totp.verify(payload.otp_code, valid_window=1):
+            audit_event(
+                event_type="auth.login.failed_otp",
+                severity="warning",
+                success=False,
+                status_code=401,
+                actor_type="user",
+                actor_user_id=user.id,
+                target_user_id=user.id,
+                request=request,
+                description="Login failed: invalid OTP code",
+                details={"email": email},
+            )
             raise HTTPException(status_code=401, detail="Invalid OTP code")
 
     access_token = create_access_token(
         subject=str(user.id),
         extra={"is_admin": user.is_admin},
+    )
+
+    audit_event(
+        event_type="auth.login.success",
+        severity="info",
+        success=True,
+        status_code=200,
+        actor_type="user",
+        actor_user_id=user.id,
+        target_user_id=user.id,
+        request=request,
+        description="Login successful",
+        details={"email": user.email, "is_admin": user.is_admin},
     )
 
     return AuthTokenResponse(
@@ -147,6 +254,19 @@ def setup_two_factor(
     totp = pyotp.TOTP(current_user.two_factor_secret)
     otpauth_url = totp.provisioning_uri(name=current_user.email, issuer_name="SSD")
 
+    audit_event(
+        event_type="auth.2fa.setup",
+        severity="info",
+        success=True,
+        status_code=200,
+        actor_type="user",
+        actor_user_id=current_user.id,
+        target_user_id=current_user.id,
+        request=request,
+        description="2FA setup requested",
+        details={"email": current_user.email, "already_enabled": current_user.two_factor_enabled},
+    )
+
     return TwoFactorSetupResponse(
         secret=current_user.two_factor_secret,
         otpauth_url=otpauth_url,
@@ -167,16 +287,50 @@ def confirm_two_factor(
     enforce_rate_limit(f"auth:2fa:confirm:user:{current_user.id}", limit=8, window_seconds=600)
 
     if not current_user.two_factor_secret:
+        audit_event(
+            event_type="auth.2fa.confirm.failed",
+            severity="warning",
+            success=False,
+            status_code=400,
+            actor_type="user",
+            actor_user_id=current_user.id,
+            target_user_id=current_user.id,
+            request=request,
+            description="2FA confirm failed: setup not initialized",
+        )
         raise HTTPException(status_code=400, detail="2FA setup not initialized")
 
     totp = pyotp.TOTP(current_user.two_factor_secret)
     if not totp.verify(payload.otp_code, valid_window=1):
+        audit_event(
+            event_type="auth.2fa.confirm.failed",
+            severity="warning",
+            success=False,
+            status_code=400,
+            actor_type="user",
+            actor_user_id=current_user.id,
+            target_user_id=current_user.id,
+            request=request,
+            description="2FA confirm failed: invalid OTP code",
+        )
         raise HTTPException(status_code=400, detail="Invalid OTP code")
 
     current_user.two_factor_enabled = True
     db.add(current_user)
     db.commit()
     db.refresh(current_user)
+
+    audit_event(
+        event_type="auth.2fa.confirm.success",
+        severity="info",
+        success=True,
+        status_code=200,
+        actor_type="user",
+        actor_user_id=current_user.id,
+        target_user_id=current_user.id,
+        request=request,
+        description="2FA enabled successfully",
+    )
 
     return TwoFactorStatusResponse(enabled=current_user.two_factor_enabled)
 
@@ -194,14 +348,47 @@ def disable_two_factor(
     enforce_rate_limit(f"auth:2fa:disable:user:{current_user.id}", limit=5, window_seconds=600)
 
     if not verify_password(payload.password, current_user.password_hash):
+        audit_event(
+            event_type="auth.2fa.disable.failed",
+            severity="warning",
+            success=False,
+            status_code=401,
+            actor_type="user",
+            actor_user_id=current_user.id,
+            target_user_id=current_user.id,
+            request=request,
+            description="2FA disable failed: invalid password",
+        )
         raise HTTPException(status_code=401, detail="Invalid password")
 
     if current_user.two_factor_enabled:
         if not current_user.two_factor_secret:
+            audit_event(
+                event_type="auth.2fa.disable.failed",
+                severity="critical",
+                success=False,
+                status_code=500,
+                actor_type="user",
+                actor_user_id=current_user.id,
+                target_user_id=current_user.id,
+                request=request,
+                description="2FA disable failed: secret missing while enabled",
+            )
             raise HTTPException(status_code=500, detail="2FA is enabled but secret is missing")
 
         totp = pyotp.TOTP(current_user.two_factor_secret)
         if not totp.verify(payload.otp_code, valid_window=1):
+            audit_event(
+                event_type="auth.2fa.disable.failed",
+                severity="warning",
+                success=False,
+                status_code=401,
+                actor_type="user",
+                actor_user_id=current_user.id,
+                target_user_id=current_user.id,
+                request=request,
+                description="2FA disable failed: invalid OTP code",
+            )
             raise HTTPException(status_code=401, detail="Invalid OTP code")
 
     current_user.two_factor_enabled = False
@@ -209,5 +396,17 @@ def disable_two_factor(
     db.add(current_user)
     db.commit()
     db.refresh(current_user)
+
+    audit_event(
+        event_type="auth.2fa.disable.success",
+        severity="warning",
+        success=True,
+        status_code=200,
+        actor_type="user",
+        actor_user_id=current_user.id,
+        target_user_id=current_user.id,
+        request=request,
+        description="2FA disabled",
+    )
 
     return TwoFactorStatusResponse(enabled=current_user.two_factor_enabled)

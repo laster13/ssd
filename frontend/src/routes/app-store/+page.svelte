@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { resolveAppVisual } from '$lib/icons/app-icons';
+
 	let { data } = $props();
 
 	let query = $state('');
@@ -64,7 +66,7 @@
 		>
 			<div style="display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:0.9rem;">
 				<div style="padding:1rem; border-radius:18px; background:rgba(255,255,255,0.04);">
-					<div style="color:#64748b; font-size:0.85rem;">Apps initiales</div>
+					<div style="color:#64748b; font-size:0.85rem;">Apps catalogue</div>
 					<div style="font-size:1.8rem; font-weight:700; margin-top:0.35rem;">{apps.length}</div>
 				</div>
 				<div style="padding:1rem; border-radius:18px; background:rgba(255,255,255,0.04);">
@@ -116,11 +118,13 @@
 	style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:1.1rem;"
 >
 	{#each filteredApps as app}
+		{@const visual = resolveAppVisual(app.slug, app.description)}
+
 		<article
 			style="position:relative; overflow:hidden; border-radius:26px; border:1px solid rgba(255,255,255,0.08); background:linear-gradient(180deg, rgba(15,23,42,0.78), rgba(15,23,42,0.5)); padding:1.15rem; box-shadow:0 18px 50px rgba(0,0,0,0.24);"
 		>
 			<div
-				style={`position:absolute; inset:0 auto auto 0; width:100%; height:5px; background:${app.accent}; opacity:0.95;`}
+				style={`position:absolute; inset:0 auto auto 0; width:100%; height:5px; background:${visual.accent}; opacity:0.95;`}
 			/>
 
 			<div
@@ -128,17 +132,10 @@
 			>
 				<div style="display:flex; align-items:center; gap:0.9rem;">
 					<div
-						style={`width:60px; height:60px; border-radius:18px; background:${app.accent}; padding:1px; box-shadow:0 10px 30px rgba(0,0,0,0.25);`}
+						style={`width:60px; height:60px; border-radius:18px; background:${visual.bg}; border:1px solid rgba(255,255,255,0.08); box-shadow:0 10px 30px rgba(0,0,0,0.18); display:grid; place-items:center;`}
 					>
-						<div
-							style="width:100%; height:100%; border-radius:17px; background:rgba(15,23,42,0.88); display:grid; place-items:center;"
-						>
-							<img
-								src={app.icon}
-								alt={app.name}
-								style="width:34px; height:34px; object-fit:contain;"
-								loading="lazy"
-							/>
+						<div style="display:grid; place-items:center;">
+							{@html visual.svg}
 						</div>
 					</div>
 
@@ -175,7 +172,7 @@
 			<div style="display:flex; align-items:center; justify-content:space-between; gap:0.8rem;">
 				<a
 					href={`/installations/new?app=${encodeURIComponent(app.slug)}`}
-					style={`display:inline-flex; align-items:center; justify-content:center; gap:0.5rem; padding:0.85rem 1rem; border-radius:16px; text-decoration:none; color:white; font-weight:600; background:${app.accent}; min-width:140px;`}
+					style={`display:inline-flex; align-items:center; justify-content:center; gap:0.5rem; padding:0.85rem 1rem; border-radius:16px; text-decoration:none; color:white; font-weight:600; background:${visual.accent}; min-width:140px;`}
 				>
 					Installer
 				</a>

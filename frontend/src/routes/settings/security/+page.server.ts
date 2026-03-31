@@ -1,12 +1,15 @@
 import { fail, redirect, error } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { apiFetchWithAuth } from '$lib/server/api';
+import { validateCsrf } from '$lib/server/security';
 
 function getSafeNext(url: URL): string | null {
 	const next = url.searchParams.get('next')?.trim();
+
 	if (!next) return null;
 	if (!next.startsWith('/')) return null;
 	if (next.startsWith('//')) return null;
+
 	return next;
 }
 
@@ -33,10 +36,17 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 };
 
 export const actions: Actions = {
-	setup: async ({ locals }) => {
+	setup: async ({ locals, request, cookies, url }) => {
 		if (!locals.user || !locals.token) {
 			throw redirect(303, '/login');
 		}
+
+		await validateCsrf({
+			request,
+			cookies,
+			url,
+			sessionToken: locals.token
+		});
 
 		const response = await apiFetchWithAuth(locals.token, '/auth/2fa/setup', {
 			method: 'POST'
@@ -50,12 +60,18 @@ export const actions: Actions = {
 		return { setup };
 	},
 
-	confirm: async ({ locals, request, url }) => {
+	confirm: async ({ locals, request, cookies, url }) => {
 		if (!locals.user || !locals.token) {
 			throw redirect(303, '/login');
 		}
 
-		const formData = await request.formData();
+		const formData = await validateCsrf({
+			request,
+			cookies,
+			url,
+			sessionToken: locals.token
+		});
+
 		const otp_code = String(formData.get('otp_code') ?? '').trim();
 
 		if (!otp_code) {
@@ -90,12 +106,18 @@ export const actions: Actions = {
 		return { confirmed: true };
 	},
 
-	disable: async ({ locals, request }) => {
+	disable: async ({ locals, request, cookies, url }) => {
 		if (!locals.user || !locals.token) {
 			throw redirect(303, '/login');
 		}
 
-		const formData = await request.formData();
+		const formData = await validateCsrf({
+			request,
+			cookies,
+			url,
+			sessionToken: locals.token
+		});
+
 		const password = String(formData.get('password') ?? '').trim();
 		const otp_code = String(formData.get('otp_code') ?? '').trim();
 

@@ -1,39 +1,11 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { apiFetchWithAuth } from '$lib/server/api';
+import { validateCsrf } from '$lib/server/security';
 
-const apps = [
-	{
-		slug: 'chevereto',
-		name: 'Chevereto',
-		category: 'Media',
-		tagline: "Plateforme d'hébergement d'images et de vidéos"
-	},
-	{
-		slug: 'coolify',
-		name: 'Coolify',
-		category: 'Platform',
-		tagline: 'PaaS auto-hébergeable'
-	},
-	{
-		slug: 'firefox',
-		name: 'Firefox',
-		category: 'Browser',
-		tagline: 'Navigateur web Mozilla'
-	},
-	{
-		slug: 'filebrowser',
-		name: 'File Browser',
-		category: 'Files',
-		tagline: 'Gestionnaire de fichiers web'
-	},
-	{
-		slug: 'n8n',
-		name: 'n8n',
-		category: 'Automation',
-		tagline: 'Automatisation open source'
-	}
-];
+function sameSlug(a: string, b: string) {
+	return a.trim().toLowerCase() === b.trim().toLowerCase();
+}
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	if (!locals.user || !locals.token) {
@@ -42,15 +14,21 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 	const appSlug = url.searchParams.get('app') ?? '';
 
-	const app = apps.find((item) => item.slug === appSlug);
+	const [catalogResponse, machinesResponse] = await Promise.all([
+		apiFetchWithAuth(locals.token, '/catalog/apps', {
+			method: 'GET'
+		}),
+		apiFetchWithAuth(locals.token, '/me/machines', {
+			method: 'GET'
+		})
+	]);
+
+	const apps = catalogResponse.ok ? await catalogResponse.json() : [];
+	const app = apps.find((item: any) => sameSlug(item.slug, appSlug));
 
 	if (!app) {
 		throw redirect(303, '/app-store');
 	}
-
-	const machinesResponse = await apiFetchWithAuth(locals.token, '/me/machines', {
-		method: 'GET'
-	});
 
 	const machines = machinesResponse.ok ? await machinesResponse.json() : [];
 
@@ -61,12 +39,17 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 };
 
 export const actions: Actions = {
-	createInstallation: async ({ locals, request, url }) => {
+	createInstallation: async ({ locals, request, cookies, url }) => {
 		if (!locals.user || !locals.token) {
 			throw redirect(303, '/login');
 		}
 
-		const formData = await request.formData();
+		const formData = await validateCsrf({
+			request,
+			cookies,
+			url,
+			sessionToken: locals.token
+		});
 
 		const machine_id = String(formData.get('machine_id') ?? '').trim();
 		const subdomain = String(formData.get('subdomain') ?? '').trim();

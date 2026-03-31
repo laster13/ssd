@@ -1,6 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { PUBLIC_BACKEND_URL } from '$env/static/public';
+import { setSessionCookie, validateCsrf } from '$lib/server/security';
 
 const BACKEND_URL = PUBLIC_BACKEND_URL || 'http://127.0.0.1:8000';
 
@@ -13,35 +14,30 @@ export const load: PageServerLoad = async ({ locals }) => {
 };
 
 export const actions: Actions = {
-	default: async ({ request, cookies, fetch }) => {
-		const formData = await request.formData();
+	default: async ({ request, cookies, fetch, url }) => {
+		const formData = await validateCsrf({
+			request,
+			cookies,
+			url,
+			sessionToken: null
+		});
 
 		const email = String(formData.get('email') ?? '').trim();
 		const password = String(formData.get('password') ?? '').trim();
 		const otp_code = String(formData.get('otp_code') ?? '').trim();
 
 		if (!email || !password) {
-			return fail(400, {
-				error: 'Email et mot de passe requis',
-				email,
-				otp_code
-			});
+			return fail(400, { error: 'Email et mot de passe requis', email, otp_code });
 		}
 
-		const payload: Record<string, string> = {
-			email,
-			password
-		};
-
+		const payload: Record<string, string> = { email, password };
 		if (otp_code) {
 			payload.otp_code = otp_code;
 		}
 
 		const response = await fetch(`${BACKEND_URL}/auth/login`, {
 			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json'
-			},
+			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(payload)
 		});
 
@@ -61,22 +57,11 @@ export const actions: Actions = {
 				// no-op
 			}
 
-			return fail(response.status, {
-				error: message,
-				email,
-				otp_code
-			});
+			return fail(response.status, { error: message, email, otp_code });
 		}
 
 		const data = await response.json();
-
-		cookies.set('token', data.access_token, {
-			path: '/',
-			httpOnly: true,
-			sameSite: 'lax',
-			secure: false,
-			maxAge: 60 * 60 * 24 * 7
-		});
+		setSessionCookie(cookies, data.access_token);
 
 		throw redirect(303, '/app-store');
 	}

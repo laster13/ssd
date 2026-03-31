@@ -1,0 +1,274 @@
+from __future__ import annotations
+
+from functools import lru_cache
+
+DEFAULT_AUTH_TYPES = [
+    "aucune",
+    "basique",
+    "oauth",
+    "authelia",
+    "oauth2-proxy",
+]
+
+DEFAULT_INSTALL_PROFILE = "seedbox_standard"
+
+RAW_CATALOG = """
+actualbudget - App for managing your finances
+aiostreams - Adonn Stremio
+airdcpp - Client AirDC++
+alfred - Symlink Manager
+authelia - Authentification applications Web
+autoindex - Générateur de liste de répertoires
+baserow - Outil no-code pour BDD modulable
+baikal - logiciel de calendrier simple
+bazarr - Gestion de sous-titres Sonarr/Radarr
+benphelps - Intégrations Docker et API de service
+bitwarden - Gestionnaire de mots de passeL
+bookstack - Wiki gratuit et open source
+boxarr - Box Office dans Radarr
+cadvisor - Gestion des ressources docker
+calibre - Gestionnaire de livres électroniques
+calibreweb - Gestionnaire de livres électroniques
+changedetection - Detection changement sites web
+chevereto - Auto-hébergement photos en ligne
+cloudcmd - Gestionnaire de fichiers pour le web
+codif -  VS Code exécuté sur un serveur distant
+coolify - manage servers, applications, databases
+crowdsec - Detection et blocage des attaques
+cypht - Centraliser plusieurs comptes mails
+decypharr - QbitTorrent with a Multiple Debrid
+dashdot - System Health intégrable avec Homarr
+davos - Outils de programmation
+decypharrseed- decypharr Seed
+deemixrr - Streamer de la musique depuis deezer
+deluge - Gestionnaire de torrent
+digikam - Gestion de photos numériques
+dockhand - Modern Docker management
+dozzle - Affichage des logs de conteneurs
+duplicati - Application de sauvegarde
+espocrm - Customer Relationship Management
+emby - Serveur multimédia
+fenrus - Passerelle vers le monde des sorciers
+filebot - Organiser vos films, séries et anime
+filebrowser - Gestion fichiers via une interface
+firefox - Un navigateur dans votre navigateur
+firefoxsyncserver - Navigateur Firefox
+flixor - interface modern plex
+foptimum - Performances serveur
+freshrss - Agrégateur de flux open source
+frenchio - Stremio orienté contenu francophone
+gethomepage - dashboard Applications
+gitea - Hébergement de développement logiciel
+gitlab - Hébergement de développement logiciel
+glftpd - Serveur FTP
+goaccess - Visual Web Log Analyzer
+gotify - Envoyer et recevoir des messages
+grist - organise, analyse, partage de data
+grocy - Gestion de recettes
+guacamole - Accès à distance via portail Web
+handbrake - Transcoder une source vidéo
+heimdall - Organiser vos applications Web
+homarr - A simple powerful dashboard
+huntarr - Chasseur médias automatisé
+imagmaid - Plex Image Cleanup
+immich - self-hosted photo video management
+jackett - Indexeur de scraping
+jackettstremio - Indexeur de scraping
+jackettvpn - Indexeur de scraping
+jdownloader - Gestionnaire de téléchargements
+jellyseerr - Gestion de contenu Plex/Emby
+jellyfin - Serveur multimédia
+jfago - Gestion des utilisateurs Jellyfin
+jitsi - Plateformes de visioconférence
+kasm - Streaming de conteneurs Docker
+kavita - application de gestion PDF, eBook
+kitana - Plugin Plex
+komga - Gestion de bandes dessinées/mangas
+kresus - Gestionnaire de données personnelles
+kuma - Outil de surveillancer
+librespeed - Speedtest auto-hébergé pour HTML5
+lidarr - Gestionnaire de musiques
+linkding - Gestionnaire de favoris
+logarr - Gestion des logs
+mango - Serveur de mangas auto-hébergé
+Mattermost - Plateforme de collaboration
+mealie - Gestion de vos recettes
+mediawiki - plateforme pour Wikipédia
+mediaflowproxy - Proxy pour Stremio
+medusa - Gestionnaire de séries, animes
+mellow - client proxy
+metube - Téléchargement YouTube auto-hébergé
+microbin - Application Web paste bin
+minecraft - Jeu d'aventure immersif
+mkvtoolnix - Gestion de fichiers MKV
+monicaHQ - CRM pour votre vie personnelle
+monitorr - Gérer votre système et réseau
+n8nio - Outil de Workflow open-source
+navidrome - Serveur de streaming musical
+neko - navigateur virtuel auto-hébergé
+netdata - Serveur de surveillance systeme
+nextcloud - Stockage et partage de fichiers
+nocodb - Plateforme NoCode open source
+nowshowing - Addon Plex
+ntopng - Surveiller réseau informatique
+nZBHydra - Indexeurs newznab
+nzbdav - WebDAV Server Usenet
+ombi - Gestion de contenu Plex/Emby
+organizr - Gestion des applications
+pastebin - Mettre en ligne du texte
+paperless - Document management system
+pingvin - Partage de fichiers auto-hébergée
+piwigo - Gestion d'albums photo
+plausible - Alternative  à Google Analytics
+plexautolanguages - Addon plex sous titres
+plex - Serveur multimédia
+portainer - Gestion docker
+prowlarr - Indexeur de scraping
+pterodactyl - game server management panel
+pureftpd - Serveur FTP
+pyload - Gestionnaire de téléchargement
+qbittorrent - Gestionnaire de torrent
+qbitorrentvpn - Gestionnaire de torrent
+qflood - Gestionnaire de torrent
+radarr4k - Gestion Films-4K Usenet-BitTorrent
+radarr - Gestion Films Usenet-BitTorrent
+rdtclient - Clients Real debrid
+readarr - Gestion ebook Usenet-BitTorrent
+recyclarr - Trash Guide Customs Formats
+rflood - Un gestionnaire de torrent
+rtorrentvpn - Gestionnaire de torrent VPN
+rutorrent_2 - Un gestionnaire de torrent
+rutorrent - Un gestionnaire de torrent
+sabnzbd - Téléchargement de newsgroups
+scrutiny  - Solution de monitoring
+seafile - Stockage cloud open source
+seerr -  Gestion de contenu Plex/Emby
+seerrcatalog - Passerelle entre Jellyseerr et Stremio
+shaarli - Bookmarking personnel
+sickchill - Gestion Films/Séries
+sickgear - Gestionnaire Films/Séries
+sismicsreader - Agrégateur flux Web
+sonarr4k - Gestion Séries 4K
+sonarr - Gestion Séries Usenet et BitTorren
+speedtest - Teste vitesse Internet
+speedtesttracker - Teste vitesse Internet
+statping - Surveillance de vos sites Web
+stirlingpdf - Boite à outils PDF
+streamfusion - addon for Stremio streaming
+stremiocatalogs - addon for Stremio that provides catalogs
+stremiotrakt - addon for Stremio that provides trakt lists
+stremiosaga - addon for Stremio that provides saga infos
+stremiotmdbdice - addon for Stremio that provides shuffle movies suggestions
+stremiomanager - App for re-organizing your Stremio addons
+stremthru - Proxy pour Stremio
+subsonic - Serveur multimédia
+synclounge - Adon Plex
+syncthing - Synchronisation de fichiers
+tautulli - Monitoring de Plex
+thelounge - Web IRC client always connected
+transmission - Gestionnaire de torrent
+transmissionvpn - Gestionnaire de torrent VPN
+ttrss - Agrégateur de flux d'actualités
+ubooquity - Gestion ebooks
+usenet - Un gestionnaire de nzb
+vaultwarden - Serveur compatible Bitwarden
+vikunja - Application de liste de tâches
+wallos - Gestion des abonnements
+warp - VPN/proxy développé par Cloudflare
+watchtower - Mises à jour automatiques Docker
+webdav - Service d'hébergement de fichiers
+webtop - Gestion d'environnements
+weddingshare - Partage Moments Ensembles
+wetty - Terminal sur HTTP et https
+wgeasy - Gestion WireGuard
+whisparr - Gestionnaire de films pour adultes
+wikijs - Une application wiki moderne
+wireguardui - Interface Web gestion/WireGuard
+wireguard - Protocole de communication (VPN).
+wizarr - Invitation utilisateurs Plex et Jellyfin
+wordpress - Gestion de contenu (CMS)
+yacht - Gestion des conteneurs Docker
+ygege - Indexeur pour YggTorrent
+yourls - Gestion de liens
+zilean - DMM hashlist scrapper
+""".strip()
+
+
+def _slug_key(value: str) -> str:
+    return value.strip().lower()
+
+
+def _parse_catalog_line(line: str, index: int) -> tuple[str, str]:
+    if " - " in line:
+        slug, description = line.split(" - ", 1)
+    elif "- " in line:
+        slug, description = line.split("- ", 1)
+    else:
+        raise ValueError(f"Invalid catalog line #{index}: {line!r}")
+
+    slug = slug.strip()
+    description = description.strip()
+
+    if slug.endswith("-"):
+        slug = slug[:-1].strip()
+
+    if not slug:
+        raise ValueError(f"Empty slug on line #{index}")
+
+    if not description:
+        raise ValueError(f"Empty description on line #{index}")
+
+    return slug, description
+
+
+@lru_cache
+def get_catalog_apps() -> tuple[dict, ...]:
+    apps: list[dict] = []
+    seen: set[str] = set()
+
+    for index, raw_line in enumerate(RAW_CATALOG.splitlines(), start=1):
+        line = raw_line.strip()
+        if not line:
+            continue
+
+        slug, description = _parse_catalog_line(line, index)
+        slug_key = _slug_key(slug)
+
+        if slug_key in seen:
+            raise ValueError(f"Duplicate catalog slug on line #{index}: {slug!r}")
+
+        seen.add(slug_key)
+
+        apps.append(
+            {
+                "slug": slug,
+                "name": slug,
+                "category": "Catalogue",
+                "tagline": description,
+                "description": description,
+                "status": "Disponible",
+                "enabled": True,
+                "install_profile": DEFAULT_INSTALL_PROFILE,
+                "allowed_auth_types": list(DEFAULT_AUTH_TYPES),
+            }
+        )
+
+    return tuple(apps)
+
+
+def list_catalog_apps() -> list[dict]:
+    return [dict(app) for app in get_catalog_apps()]
+
+
+def get_catalog_app(slug: str) -> dict | None:
+    wanted = _slug_key(slug)
+
+    for app in get_catalog_apps():
+        if _slug_key(app["slug"]) == wanted:
+            return dict(app)
+
+    return None
+
+
+def is_supported_catalog_app(slug: str) -> bool:
+    return get_catalog_app(slug) is not None

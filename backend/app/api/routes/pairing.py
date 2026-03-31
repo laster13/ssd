@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.core.audit import audit_event
 from app.core.database import get_db
 from app.core.rate_limit import enforce_rate_limit, get_client_ip
 from app.core.security import (
@@ -53,6 +54,19 @@ def register_pairing(
     db.commit()
     db.refresh(machine)
 
+    audit_event(
+        event_type="pairing.register.success",
+        severity="info",
+        success=True,
+        status_code=200,
+        actor_type="user",
+        actor_user_id=current_user.id,
+        target_machine_id=machine.id,
+        request=request,
+        description="Pairing code generated",
+        details={"machine_uuid": str(machine.machine_uuid)},
+    )
+
     return PairingRegisterResponse(
         machine_id=machine.id,
         machine_uuid=machine.machine_uuid,
@@ -62,11 +76,7 @@ def register_pairing(
 
 
 @router.post("/verify", response_model=PairingVerifyResponse)
-def verify_pairing(
-    payload: PairingVerifyRequest,
-    request: Request,
-    db: Session = Depends(get_db),
-):
+def verify_pairing(payload: PairingVerifyRequest, request: Request, db: Session = Depends(get_db)):
     client_ip = get_client_ip(request)
     pairing_code = payload.pairing_code.strip()
 
@@ -87,6 +97,15 @@ def verify_pairing(
     result = db.execute(stmt).first()
 
     if not result:
+        audit_event(
+            event_type="pairing.verify.failed",
+            severity="warning",
+            success=False,
+            status_code=404,
+            actor_type="anonymous",
+            request=request,
+            description="Pairing verify failed: invalid or expired code",
+        )
         raise HTTPException(status_code=404, detail="Invalid or expired pairing code")
 
     token, machine = result
@@ -102,6 +121,18 @@ def verify_pairing(
     db.add(machine)
     db.commit()
     db.refresh(machine)
+
+    audit_event(
+        event_type="pairing.verify.success",
+        severity="info",
+        success=True,
+        status_code=200,
+        actor_type="machine",
+        target_machine_id=machine.id,
+        request=request,
+        description="Machine paired successfully",
+        details={"machine_uuid": str(machine.machine_uuid)},
+    )
 
     return PairingVerifyResponse(
         valid=True,

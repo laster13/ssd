@@ -1,6 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { PUBLIC_BACKEND_URL } from '$env/static/public';
+import { setSessionCookie, validateCsrf } from '$lib/server/security';
 
 const BACKEND_URL = PUBLIC_BACKEND_URL || 'http://127.0.0.1:8000';
 
@@ -13,46 +14,35 @@ export const load: PageServerLoad = async ({ locals }) => {
 };
 
 export const actions: Actions = {
-	default: async ({ request, cookies, fetch }) => {
-		const formData = await request.formData();
+	default: async ({ request, cookies, fetch, url }) => {
+		const formData = await validateCsrf({
+			request,
+			cookies,
+			url,
+			sessionToken: null
+		});
 
 		const email = String(formData.get('email') ?? '').trim();
 		const password = String(formData.get('password') ?? '').trim();
 
 		if (!email || !password) {
-			return fail(400, {
-				error: 'Email et mot de passe requis',
-				email
-			});
+			return fail(400, { error: 'Email et mot de passe requis', email });
 		}
 
 		const registerResponse = await fetch(`${BACKEND_URL}/auth/register`, {
 			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({
-				email,
-				password
-			})
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ email, password })
 		});
 
 		if (!registerResponse.ok) {
-			return fail(registerResponse.status, {
-				error: 'Impossible de créer le compte',
-				email
-			});
+			return fail(registerResponse.status, { error: 'Impossible de créer le compte', email });
 		}
 
 		const loginResponse = await fetch(`${BACKEND_URL}/auth/login`, {
 			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({
-				email,
-				password
-			})
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ email, password })
 		});
 
 		if (!loginResponse.ok) {
@@ -63,14 +53,7 @@ export const actions: Actions = {
 		}
 
 		const loginData = await loginResponse.json();
-
-		cookies.set('token', loginData.access_token, {
-			path: '/',
-			httpOnly: true,
-			sameSite: 'lax',
-			secure: false,
-			maxAge: 60 * 60 * 24 * 7
-		});
+		setSessionCookie(cookies, loginData.access_token);
 
 		throw redirect(303, '/app-store');
 	}

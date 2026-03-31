@@ -1,9 +1,11 @@
 import re
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from app.core.audit import audit_event
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from app.catalog.apps import get_catalog_app
 
 from app.api.deps import get_current_user
 from app.core.database import get_db
@@ -20,14 +22,6 @@ from app.schemas.job import (
 from app.schemas.job_log import AdminJobLogItem
 
 router = APIRouter(prefix="/me", tags=["me"])
-
-ALLOWED_APP_SLUGS = {
-    "chevereto",
-    "coolify",
-    "firefox",
-    "filebrowser",
-    "n8n",
-}
 
 ALLOWED_AUTH_TYPES = {
     "aucune",
@@ -73,16 +67,21 @@ def get_owned_installation_or_404(db: Session, job_id: UUID, current_user: User)
     return job
 
 
-def normalize_and_validate_installation_payload(payload: CreateMyInstallationRequest) -> tuple[str, str, str]:
-    app_slug = payload.app_slug.strip().lower()
+def normalize_and_validate_installation_payload(payload: CreateMyInstallationRequest) -> tuple[str, str, str, str]:
+    requested_slug = payload.app_slug.strip()
     auth_type = payload.auth_type.strip().lower()
     subdomain = payload.subdomain.strip().lower()
 
-    if app_slug not in ALLOWED_APP_SLUGS:
+    catalog_app = get_catalog_app(requested_slug)
+    if not catalog_app:
         raise HTTPException(status_code=400, detail="Unsupported app_slug")
 
-    if auth_type not in ALLOWED_AUTH_TYPES:
-        raise HTTPException(status_code=400, detail="Unsupported auth_type")
+    if not catalog_app.get("enabled", False):
+        raise HTTPException(status_code=400, detail="App is currently disabled")
+
+    allowed_auth_types = set(catalog_app["allowed_auth_types"])
+    if auth_type not in allowed_auth_types:
+        raise HTTPException(status_code=400, detail="Unsupported auth_type for this app")
 
     if not SUBDOMAIN_RE.fullmatch(subdomain):
         raise HTTPException(
@@ -90,7 +89,11 @@ def normalize_and_validate_installation_payload(payload: CreateMyInstallationReq
             detail="Invalid subdomain. Use lowercase letters, numbers and hyphens only.",
         )
 
-    return app_slug, subdomain, auth_type
+    install_profile = str(catalog_app["install_profile"]).strip()
+    if not install_profile:
+        raise HTTPException(status_code=500, detail="App install profile is missing")
+
+    return catalog_app["slug"], subdomain, auth_type, install_profile
 
 
 def ensure_no_active_installation_for_machine(db: Session, machine: Machine) -> None:
@@ -141,11 +144,12 @@ def get_my_machines(
 @router.post("/installations", response_model=CreateMachineJobResponse)
 def create_my_installation(
     payload: CreateMyInstallationRequest,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     machine = get_owned_machine_or_404(db, payload.machine_id, current_user)
-    app_slug, subdomain, auth_type = normalize_and_validate_installation_payload(payload)
+    app_slug, subdomain, auth_type, install_profile = normalize_and_validate_installation_payload(payload)
     ensure_no_active_installation_for_machine(db, machine)
 
     job = Job(
@@ -154,6 +158,7 @@ def create_my_installation(
         status="pending",
         payload={
             "app_slug": app_slug,
+            "install_profile": install_profile,
             "subdomain": subdomain,
             "auth_type": auth_type,
         },
@@ -162,6 +167,19 @@ def create_my_installation(
     db.add(job)
     db.commit()
     db.refresh(job)
+
+    audit_event(
+        event_type="job.create.user.success",
+        severity="info",
+        success=True,
+        status_code=200,
+        actor_type="user",
+        actor_user_id=current_user.id,
+        target_machine_id=machine.id,
+        request=request,
+        description="User created install job",
+        details={"job_id": str(job.id), "payload": job.payload},
+    )
 
     return CreateMachineJobResponse(
         job_id=job.id,

@@ -2,45 +2,49 @@
 	let { data, children } = $props();
 </script>
 
-<nav
-	style="display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:1rem 1.25rem; border-bottom:1px solid rgba(255,255,255,0.08); background:rgba(10,14,24,0.7); backdrop-filter: blur(16px); position:sticky; top:0; z-index:20;"
+<svelte:head>
+	<title>SSD</title>
+</svelte:head>
+
+<header
+	style="display:flex; justify-content:space-between; align-items:center; gap:1rem; padding:1rem 1.25rem; border-bottom:1px solid rgba(255,255,255,0.08); margin-bottom:1.5rem;"
 >
-	<div style="display:flex; align-items:center; gap:1rem;">
-		<a href="/app-store" style="font-weight:700; text-decoration:none; color:white;">SSD</a>
-		<a href="/app-store" style="text-decoration:none; color:#cbd5e1;">App Store</a>
-		<a href="/servers" style="text-decoration:none; color:#cbd5e1;">Serveurs</a>
-		<a href="/installations" style="text-decoration:none; color:#cbd5e1;">Installations</a>
-                <a href="/applications">Applications</a>
+	<nav style="display:flex; flex-wrap:wrap; gap:1rem; align-items:center;">
+		<a href="/app-store" style="color:white; text-decoration:none; font-weight:700;">SSD</a>
+		<a href="/app-store" style="color:#cbd5e1; text-decoration:none;">App Store</a>
+		<a href="/servers" style="color:#cbd5e1; text-decoration:none;">Serveurs</a>
+		<a href="/installations" style="color:#cbd5e1; text-decoration:none;">Installations</a>
+		<a href="/applications" style="color:#cbd5e1; text-decoration:none;">Applications</a>
 
 		{#if data.user}
-			<a href="/settings/security" style="text-decoration:none; color:#cbd5e1;">Sécurité</a>
+			<a href="/settings/security" style="color:#cbd5e1; text-decoration:none;">Sécurité</a>
 		{/if}
 
 		{#if data.user?.is_admin}
-			<a href="/admin" style="text-decoration:none; color:#64748b;">Admin</a>
+			<a href="/admin" style="color:#cbd5e1; text-decoration:none;">Admin</a>
 		{/if}
-	</div>
+	</nav>
 
-	<div style="display:flex; align-items:center; gap:1rem;">
+	<div style="display:flex; align-items:center; gap:0.9rem; flex-wrap:wrap;">
 		{#if data.user}
 			<span style="color:#94a3b8;">Connecté : {data.user.email}</span>
-			<a href="/logout" style="text-decoration:none; color:white;">Logout</a>
+
+			<form method="POST" action="/logout" style="display:inline;">
+				<input type="hidden" name="_csrf" value={data.csrfToken} />
+				<button
+					type="submit"
+					style="padding:0.65rem 0.9rem; border-radius:12px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.04); color:white; cursor:pointer;"
+				>
+					Logout
+				</button>
+			</form>
 		{:else}
-			<a href="/login" style="text-decoration:none; color:white;">Login</a>
-			<a href="/register" style="text-decoration:none; color:white;">Register</a>
+			<a href="/login" style="color:#cbd5e1; text-decoration:none;">Login</a>
+			<a href="/register" style="color:#cbd5e1; text-decoration:none;">Register</a>
 		{/if}
 	</div>
-</nav>
+</header>
 
-<div
-	style="min-height:100vh; background:
-	radial-gradient(circle at top left, rgba(56,189,248,0.18), transparent 32%),
-	radial-gradient(circle at top right, rgba(168,85,247,0.16), transparent 28%),
-	radial-gradient(circle at bottom center, rgba(16,185,129,0.12), transparent 24%),
-	linear-gradient(180deg, #060816 0%, #0b1020 100%);
-	color:white;"
->
-	<div style="max-width:1280px; margin:0 auto; padding:1.5rem;">
-		{@render children()}
-	</div>
-</div>
+<main style="padding:0 1rem 3rem;">
+	{@render children()}
+</main>

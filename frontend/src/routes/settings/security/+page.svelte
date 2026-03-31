@@ -9,7 +9,7 @@
 	);
 
 	const setup = $derived(form?.setup ?? null);
-        const requiredForAdmin = $derived(data.required === 'admin-2fa');
+	const requiredForAdmin = $derived(data.required === 'admin-2fa');
 
 	let qrDataUrl = $state('');
 
@@ -67,6 +67,7 @@
 
 			{#if !setup}
 				<form method="POST" action="?/setup">
+					<input type="hidden" name="_csrf" value={data.csrfToken} />
 					<button
 						type="submit"
 						style="padding:0.9rem 1rem; border:none; border-radius:16px; font-weight:700; cursor:pointer; background:linear-gradient(90deg, #38bdf8, #a855f7); color:white;"
@@ -101,6 +102,8 @@
 						</div>
 
 						<form method="POST" action="?/confirm" style="display:grid; gap:1rem;">
+							<input type="hidden" name="_csrf" value={data.csrfToken} />
+
 							<label style="display:grid; gap:0.5rem;">
 								<span>Code 2FA</span>
 								<input
@@ -138,6 +141,8 @@
 			</p>
 
 			<form method="POST" action="?/disable" style="display:grid; gap:1rem; max-width:520px;">
+				<input type="hidden" name="_csrf" value={data.csrfToken} />
+
 				<label style="display:grid; gap:0.5rem;">
 					<span>Mot de passe</span>
 					<input
