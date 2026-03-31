@@ -1,15 +1,19 @@
-import { defineConfig } from 'vite';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { defineConfig, loadEnv } from 'vite';
 
-export default defineConfig({
-	plugins: [sveltekit()],
-	server: {
-		host: '0.0.0.0',
-		port: 5173,
-		hmr: {
-			host: '82.66.255.97',
-			port: 5173,
-			protocol: 'ws'
+export default defineConfig(({ mode }) => {
+	const env = loadEnv(mode, process.cwd(), '');
+
+	const allowedHosts = (env.VITE_ALLOWED_HOSTS || '')
+		.split(',')
+		.map((host) => host.trim())
+		.filter(Boolean);
+
+	return {
+		plugins: [sveltekit()],
+		server: {
+			host: '0.0.0.0',
+			allowedHosts
 		}
-	}
+	};
 });

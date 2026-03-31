@@ -58,6 +58,32 @@ function isValidToken(token: string, sessionBinding: string): boolean {
 	return safeEqual(providedSig, expectedSig);
 }
 
+function firstForwardedValue(value: string | null): string | null {
+	if (!value) return null;
+	return value.split(',')[0]?.trim() || null;
+}
+
+function getExpectedOrigin(url: URL, headers: Headers): string {
+	const forwardedProto = firstForwardedValue(headers.get('x-forwarded-proto'));
+	const forwardedHost = firstForwardedValue(headers.get('x-forwarded-host'));
+	const forwardedPort = firstForwardedValue(headers.get('x-forwarded-port'));
+
+	const proto = forwardedProto || url.protocol.replace(':', '');
+	let host = forwardedHost || headers.get('host') || url.host;
+
+	if (forwardedPort && forwardedHost && !forwardedHost.includes(':')) {
+		const defaultPort =
+			(proto === 'https' && forwardedPort === '443') ||
+			(proto === 'http' && forwardedPort === '80');
+
+		if (!defaultPort) {
+			host = `${forwardedHost}:${forwardedPort}`;
+		}
+	}
+
+	return `${proto}://${host}`;
+}
+
 export function ensureCsrfCookie(cookies: Cookies, sessionToken: string | null | undefined): string {
 	const binding = sessionToken ?? '';
 	const existing = cookies.get(CSRF_COOKIE);
@@ -85,7 +111,9 @@ export async function validateCsrf(opts: {
 	const { request, cookies, url, sessionToken } = opts;
 
 	const origin = request.headers.get('origin');
-	if (origin && origin !== url.origin) {
+	const expectedOrigin = getExpectedOrigin(url, request.headers);
+
+	if (origin && origin !== expectedOrigin) {
 		throw error(403, 'Invalid request origin');
 	}
 

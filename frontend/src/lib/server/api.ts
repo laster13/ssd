@@ -1,22 +1,22 @@
-import { PUBLIC_API_BASE_URL } from '$env/static/public';
+import { getBackendUrl } from '$lib/public-config';
 
-export async function apiFetch(path: string, options: RequestInit = {}) {
-	return fetch(`${PUBLIC_API_BASE_URL}${path}`, {
-		...options,
-		headers: {
-			'Content-Type': 'application/json',
-			...(options.headers ?? {})
-		}
-	});
+const BACKEND_URL = getBackendUrl();
+
+export async function apiFetch(path: string, init: RequestInit = {}) {
+	return fetch(`${BACKEND_URL}${path}`, init);
 }
 
-export async function apiFetchWithAuth(token: string, path: string, options: RequestInit = {}) {
-	return fetch(`${PUBLIC_API_BASE_URL}${path}`, {
-		...options,
-		headers: {
-			'Content-Type': 'application/json',
-			Authorization: `Bearer ${token}`,
-			...(options.headers ?? {})
-		}
+export async function apiFetchWithAuth(token: string, path: string, init: RequestInit = {}) {
+	const headers = new Headers(init.headers);
+
+	headers.set('Authorization', `Bearer ${token}`);
+
+	if (!headers.has('Content-Type') && init.body && !(init.body instanceof FormData)) {
+		headers.set('Content-Type', 'application/json');
+	}
+
+	return fetch(`${BACKEND_URL}${path}`, {
+		...init,
+		headers
 	});
 }

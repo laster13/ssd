@@ -1,9 +1,9 @@
 import { fail, redirect, error } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { PUBLIC_BACKEND_URL } from '$env/static/public';
 import { apiFetchWithAuth } from '$lib/server/api';
+import { getBackendUrl } from '$lib/public-config';
 
-const BACKEND_URL = PUBLIC_BACKEND_URL || 'http://127.0.0.1:8000';
+const BACKEND_URL = getBackendUrl();
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (!locals.user || !locals.token) {

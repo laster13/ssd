@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { getBrowserWsUrl } from '$lib/public-config';
 
 	let { data } = $props();
 
@@ -20,9 +21,7 @@
 	onMount(() => {
 		if (isFinished()) return;
 
-		const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-		const backendHost = `${window.location.hostname}:8000`;
-                const ws = new WebSocket(`${protocol}//${backendHost}/ws/jobs/${job.id}`);
+		const ws = new WebSocket(getBrowserWsUrl(`/ws/jobs/${job.id}`));
 
 		ws.onmessage = (event) => {
 			const payload = JSON.parse(event.data);

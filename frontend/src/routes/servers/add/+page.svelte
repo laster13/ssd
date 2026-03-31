@@ -4,10 +4,10 @@
 	const pairing = $derived(form?.pairing ?? data.pairing);
 	const pairingCode = $derived(pairing?.pairing_code ?? '-');
 	const machineUuid = $derived(pairing?.machine_uuid ?? '-');
-	const backendUrl = $derived(data.backendUrl ?? 'http://127.0.0.1:8000');
+	const backendUrl = $derived(data.backendUrl ?? '');
 
 	const bootstrapCommand = $derived(
-		pairing
+		pairing && backendUrl
 			? `curl -fsSL ${backendUrl}/bootstrap.sh | sudo bash -s -- --pairing-code ${pairing.pairing_code} --backend-url ${backendUrl}`
 			: ''
 	);
