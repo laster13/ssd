@@ -1,28 +1,43 @@
 <script lang="ts">
-	import { resolveAppVisual } from '$lib/icons/app-icons';
+	import AppCard from '$lib/components/store/AppCard.svelte';
 
 	let { data } = $props();
 
-	let query = $state('');
 	let activeCategory = $state('Tous');
 
-	const apps = $derived(data.apps ?? []);
-	const categories = $derived(['Tous', ...new Set(apps.map((app) => app.category))]);
+	const SUGGESTED_SLUGS = ['radarr', 'sonarr', 'overseerr', 'plex', 'prowlarr', 'nextcloud'];
 
-	const filteredApps = $derived(
-		apps.filter((app) => {
-			const matchesCategory = activeCategory === 'Tous' || app.category === activeCategory;
-			const q = query.trim().toLowerCase();
+	const apps = $derived(
+		(data.apps ?? []).map((app: any, index: number) => ({
+			...app,
+			name: app.name ?? 'Application',
+			slug: app.slug ?? '',
+			description: app.description ?? '',
+			tagline: app.tagline ?? app.description ?? '',
+			category: app.category ?? 'Autre',
+			status: app.status ?? 'Disponible',
+			order: index
+		}))
+	);
 
-			const matchesQuery =
-				!q ||
-				app.name.toLowerCase().includes(q) ||
-				app.slug.toLowerCase().includes(q) ||
-				app.description.toLowerCase().includes(q) ||
-				app.category.toLowerCase().includes(q);
+	const categories = $derived([
+		'Tous',
+		...new Set(
+			apps
+				.map((app) => app.category)
+				.filter(Boolean)
+				.sort((a, b) => a.localeCompare(b, 'fr'))
+		)
+	]);
 
-			return matchesCategory && matchesQuery;
-		})
+	const suggestedApps = $derived(
+		apps.filter((app) => SUGGESTED_SLUGS.includes(app.slug.toLowerCase()))
+	);
+
+	const libraryHref = $derived(
+		activeCategory !== 'Tous'
+			? `/app-store/library?category=${encodeURIComponent(activeCategory)}`
+			: '/app-store/library'
 	);
 </script>
 
@@ -30,163 +45,103 @@
 	<title>App Store</title>
 </svelte:head>
 
-<section
-	style="position:relative; overflow:hidden; border:1px solid rgba(255,255,255,0.08); border-radius:28px; padding:2rem; background:linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03)); box-shadow: 0 20px 80px rgba(0,0,0,0.35); margin-bottom:1.5rem;"
->
-	<div
-		style="display:grid; grid-template-columns: minmax(0,1.3fr) minmax(280px,0.7fr); gap:2rem; align-items:center;"
-	>
-		<div>
-			<div
-				style="display:inline-flex; align-items:center; gap:0.5rem; padding:0.45rem 0.8rem; border-radius:999px; background:rgba(56,189,248,0.12); border:1px solid rgba(56,189,248,0.25); color:#7dd3fc; font-size:0.9rem; margin-bottom:1rem;"
-			>
-				<span>●</span>
-				<span>Premium App Store</span>
-			</div>
-
-			<h1
-				style="font-size:clamp(2rem, 4vw, 4rem); line-height:1.02; margin:0 0 0.9rem 0; letter-spacing:-0.04em;"
-			>
-				Installe tes apps
-				<span
-					style="background:linear-gradient(90deg, #38bdf8 0%, #a855f7 45%, #22c55e 100%); -webkit-background-clip:text; background-clip:text; color:transparent;"
-				>
-					en quelques clics
-				</span>
-			</h1>
-
-			<p style="margin:0; max-width:52rem; color:#cbd5e1; font-size:1.05rem; line-height:1.7;">
-				Choisis une application, configure son accès, puis laisse l’agent l’installer sur ton VPS.
-				L’App Store sert d’entrée utilisateur. La page Admin reste ta console technique.
-			</p>
-		</div>
-
-		<div
-			style="border-radius:24px; border:1px solid rgba(255,255,255,0.08); background:rgba(15,23,42,0.6); padding:1.25rem; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);"
-		>
-			<div style="display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:0.9rem;">
-				<div style="padding:1rem; border-radius:18px; background:rgba(255,255,255,0.04);">
-					<div style="color:#64748b; font-size:0.85rem;">Apps catalogue</div>
-					<div style="font-size:1.8rem; font-weight:700; margin-top:0.35rem;">{apps.length}</div>
-				</div>
-				<div style="padding:1rem; border-radius:18px; background:rgba(255,255,255,0.04);">
-					<div style="color:#64748b; font-size:0.85rem;">Objectif catalogue</div>
-					<div style="font-size:1.8rem; font-weight:700; margin-top:0.35rem;">180</div>
-				</div>
-				<div style="padding:1rem; border-radius:18px; background:rgba(255,255,255,0.04);">
-					<div style="color:#64748b; font-size:0.85rem;">Mode</div>
-					<div style="font-size:1.15rem; font-weight:700; margin-top:0.35rem;">App Store</div>
-				</div>
-				<div style="padding:1rem; border-radius:18px; background:rgba(255,255,255,0.04);">
-					<div style="color:#64748b; font-size:0.85rem;">Installation</div>
-					<div style="font-size:1.15rem; font-weight:700; margin-top:0.35rem;">Pilotée par jobs</div>
-				</div>
-			</div>
-		</div>
-	</div>
-</section>
-
-<section
-	style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:1.25rem;"
->
-	<div style="display:flex; flex-wrap:wrap; gap:0.75rem;">
-		{#each categories as category}
-			<button
-				type="button"
-				onclick={() => (activeCategory = category)}
-				style={`padding:0.75rem 1rem; border-radius:999px; border:1px solid ${
-					activeCategory === category ? 'rgba(56,189,248,0.35)' : 'rgba(255,255,255,0.08)'
-				}; background:${
-					activeCategory === category ? 'rgba(56,189,248,0.14)' : 'rgba(255,255,255,0.04)'
-				}; color:${activeCategory === category ? '#e0f2fe' : '#cbd5e1'}; cursor:pointer; transition:all .2s ease;`}
-			>
-				{category}
-			</button>
-		{/each}
+<div class="min-h-screen bg-[#f8fafc] text-zinc-900 dark:bg-[#06070b] dark:text-zinc-100">
+	<div class="pointer-events-none fixed inset-0">
+		<div class="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(15,23,42,0.04),transparent_35%)] dark:bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.035),transparent_35%)]"></div>
+		<div class="absolute left-0 top-0 h-[420px] w-[420px] rounded-full bg-cyan-500/10 blur-3xl dark:bg-cyan-500/[0.06]"></div>
+		<div class="absolute right-0 top-0 h-[420px] w-[420px] rounded-full bg-violet-500/10 blur-3xl dark:bg-violet-500/[0.05]"></div>
 	</div>
 
-	<div style="min-width:min(100%, 360px);">
-		<input
-			bind:value={query}
-			placeholder="Rechercher une application…"
-			style="width:100%; padding:0.9rem 1rem; border-radius:18px; border:1px solid rgba(255,255,255,0.08); background:rgba(15,23,42,0.6); color:white; outline:none;"
-		/>
-	</div>
-</section>
+	<div class="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+		<header class="mb-8 overflow-hidden rounded-[32px] border border-black/5 bg-white/70 shadow-[0_20px_80px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/[0.035] dark:shadow-[0_20px_80px_rgba(0,0,0,0.35)]">
+			<div class="relative">
+				<div class="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.75),rgba(255,255,255,0.45))] dark:bg-[linear-gradient(to_bottom,rgba(255,255,255,0.04),rgba(255,255,255,0.01))]"></div>
 
-<section
-	style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:1.1rem;"
->
-	{#each filteredApps as app}
-		{@const visual = resolveAppVisual(app.slug, app.description)}
+				<div class="relative p-6 sm:p-8 lg:p-10">
+					<div class="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+						<div class="max-w-3xl">
+							<div class="mb-4 inline-flex items-center gap-2 rounded-full border border-black/5 bg-black/[0.03] px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-600 dark:border-white/10 dark:bg-white/[0.045] dark:text-zinc-300">
+								<span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+								App Store
+							</div>
 
-		<article
-			style="position:relative; overflow:hidden; border-radius:26px; border:1px solid rgba(255,255,255,0.08); background:linear-gradient(180deg, rgba(15,23,42,0.78), rgba(15,23,42,0.5)); padding:1.15rem; box-shadow:0 18px 50px rgba(0,0,0,0.24);"
-		>
-			<div
-				style={`position:absolute; inset:0 auto auto 0; width:100%; height:5px; background:${visual.accent}; opacity:0.95;`}
-			/>
+							<h1 class="text-4xl font-semibold tracking-[-0.06em] text-zinc-950 dark:text-white sm:text-5xl lg:text-6xl">
+								Explore le catalogue
+							</h1>
 
-			<div
-				style="display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; margin-bottom:1rem;"
-			>
-				<div style="display:flex; align-items:center; gap:0.9rem;">
-					<div
-						style={`width:60px; height:60px; border-radius:18px; background:${visual.bg}; border:1px solid rgba(255,255,255,0.08); box-shadow:0 10px 30px rgba(0,0,0,0.18); display:grid; place-items:center;`}
-					>
-						<div style="display:grid; place-items:center;">
-							{@html visual.svg}
+							<p class="mt-4 max-w-2xl text-sm leading-7 text-zinc-600 dark:text-zinc-400 sm:text-base">
+								Une sélection soignée pour démarrer vite, puis une bibliothèque complète pour
+								accéder à l’ensemble des applications.
+							</p>
+						</div>
+
+						<div class="flex flex-wrap gap-3">
+							<a
+								href={libraryHref}
+								class="inline-flex items-center rounded-[18px] border border-black/8 bg-black/[0.05] px-5 py-3 text-sm font-semibold text-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] transition-all duration-200 hover:border-black/12 hover:bg-black/[0.08] dark:border-white/10 dark:bg-white/[0.06] dark:text-white dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] dark:hover:border-white/20 dark:hover:bg-white/[0.1]"
+							>
+								Voir toute la bibliothèque
+							</a>
 						</div>
 					</div>
 
-					<div>
-						<h2 style="margin:0; font-size:1.12rem;">{app.name}</h2>
-						<div style="margin-top:0.3rem; color:#94a3b8; font-size:0.92rem;">{app.tagline}</div>
+					<div class="mt-8 grid gap-3 sm:grid-cols-3">
+						<div class="rounded-[22px] border border-black/5 bg-white/70 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] dark:border-white/10 dark:bg-white/[0.04] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+							<div class="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Catalogue</div>
+							<div class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-zinc-950 dark:text-white">{apps.length}</div>
+						</div>
+
+						<div class="rounded-[22px] border border-black/5 bg-white/70 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] dark:border-white/10 dark:bg-white/[0.04] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+							<div class="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Expérience</div>
+							<div class="mt-2 text-sm font-medium text-zinc-800 dark:text-zinc-200">Store + Library</div>
+						</div>
+
+						<div class="rounded-[22px] border border-black/5 bg-white/70 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] dark:border-white/10 dark:bg-white/[0.04] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+							<div class="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Accès</div>
+							<div class="mt-2 text-sm font-medium text-zinc-800 dark:text-zinc-200">Par catégories ou vue complète</div>
+						</div>
 					</div>
 				</div>
+			</div>
+		</header>
 
-				<div
-					style="padding:0.45rem 0.7rem; border-radius:999px; background:rgba(34,197,94,0.12); border:1px solid rgba(34,197,94,0.22); color:#86efac; font-size:0.82rem; white-space:nowrap;"
-				>
-					{app.status}
+		<section class="mb-8">
+			<div class="no-scrollbar -mx-4 overflow-x-auto px-4">
+				<div class="flex min-w-max gap-2.5">
+					{#each categories as category}
+						<button
+							type="button"
+							onclick={() => (activeCategory = category)}
+							class={`rounded-full px-4 py-2.5 text-[12px] font-semibold uppercase tracking-[0.12em] whitespace-nowrap transition-all duration-150 ${
+								activeCategory === category
+									? 'border border-black/10 bg-black/[0.08] text-zinc-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)] dark:border-white/15 dark:bg-white/[0.1] dark:text-white dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]'
+									: 'border border-black/5 bg-black/[0.03] text-zinc-500 hover:border-black/10 hover:bg-black/[0.05] hover:text-zinc-900 dark:border-white/8 dark:bg-white/[0.03] dark:text-zinc-500 dark:hover:border-white/12 dark:hover:bg-white/[0.05] dark:hover:text-white'
+							}`}
+						>
+							{category}
+						</button>
+					{/each}
 				</div>
 			</div>
+		</section>
 
-			<div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1rem;">
-				<span
-					style="padding:0.38rem 0.65rem; border-radius:999px; background:rgba(255,255,255,0.05); color:#cbd5e1; font-size:0.82rem;"
-				>
-					{app.category}
-				</span>
-				<span
-					style="padding:0.38rem 0.65rem; border-radius:999px; background:rgba(255,255,255,0.05); color:#cbd5e1; font-size:0.82rem;"
-				>
-					{app.slug}
-				</span>
-			</div>
+		<section class="rounded-[30px] border border-black/5 bg-white/60 p-5 shadow-[0_12px_40px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/[0.025] dark:shadow-[0_12px_40px_rgba(0,0,0,0.24)] sm:p-6">
+			<div class="mb-5 flex items-center justify-between">
+				<div>
+					<h2 class="text-xl font-semibold tracking-[-0.03em] text-zinc-950 dark:text-white">Suggestions</h2>
+					<p class="mt-1 text-sm text-zinc-500">Les applications les plus utilisées.</p>
+				</div>
 
-			<p style="margin:0 0 1.25rem 0; color:#cbd5e1; line-height:1.65; min-height:5.4rem;">
-				{app.description}
-			</p>
-
-			<div style="display:flex; align-items:center; justify-content:space-between; gap:0.8rem;">
-				<a
-					href={`/installations/new?app=${encodeURIComponent(app.slug)}`}
-					style={`display:inline-flex; align-items:center; justify-content:center; gap:0.5rem; padding:0.85rem 1rem; border-radius:16px; text-decoration:none; color:white; font-weight:600; background:${visual.accent}; min-width:140px;`}
-				>
-					Installer
+				<a href={libraryHref} class="text-sm font-medium text-zinc-500 transition hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white">
+					Tout voir
 				</a>
-
-				<div style="color:#64748b; font-size:0.85rem;">Config puis déploiement</div>
 			</div>
-		</article>
-	{/each}
-</section>
 
-{#if filteredApps.length === 0}
-	<div
-		style="margin-top:1.25rem; padding:1.25rem; border-radius:22px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.03); color:#cbd5e1;"
-	>
-		Aucune application ne correspond à ta recherche.
+			<div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+				{#each suggestedApps as app}
+					<AppCard {app} />
+				{/each}
+			</div>
+		</section>
 	</div>
-{/if}
+</div>

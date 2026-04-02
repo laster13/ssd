@@ -17,7 +17,11 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	const machines = await response.json();
 
+	const normalizedMachines = Array.isArray(machines) ? machines : [];
+
 	return {
-		machines
+		machines: normalizedMachines.filter(
+			(machine: any) => String(machine?.status ?? '').trim().toLowerCase() !== 'revoked'
+		)
 	};
 };

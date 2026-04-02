@@ -9,82 +9,97 @@
 	<title>Installer {app.name}</title>
 </svelte:head>
 
-<div
-	style="max-width:860px; margin:0 auto; border:1px solid rgba(255,255,255,0.08); border-radius:28px; background:linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.03)); padding:2rem; box-shadow:0 20px 60px rgba(0,0,0,0.28);"
->
-	<p style="margin-top:0;">
-		<a href="/app-store" style="color:#93c5fd; text-decoration:none;">← Retour à l’App Store</a>
-	</p>
+<section class="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+	<div class="overflow-hidden rounded-[30px] border border-black/5 bg-white/70 shadow-[0_20px_80px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/[0.035] dark:shadow-[0_20px_80px_rgba(0,0,0,0.28)]">
+		<div class="relative">
+			<div class="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.78),rgba(255,255,255,0.45))] dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.03))]"></div>
 
-	<div style="display:flex; align-items:center; gap:1rem; margin-bottom:1rem;">
-		<div
-			style="width:64px; height:64px; border-radius:20px; display:grid; place-items:center; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.08);"
-		>
-			<img src={app.icon} alt={app.name} style="width:36px; height:36px; object-fit:contain;" />
-		</div>
+			<div class="relative p-6 sm:p-8">
+				<p class="mb-5">
+					<a
+						href="/app-store"
+						class="text-sm font-medium text-sky-600 no-underline transition hover:text-sky-700 dark:text-sky-300 dark:hover:text-sky-200"
+					>
+						← Retour à l’App Store
+					</a>
+				</p>
 
-		<div>
-			<h1 style="margin:0 0 0.35rem 0;">Installer {app.name}</h1>
-			<p style="margin:0; color:#cbd5e1; line-height:1.6;">{app.description}</p>
+				<div class="mb-5 flex items-start gap-4">
+					<div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-[20px] border border-black/5 bg-black/[0.03] dark:border-white/10 dark:bg-white/[0.06]">
+						<img src={app.icon} alt={app.name} class="h-9 w-9 object-contain" />
+					</div>
+
+					<div class="min-w-0">
+						<h1 class="mb-1 text-3xl font-semibold tracking-[-0.05em] text-zinc-950 dark:text-white sm:text-4xl">
+							Installer {app.name}
+						</h1>
+						<p class="m-0 max-w-2xl text-sm leading-7 text-zinc-600 dark:text-zinc-400 sm:text-base">
+							{app.description}
+						</p>
+					</div>
+				</div>
+
+				<div class="mb-6 rounded-[18px] border border-sky-200 bg-sky-50 px-4 py-4 text-sky-900 dark:border-sky-500/20 dark:bg-sky-500/[0.08] dark:text-sky-100">
+					Application sélectionnée : <strong>{app.name}</strong>
+					<span class="ml-1 text-sky-700 dark:text-sky-300">({app.slug})</span>
+				</div>
+
+				<form method="POST" action="?/install" class="grid gap-4">
+					<label class="grid gap-2">
+						<span class="text-sm font-medium text-zinc-800 dark:text-zinc-200">Serveur cible</span>
+						<select
+							name="machine_id"
+							class="rounded-[16px] border border-black/8 bg-black/[0.03] px-4 py-4 text-zinc-900 outline-none transition-all duration-200 focus:border-black/12 focus:bg-black/[0.05] dark:border-white/10 dark:bg-[rgba(15,23,42,0.6)] dark:text-white dark:focus:border-white/20 dark:focus:bg-[rgba(15,23,42,0.72)]"
+						>
+							<option value="">Choisir un serveur</option>
+							{#each machines as machine}
+								<option value={machine.id} selected={form?.machine_id === machine.id}>
+									{machine.hostname ?? machine.id} — {machine.status}
+								</option>
+							{/each}
+						</select>
+					</label>
+
+					<label class="grid gap-2">
+						<span class="text-sm font-medium text-zinc-800 dark:text-zinc-200">Sous-domaine</span>
+						<input
+							name="subdomain"
+							value={form?.subdomain ?? app.slug}
+							placeholder={app.slug}
+							class="rounded-[16px] border border-black/8 bg-black/[0.03] px-4 py-4 text-zinc-900 placeholder:text-zinc-500 outline-none transition-all duration-200 focus:border-black/12 focus:bg-black/[0.05] dark:border-white/10 dark:bg-[rgba(15,23,42,0.6)] dark:text-white dark:placeholder:text-zinc-500 dark:focus:border-white/20 dark:focus:bg-[rgba(15,23,42,0.72)]"
+						/>
+					</label>
+
+					<label class="grid gap-2">
+						<span class="text-sm font-medium text-zinc-800 dark:text-zinc-200">Authentification</span>
+						<select
+							name="auth_type"
+							class="rounded-[16px] border border-black/8 bg-black/[0.03] px-4 py-4 text-zinc-900 outline-none transition-all duration-200 focus:border-black/12 focus:bg-black/[0.05] dark:border-white/10 dark:bg-[rgba(15,23,42,0.6)] dark:text-white dark:focus:border-white/20 dark:focus:bg-[rgba(15,23,42,0.72)]"
+						>
+							<option value="basique" selected={!form?.auth_type || form?.auth_type === 'basique'}>
+								basique
+							</option>
+							<option value="oauth" selected={form?.auth_type === 'oauth'}>oauth</option>
+							<option value="authelia" selected={form?.auth_type === 'authelia'}>authelia</option>
+							<option value="aucune" selected={form?.auth_type === 'aucune'}>aucune</option>
+							<option value="oauth2-proxy" selected={form?.auth_type === 'oauth2-proxy'}>
+								oauth2-proxy
+							</option>
+						</select>
+					</label>
+
+					<button
+						type="submit"
+						class="mt-2 inline-flex items-center justify-center rounded-[16px] border border-cyan-200 bg-[linear-gradient(90deg,#38bdf8,#a855f7)] px-4 py-4 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(59,130,246,0.20)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(59,130,246,0.26)] dark:border-white/10"
+					>
+						Lancer l’installation de {app.name}
+					</button>
+				</form>
+
+				{#if form?.error}
+					<p class="mt-5 text-sm font-medium text-red-600 dark:text-red-300">{form.error}</p>
+				{/if}
+			</div>
 		</div>
 	</div>
-
-	<div
-		style="margin:1.25rem 0 1.5rem 0; padding:1rem 1.1rem; border-radius:18px; background:rgba(56,189,248,0.08); border:1px solid rgba(56,189,248,0.16); color:#cfefff;"
-	>
-		Application sélectionnée : <strong>{app.name}</strong>
-		<span style="color:#7dd3fc;">({app.slug})</span>
-	</div>
-
-	<form method="POST" action="?/install" style="display:grid; gap:1rem;">
-		<label style="display:grid; gap:0.5rem;">
-			<span>Serveur cible</span>
-			<select
-				name="machine_id"
-				style="padding:0.9rem 1rem; border-radius:16px; border:1px solid rgba(255,255,255,0.08); background:rgba(15,23,42,0.6); color:white;"
-			>
-				<option value="">Choisir un serveur</option>
-				{#each machines as machine}
-					<option value={machine.id} selected={form?.machine_id === machine.id}>
-						{machine.hostname ?? machine.id} — {machine.status}
-					</option>
-				{/each}
-			</select>
-		</label>
-
-		<label style="display:grid; gap:0.5rem;">
-			<span>Sous-domaine</span>
-			<input
-				name="subdomain"
-				value={form?.subdomain ?? app.slug}
-				placeholder={app.slug}
-				style="padding:0.9rem 1rem; border-radius:16px; border:1px solid rgba(255,255,255,0.08); background:rgba(15,23,42,0.6); color:white;"
-			/>
-		</label>
-
-		<label style="display:grid; gap:0.5rem;">
-			<span>Authentification</span>
-			<select
-				name="auth_type"
-				style="padding:0.9rem 1rem; border-radius:16px; border:1px solid rgba(255,255,255,0.08); background:rgba(15,23,42,0.6); color:white;"
-			>
-				<option value="basique" selected={!form?.auth_type || form?.auth_type === 'basique'}>basique</option>
-				<option value="oauth" selected={form?.auth_type === 'oauth'}>oauth</option>
-				<option value="authelia" selected={form?.auth_type === 'authelia'}>authelia</option>
-				<option value="aucune" selected={form?.auth_type === 'aucune'}>aucune</option>
-				<option value="oauth2-proxy" selected={form?.auth_type === 'oauth2-proxy'}>oauth2-proxy</option>
-			</select>
-		</label>
-
-		<button
-			type="submit"
-			style="margin-top:0.5rem; padding:0.95rem 1.1rem; border:none; border-radius:16px; font-weight:700; cursor:pointer; background:linear-gradient(90deg, #38bdf8, #a855f7); color:white;"
-		>
-			Lancer l’installation de {app.name}
-		</button>
-	</form>
-
-	{#if form?.error}
-		<p style="color:#fca5a5; margin-top:1rem;">{form.error}</p>
-	{/if}
-</div>
+</section>

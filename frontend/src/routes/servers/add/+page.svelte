@@ -1,10 +1,13 @@
 <script lang="ts">
+	import { PUBLIC_BACKEND_URL_HTTPS } from '$env/static/public';
+
 	let { data, form } = $props();
 
-	const pairing = $derived(form?.pairing ?? data.pairing);
+	const pairing = $derived(form?.pairing ?? null);
 	const pairingCode = $derived(pairing?.pairing_code ?? '-');
 	const machineUuid = $derived(pairing?.machine_uuid ?? '-');
-	const backendUrl = $derived(data.backendUrl ?? '');
+
+	const backendUrl = $derived((PUBLIC_BACKEND_URL_HTTPS || '').replace(/\/$/, ''));
 
 	const bootstrapCommand = $derived(
 		pairing && backendUrl
@@ -17,55 +20,88 @@
 	<title>Ajouter un serveur</title>
 </svelte:head>
 
-<div
-	style="max-width:980px; margin:0 auto; border:1px solid rgba(255,255,255,0.08); border-radius:28px; background:linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.03)); padding:2rem; box-shadow:0 20px 60px rgba(0,0,0,0.28);"
->
-	<p style="margin-top:0;">
-		<a href="/servers" style="color:#93c5fd; text-decoration:none;">← Retour aux serveurs</a>
-	</p>
-
-	<h1 style="margin-bottom:0.5rem;">Ajouter un serveur</h1>
-	<p style="color:#cbd5e1; line-height:1.7; max-width:52rem;">
-		Connecte un VPS à la plateforme en lançant le bootstrap ci-dessous sur le serveur distant.
-	</p>
-
-	<div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin:1.5rem 0;">
-		<div
-			style="padding:1rem 1.1rem; border-radius:20px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08);"
-		>
-			<div style="color:#94a3b8; font-size:0.9rem;">Code de connexion</div>
-			<div style="font-size:1.8rem; font-weight:800; letter-spacing:0.08em; margin-top:0.35rem;">
-				{pairingCode}
-			</div>
-		</div>
-
-		<div
-			style="padding:1rem 1.1rem; border-radius:20px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08);"
-		>
-			<div style="color:#94a3b8; font-size:0.9rem;">Machine UUID pré-enregistrée</div>
-			<div style="font-size:1rem; font-weight:700; margin-top:0.45rem; word-break:break-all;">
-				{machineUuid}
-			</div>
-		</div>
-	</div>
-
+<section class="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
 	<div
-		style="padding:1rem 1.1rem; border-radius:20px; background:rgba(2,6,23,0.6); border:1px solid rgba(255,255,255,0.08); margin-bottom:1rem;"
+		class="overflow-hidden rounded-[30px] border border-black/5 bg-white/70 shadow-[0_20px_80px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/[0.035] dark:shadow-[0_20px_80px_rgba(0,0,0,0.28)]"
 	>
-		<div style="color:#94a3b8; margin-bottom:0.75rem;">Commande bootstrap</div>
-		<pre style="margin:0; white-space:pre-wrap; word-break:break-word; color:#e2e8f0; font-family:monospace;">{bootstrapCommand}</pre>
+		<div class="relative">
+			<div
+				class="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.78),rgba(255,255,255,0.45))] dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.03))]"
+			></div>
+
+			<div class="relative p-6 sm:p-8">
+				<p class="mb-5">
+					<a
+						href="/servers"
+						class="text-sm font-medium text-sky-600 no-underline transition hover:text-sky-700 dark:text-sky-300 dark:hover:text-sky-200"
+					>
+						← Retour aux serveurs
+					</a>
+				</p>
+
+				<h1
+					class="mb-2 text-3xl font-semibold tracking-[-0.05em] text-zinc-950 dark:text-white sm:text-4xl"
+				>
+					Ajouter un serveur
+				</h1>
+
+				<p class="max-w-4xl text-sm leading-7 text-zinc-600 dark:text-zinc-400 sm:text-base">
+					Génère un code de connexion puis lance le bootstrap ci-dessous sur le serveur
+					distant.
+				</p>
+
+				<form method="POST" action="?/generate" class="mt-6">
+					<button
+						type="submit"
+						class="inline-flex items-center justify-center rounded-[16px] border border-cyan-200 bg-[linear-gradient(90deg,#38bdf8,#a855f7)] px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(59,130,246,0.20)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(59,130,246,0.26)] dark:border-white/10"
+					>
+						Générer un code
+					</button>
+				</form>
+
+				{#if pairing}
+					<div class="my-6 grid gap-4 md:grid-cols-2">
+						<div
+							class="rounded-[20px] border border-black/5 bg-white/70 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] dark:border-white/10 dark:bg-white/[0.04] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+						>
+							<div class="text-sm text-zinc-500 dark:text-zinc-400">Code de connexion</div>
+							<div
+								class="mt-2 text-3xl font-extrabold tracking-[0.08em] text-zinc-950 dark:text-white"
+							>
+								{pairingCode}
+							</div>
+						</div>
+
+						<div
+							class="rounded-[20px] border border-black/5 bg-white/70 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] dark:border-white/10 dark:bg-white/[0.04] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+						>
+							<div class="text-sm text-zinc-500 dark:text-zinc-400">
+								Machine UUID pré-enregistrée
+							</div>
+							<div class="mt-2 break-all text-base font-semibold text-zinc-950 dark:text-white">
+								{machineUuid}
+							</div>
+						</div>
+					</div>
+
+					<div
+						class="mb-5 rounded-[20px] border border-black/5 bg-black/[0.03] p-4 dark:border-white/10 dark:bg-[rgba(2,6,23,0.6)]"
+					>
+						<div class="mb-3 text-sm text-zinc-500 dark:text-zinc-400">Commande bootstrap</div>
+						<pre class="m-0 whitespace-pre-wrap break-words font-mono text-sm leading-7 text-zinc-900 dark:text-zinc-100">{bootstrapCommand}</pre>
+					</div>
+				{/if}
+
+				{#if form?.success}
+					<p class="mt-5 text-sm font-medium text-emerald-600 dark:text-emerald-300">
+						Code généré avec succès.
+					</p>
+				{/if}
+
+				{#if form?.error}
+					<p class="mt-5 text-sm font-medium text-red-600 dark:text-red-300">{form.error}</p>
+				{/if}
+			</div>
+		</div>
 	</div>
-
-	<form method="POST" action="?/regenerate">
-		<button
-			type="submit"
-			style="padding:0.9rem 1.05rem; border:none; border-radius:16px; font-weight:700; cursor:pointer; background:linear-gradient(90deg, #38bdf8, #a855f7); color:white;"
-		>
-			Générer un nouveau code
-		</button>
-	</form>
-
-	{#if form?.error}
-		<p style="color:#fca5a5; margin-top:1rem;">{form.error}</p>
-	{/if}
-</div>
+</section>

@@ -1,5 +1,5 @@
 import { redirect } from '@sveltejs/kit';
-import type { PageServerLoad } from './$types';
+import type { LayoutServerLoad } from './$types';
 import { apiFetchWithAuth } from '$lib/server/api';
 
 function hashString(value: string): number {
@@ -36,7 +36,7 @@ function iconFor(name: string): string {
 	return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: LayoutServerLoad = async ({ locals }) => {
 	if (!locals.user || !locals.token) {
 		throw redirect(303, '/login');
 	}

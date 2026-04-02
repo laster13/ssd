@@ -1,8 +1,24 @@
 <!doctype html>
-<html lang="en">
+<html lang="fr">
 	<head>
 		<meta charset="utf-8" />
+                <link rel="icon" href="https://assets.lastharo.eu/favicon.ico" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+		<script>
+			(() => {
+				const stored = localStorage.getItem('theme');
+				const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+				const theme = stored ?? (systemDark ? 'dark' : 'light');
+
+				if (theme === 'dark') {
+					document.documentElement.classList.add('dark');
+				} else {
+					document.documentElement.classList.remove('dark');
+				}
+			})();
+		</script>
+
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

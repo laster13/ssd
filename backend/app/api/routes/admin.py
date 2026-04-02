@@ -4,9 +4,9 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from app.catalog.apps import get_catalog_app
 
 from app.api.deps import get_current_admin
+from app.catalog.apps import get_catalog_app
 from app.core.audit import audit_event
 from app.core.database import get_db
 from app.core.security import generate_machine_token, hash_machine_token
@@ -15,6 +15,7 @@ from app.models.job_log import JobLog
 from app.models.machine import Machine
 from app.models.security_audit_log import SecurityAuditLog
 from app.models.user import User
+from app.schemas.auth import UserResponse
 from app.schemas.job import (
     AdminJobListItem,
     AdminJobResponse,
@@ -24,9 +25,109 @@ from app.schemas.job import (
 from app.schemas.job_log import AdminJobLogItem
 from app.schemas.machine import AdminMachineListItem, AdminMachineResponse
 from app.schemas.security_audit_log import SecurityAuditLogItem
-from app.schemas.token import RotateMachineTokenResponse, RevokeMachineTokenResponse
+from app.schemas.token import RevokeMachineTokenResponse, RotateMachineTokenResponse
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+@router.get("/users", response_model=list[UserResponse])
+def list_users(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin),
+):
+    stmt = select(User).order_by(User.created_at.desc())
+    users = db.execute(stmt).scalars().all()
+
+    return [
+        UserResponse(
+            id=user.id,
+            email=user.email,
+            is_active=user.is_active,
+            is_admin=user.is_admin,
+            created_at=user.created_at,
+            updated_at=user.updated_at,
+        )
+        for user in users
+    ]
+
+
+@router.post("/users/{user_id}/grant-admin", response_model=UserResponse)
+def grant_admin(
+    user_id: UUID,
+    request: Request,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    user = db.get(User, user_id)
+    if not user:
+        audit_event(
+            event_type="user.admin.grant.failed",
+            severity="warning",
+            success=False,
+            status_code=404,
+            actor_type="admin",
+            actor_user_id=admin.id,
+            target_user_id=user_id,
+            request=request,
+            description="Grant admin failed: user not found",
+        )
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if not user.is_active:
+        audit_event(
+            event_type="user.admin.grant.failed",
+            severity="warning",
+            success=False,
+            status_code=409,
+            actor_type="admin",
+            actor_user_id=admin.id,
+            target_user_id=user.id,
+            request=request,
+            description="Grant admin failed: inactive user",
+            details={"email": user.email},
+        )
+        raise HTTPException(status_code=409, detail="Inactive user")
+
+    if user.is_admin:
+        audit_event(
+            event_type="user.admin.grant.failed",
+            severity="info",
+            success=False,
+            status_code=409,
+            actor_type="admin",
+            actor_user_id=admin.id,
+            target_user_id=user.id,
+            request=request,
+            description="Grant admin failed: user already admin",
+            details={"email": user.email},
+        )
+        raise HTTPException(status_code=409, detail="User is already admin")
+
+    user.is_admin = True
+    db.commit()
+    db.refresh(user)
+
+    audit_event(
+        event_type="user.admin.grant.success",
+        severity="critical",
+        success=True,
+        status_code=200,
+        actor_type="admin",
+        actor_user_id=admin.id,
+        target_user_id=user.id,
+        request=request,
+        description="Admin granted to user",
+        details={"email": user.email},
+    )
+
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        is_active=user.is_active,
+        is_admin=user.is_admin,
+        created_at=user.created_at,
+        updated_at=user.updated_at,
+    )
 
 
 @router.get("/machines", response_model=list[AdminMachineListItem])
@@ -199,11 +300,7 @@ def list_machine_jobs(
     if not machine:
         raise HTTPException(status_code=404, detail="Machine not found")
 
-    stmt = (
-        select(Job)
-        .where(Job.machine_id == machine_id)
-        .order_by(Job.created_at.desc())
-    )
+    stmt = select(Job).where(Job.machine_id == machine_id).order_by(Job.created_at.desc())
     jobs = db.execute(stmt).scalars().all()
 
     return [
@@ -250,7 +347,6 @@ def create_job(
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
-
     catalog_app = get_catalog_app(payload.app_slug)
     if not catalog_app:
         raise HTTPException(status_code=400, detail="Unsupported app_slug")
@@ -350,11 +446,7 @@ def get_job_logs(
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    stmt = (
-        select(JobLog)
-        .where(JobLog.job_id == job_id)
-        .order_by(JobLog.seq.asc(), JobLog.created_at.asc())
-    )
+    stmt = select(JobLog).where(JobLog.job_id == job_id).order_by(JobLog.seq.asc(), JobLog.created_at.asc())
     logs = db.execute(stmt).scalars().all()
 
     return logs
@@ -366,11 +458,7 @@ def list_security_audit(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_admin),
 ):
-    stmt = (
-        select(SecurityAuditLog)
-        .order_by(SecurityAuditLog.created_at.desc())
-        .limit(limit)
-    )
+    stmt = select(SecurityAuditLog).order_by(SecurityAuditLog.created_at.desc()).limit(limit)
     logs = db.execute(stmt).scalars().all()
 
     return [

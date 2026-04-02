@@ -1,30 +1,70 @@
 <script lang="ts">
 	let { data } = $props();
 
-	const servers = data.machines ?? [];
+	const servers = Array.isArray(data.machines) ? data.machines : [];
+
+	function shortUuid(value: unknown) {
+		const str = String(value ?? '');
+		return str ? `${str.slice(0, 8)}…` : '-';
+	}
 
 	function badgeFor(server: any) {
-		if (server.status === 'revoked') {
+		const status = String(server?.status ?? '').trim().toLowerCase();
+
+		if (status === 'revoked') {
 			return {
 				label: 'Révoquée',
-				style:
-					'background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.22); color:#fca5a5;'
+				className:
+					'border border-red-200 bg-red-50 text-red-600 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300'
 			};
 		}
 
-		if (server.status === 'paired') {
+		if (
+			status === 'paired' ||
+			status === 'online' ||
+			status === 'connected' ||
+			status === 'active'
+		) {
 			return {
 				label: 'En ligne',
-				style:
-					'background:rgba(34,197,94,0.12); border:1px solid rgba(34,197,94,0.22); color:#86efac;'
+				className:
+					'border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300'
+			};
+		}
+
+		if (status === 'offline' || status === 'disconnected' || status === 'inactive') {
+			return {
+				label: 'Hors ligne',
+				className:
+					'border border-zinc-200 bg-zinc-100 text-zinc-600 dark:border-zinc-500/20 dark:bg-zinc-500/10 dark:text-zinc-300'
+			};
+		}
+
+		if (status === 'error' || status === 'failed') {
+			return {
+				label: 'En erreur',
+				className:
+					'border border-red-200 bg-red-50 text-red-600 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300'
 			};
 		}
 
 		return {
-			label: server.status ?? 'Inconnu',
-			style:
-				'background:rgba(148,163,184,0.12); border:1px solid rgba(148,163,184,0.22); color:#cbd5e1;'
+			label: server?.status ?? 'Inconnu',
+			className:
+				'border border-zinc-200 bg-zinc-100 text-zinc-600 dark:border-zinc-500/20 dark:bg-zinc-500/10 dark:text-zinc-300'
 		};
+	}
+
+	function formatDate(value: unknown) {
+		if (!value) return '-';
+
+		const date = new Date(String(value));
+		if (Number.isNaN(date.getTime())) return String(value);
+
+		return new Intl.DateTimeFormat('fr-FR', {
+			dateStyle: 'short',
+			timeStyle: 'short'
+		}).format(date);
 	}
 </script>
 
@@ -32,62 +72,105 @@
 	<title>Mes serveurs</title>
 </svelte:head>
 
-<section style="max-width:1100px; margin:0 auto; padding:2rem 1rem 4rem;">
-	<div
-		style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; flex-wrap:wrap; margin-bottom:1.25rem;"
-	>
-		<div>
-			<h1 style="margin:0;">Mes serveurs</h1>
-			<p style="margin:0.5rem 0 0 0; color:#94a3b8; line-height:1.6;">
-				Retrouve ici les serveurs pairés à ton compte et ajoute-en un nouveau si besoin.
-			</p>
-		</div>
+<section class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+	<header class="mb-6 overflow-hidden rounded-[30px] border border-black/5 bg-white/70 shadow-[0_20px_80px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/[0.035] dark:shadow-[0_20px_80px_rgba(0,0,0,0.34)]">
+		<div class="relative">
+			<div class="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.75),rgba(255,255,255,0.45))] dark:bg-[linear-gradient(to_bottom,rgba(255,255,255,0.035),rgba(255,255,255,0.01))]"></div>
 
-		<a
-			href="/servers/add"
-			style="display:inline-flex; align-items:center; justify-content:center; padding:0.85rem 1rem; border-radius:16px; text-decoration:none; color:white; font-weight:700; background:linear-gradient(90deg, #38bdf8, #2563eb);"
-		>
-			Ajouter un serveur
-		</a>
-	</div>
+			<div class="relative flex flex-col gap-6 p-5 sm:p-6 lg:flex-row lg:items-end lg:justify-between">
+				<div class="max-w-3xl">
+					<div class="mb-3 inline-flex items-center gap-2 rounded-full border border-black/5 bg-black/[0.03] px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-600 dark:border-white/10 dark:bg-white/[0.045] dark:text-zinc-300">
+						<span class="h-1.5 w-1.5 rounded-full bg-cyan-400"></span>
+						Servers
+					</div>
+
+					<h1 class="text-3xl font-semibold tracking-[-0.05em] text-zinc-950 dark:text-white sm:text-4xl">
+						Mes serveurs
+					</h1>
+
+					<p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600 dark:text-zinc-400 sm:text-base">
+						Retrouve ici les serveurs pairés à ton compte et ajoute-en un nouveau si besoin.
+					</p>
+				</div>
+
+				<a
+					href="/servers/add"
+					class="inline-flex items-center justify-center rounded-[18px] border border-cyan-200 bg-[linear-gradient(90deg,#38bdf8,#2563eb)] px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(37,99,235,0.22)] transition-all duration-200 hover:translate-y-[-1px] hover:shadow-[0_16px_36px_rgba(37,99,235,0.28)] dark:border-white/10"
+				>
+					Ajouter un serveur
+				</a>
+			</div>
+		</div>
+	</header>
 
 	{#if servers.length > 0}
-		<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:1rem;">
+		<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
 			{#each servers as server}
 				{@const badge = badgeFor(server)}
+
 				<article
-					style="border:1px solid rgba(255,255,255,0.08); border-radius:22px; background:rgba(15,23,42,0.65); padding:1.25rem;"
+					class="overflow-hidden rounded-[26px] border border-black/5 bg-white/70 p-5 shadow-[0_12px_34px_rgba(15,23,42,0.06)] ring-1 ring-inset ring-black/[0.03] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_18px_42px_rgba(15,23,42,0.10)] dark:border-white/10 dark:bg-white/[0.035] dark:ring-white/[0.04] dark:shadow-[0_12px_34px_rgba(0,0,0,0.20)] dark:hover:shadow-[0_18px_42px_rgba(0,0,0,0.28)]"
 				>
-					<div
-						style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.75rem; margin-bottom:1rem;"
-					>
-						<div>
-							<h2 style="margin:0; font-size:1.1rem;">{server.hostname ?? 'Serveur sans nom'}</h2>
-							<div style="margin-top:0.3rem; color:#94a3b8; font-size:0.92rem;">
-								{server.machine_uuid}
+					<div class="mb-5 flex items-start justify-between gap-3">
+						<div class="min-w-0">
+							<h2 class="truncate text-[1.05rem] font-semibold tracking-[-0.03em] text-zinc-950 dark:text-white">
+								{server.hostname ?? 'Serveur sans nom'}
+							</h2>
+
+							<div class="mt-1 flex flex-wrap items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
+								<span class="truncate">{server.machine_uuid}</span>
+								<span class="rounded-full border border-black/8 bg-black/[0.03] px-2 py-0.5 text-[11px] font-medium text-zinc-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-300">
+									{shortUuid(server.machine_uuid)}
+								</span>
 							</div>
 						</div>
 
 						<div
-							style={`padding:0.45rem 0.7rem; border-radius:999px; font-size:0.82rem; white-space:nowrap; ${badge.style}`}
+							class={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] ${badge.className}`}
 						>
 							{badge.label}
 						</div>
 					</div>
 
-					<div style="display:grid; gap:0.55rem; color:#cbd5e1;">
-						<div><strong>ID :</strong> {server.id}</div>
-						<div><strong>Agent :</strong> {server.agent_version ?? '-'}</div>
-						<div><strong>Dernier contact :</strong> {server.last_seen_at ?? '-'}</div>
-						<div><strong>Status brut :</strong> {server.status}</div>
+					<div class="grid gap-3 text-sm text-zinc-700 dark:text-zinc-300">
+						<div class="flex items-start justify-between gap-3 border-b border-black/5 pb-3 dark:border-white/5">
+							<span class="font-medium text-zinc-500 dark:text-zinc-500">ID</span>
+							<span class="text-right text-zinc-900 dark:text-zinc-100">{server.id}</span>
+						</div>
+
+						<div class="flex items-start justify-between gap-3 border-b border-black/5 pb-3 dark:border-white/5">
+							<span class="font-medium text-zinc-500 dark:text-zinc-500">UUID court</span>
+							<span class="text-right font-mono text-zinc-900 dark:text-zinc-100">
+								{shortUuid(server.machine_uuid)}
+							</span>
+						</div>
+
+						<div class="flex items-start justify-between gap-3 border-b border-black/5 pb-3 dark:border-white/5">
+							<span class="font-medium text-zinc-500 dark:text-zinc-500">Agent</span>
+							<span class="text-right text-zinc-900 dark:text-zinc-100">
+								{server.agent_version ?? '-'}
+							</span>
+						</div>
+
+						<div class="flex items-start justify-between gap-3 border-b border-black/5 pb-3 dark:border-white/5">
+							<span class="font-medium text-zinc-500 dark:text-zinc-500">Dernier contact</span>
+							<span class="text-right text-zinc-900 dark:text-zinc-100">
+								{formatDate(server.last_seen_at)}
+							</span>
+						</div>
+
+						<div class="flex items-start justify-between gap-3">
+							<span class="font-medium text-zinc-500 dark:text-zinc-500">Statut brut</span>
+							<span class="text-right text-zinc-900 dark:text-zinc-100">
+								{server.status ?? '-'}
+							</span>
+						</div>
 					</div>
 				</article>
 			{/each}
 		</div>
 	{:else}
-		<div
-			style="padding:1.1rem 1.2rem; border-radius:18px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.03); color:#cbd5e1;"
-		>
+		<div class="rounded-[24px] border border-black/5 bg-white/60 p-6 text-sm text-zinc-600 shadow-[0_10px_30px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400 dark:shadow-[0_10px_30px_rgba(0,0,0,0.2)]">
 			Aucun serveur pairé pour le moment.
 		</div>
 	{/if}

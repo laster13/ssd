@@ -9,21 +9,21 @@
 		return String(value);
 	}
 
-	function severityStyle(severity: string) {
-		switch (severity) {
+	function severityClass(severity: string) {
+		switch (severity?.toLowerCase()) {
 			case 'critical':
-				return 'background:rgba(239,68,68,0.14); border:1px solid rgba(239,68,68,0.28); color:#fecaca;';
+				return 'border-red-200 bg-red-50 text-red-700 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300';
 			case 'warning':
-				return 'background:rgba(245,158,11,0.14); border:1px solid rgba(245,158,11,0.28); color:#fde68a;';
+				return 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-300';
 			default:
-				return 'background:rgba(34,197,94,0.12); border:1px solid rgba(34,197,94,0.22); color:#bbf7d0;';
+				return 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300';
 		}
 	}
 
-	function successStyle(success: boolean) {
+	function successClass(success: boolean) {
 		return success
-			? 'background:rgba(34,197,94,0.12); border:1px solid rgba(34,197,94,0.22); color:#86efac;'
-			: 'background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.22); color:#fca5a5;';
+			? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300'
+			: 'border-red-200 bg-red-50 text-red-700 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300';
 	}
 </script>
 
@@ -31,112 +31,160 @@
 	<title>Audit sécurité</title>
 </svelte:head>
 
-<section style="max-width:1200px; margin:0 auto; padding:2rem 1rem 4rem;">
-	<a href="/admin" style="display:inline-block; margin-bottom:1rem; color:#93c5fd; text-decoration:none;">
-		← Retour admin
+<section class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+	<a
+		href="/admin"
+		class="mb-4 inline-flex items-center gap-2 text-sm font-medium text-sky-600 transition hover:text-sky-700 dark:text-sky-300 dark:hover:text-sky-200"
+	>
+		<span>←</span>
+		<span>Retour admin</span>
 	</a>
 
 	<div
-		style="border:1px solid rgba(255,255,255,0.08); border-radius:28px; background:linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.03)); padding:2rem; box-shadow:0 20px 60px rgba(0,0,0,0.28); margin-bottom:1.25rem;"
+		class="mb-6 overflow-hidden rounded-[30px] border border-black/5 bg-white/70 shadow-[0_20px_80px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/[0.035] dark:shadow-[0_20px_80px_rgba(0,0,0,0.28)]"
 	>
-		<h1 style="margin:0 0 0.75rem 0;">Audit sécurité</h1>
-		<p style="margin:0; color:#cbd5e1; line-height:1.7;">
-			Retrouve ici les événements sensibles du système : authentification, 2FA, pairing,
-			création de jobs, rotation de tokens machine et révocation de machines.
-		</p>
+		<div class="relative">
+			<div
+				class="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.78),rgba(255,255,255,0.45))] dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.03))]"
+			></div>
+
+			<div class="relative p-6 sm:p-8">
+				<div
+					class="mb-3 inline-flex items-center gap-2 rounded-full border border-black/5 bg-black/[0.03] px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-600 dark:border-white/10 dark:bg-white/[0.045] dark:text-zinc-300"
+				>
+					<span class="h-1.5 w-1.5 rounded-full bg-orange-400"></span>
+					Sécurité
+				</div>
+
+				<h1 class="text-3xl font-semibold tracking-[-0.05em] text-zinc-950 dark:text-white sm:text-4xl">
+					Audit sécurité
+				</h1>
+
+				<p class="mt-3 max-w-3xl text-sm leading-7 text-zinc-600 dark:text-zinc-400 sm:text-base">
+					Retrouve ici les événements sensibles du système : authentification, 2FA, pairing,
+					création de jobs, rotation de tokens machine et révocation de machines.
+				</p>
+			</div>
+		</div>
 	</div>
 
 	{#if logs.length > 0}
-		<div style="display:grid; gap:1rem;">
+		<div class="grid gap-4">
 			{#each logs as log}
 				<article
-					style="border:1px solid rgba(255,255,255,0.08); border-radius:22px; background:rgba(15,23,42,0.68); padding:1.1rem;"
+					class="overflow-hidden rounded-[28px] border border-black/5 bg-white/70 shadow-[0_20px_80px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/[0.035] dark:shadow-[0_20px_80px_rgba(0,0,0,0.28)]"
 				>
-					<div
-						style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; flex-wrap:wrap; margin-bottom:0.9rem;"
-					>
-						<div>
-							<h2 style="margin:0; font-size:1.05rem;">{log.event_type}</h2>
-							<div style="margin-top:0.35rem; color:#94a3b8; font-size:0.9rem;">
-								{log.created_at}
-							</div>
-						</div>
+					<div class="relative">
+						<div
+							class="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.78),rgba(255,255,255,0.45))] dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.03))]"
+						></div>
 
-						<div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
-							<div
-								style={`padding:0.4rem 0.7rem; border-radius:999px; font-size:0.82rem; ${severityStyle(log.severity)}`}
-							>
-								{log.severity}
+						<div class="relative p-5 sm:p-6">
+							<div class="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+								<div>
+									<h2 class="text-lg font-semibold tracking-[-0.03em] text-zinc-950 dark:text-white">
+										{log.event_type}
+									</h2>
+									<div class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+										{log.created_at}
+									</div>
+								</div>
+
+								<div class="flex flex-wrap gap-2">
+									<div
+										class={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${severityClass(log.severity)}`}
+									>
+										{log.severity}
+									</div>
+
+									<div
+										class={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${successClass(log.success)}`}
+									>
+										{log.success ? 'success' : 'failure'}
+									</div>
+
+									{#if log.status_code}
+										<div
+											class="inline-flex items-center rounded-full border border-black/8 bg-black/[0.03] px-2.5 py-1 text-xs font-semibold text-zinc-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-300"
+										>
+											HTTP {log.status_code}
+										</div>
+									{/if}
+								</div>
 							</div>
-							<div
-								style={`padding:0.4rem 0.7rem; border-radius:999px; font-size:0.82rem; ${successStyle(log.success)}`}
-							>
-								{log.success ? 'success' : 'failure'}
-							</div>
-							{#if log.status_code}
+
+							{#if log.description}
+								<p class="mb-4 text-sm leading-7 text-zinc-700 dark:text-zinc-300 sm:text-[15px]">
+									{log.description}
+								</p>
+							{/if}
+
+							<div class="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
 								<div
-									style="padding:0.4rem 0.7rem; border-radius:999px; font-size:0.82rem; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); color:#cbd5e1;"
+									class="rounded-[18px] border border-black/5 bg-black/[0.025] px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]"
 								>
-									HTTP {log.status_code}
+									<div class="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
+										Actor type
+									</div>
+									<div class="text-sm text-zinc-800 dark:text-zinc-200">
+										{formatValue(log.actor_type)}
+									</div>
+								</div>
+
+								<div
+									class="rounded-[18px] border border-black/5 bg-black/[0.025] px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]"
+								>
+									<div class="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
+										Actor user
+									</div>
+									<div class="text-sm text-zinc-800 dark:text-zinc-200">
+										{formatValue(log.actor_user_id)}
+									</div>
+								</div>
+
+								<div
+									class="rounded-[18px] border border-black/5 bg-black/[0.025] px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]"
+								>
+									<div class="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
+										Target machine
+									</div>
+									<div class="text-sm text-zinc-800 dark:text-zinc-200">
+										{formatValue(log.target_machine_id)}
+									</div>
+								</div>
+
+								<div
+									class="rounded-[18px] border border-black/5 bg-black/[0.025] px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]"
+								>
+									<div class="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
+										IP
+									</div>
+									<div class="text-sm text-zinc-800 dark:text-zinc-200">
+										{formatValue(log.ip_address)}
+									</div>
+								</div>
+							</div>
+
+							{#if log.details}
+								<div
+									class="rounded-[20px] border border-black/5 bg-white/50 p-4 dark:border-white/10 dark:bg-[rgba(2,6,23,0.5)]"
+								>
+									<div class="mb-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+										Details
+									</div>
+									<pre
+										class="overflow-x-auto whitespace-pre-wrap break-words text-sm leading-6 text-zinc-600 dark:text-zinc-300"
+									>{JSON.stringify(log.details, null, 2)}</pre>
 								</div>
 							{/if}
 						</div>
 					</div>
-
-					{#if log.description}
-						<p style="margin:0 0 0.9rem 0; color:#e2e8f0; line-height:1.6;">
-							{log.description}
-						</p>
-					{/if}
-
-					<div
-						style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:0.75rem; margin-bottom:0.9rem;"
-					>
-						<div
-							style="padding:0.85rem 0.95rem; border-radius:16px; background:rgba(255,255,255,0.04);"
-						>
-							<div style="color:#64748b; font-size:0.82rem; margin-bottom:0.35rem;">Actor type</div>
-							<div style="color:#e2e8f0;">{formatValue(log.actor_type)}</div>
-						</div>
-
-						<div
-							style="padding:0.85rem 0.95rem; border-radius:16px; background:rgba(255,255,255,0.04);"
-						>
-							<div style="color:#64748b; font-size:0.82rem; margin-bottom:0.35rem;">Actor user</div>
-							<div style="color:#e2e8f0;">{formatValue(log.actor_user_id)}</div>
-						</div>
-
-						<div
-							style="padding:0.85rem 0.95rem; border-radius:16px; background:rgba(255,255,255,0.04);"
-						>
-							<div style="color:#64748b; font-size:0.82rem; margin-bottom:0.35rem;">Target machine</div>
-							<div style="color:#e2e8f0;">{formatValue(log.target_machine_id)}</div>
-						</div>
-
-						<div
-							style="padding:0.85rem 0.95rem; border-radius:16px; background:rgba(255,255,255,0.04);"
-						>
-							<div style="color:#64748b; font-size:0.82rem; margin-bottom:0.35rem;">IP</div>
-							<div style="color:#e2e8f0;">{formatValue(log.ip_address)}</div>
-						</div>
-					</div>
-
-					{#if log.details}
-						<div
-							style="padding:0.95rem 1rem; border-radius:16px; background:rgba(2,6,23,0.65); border:1px solid rgba(255,255,255,0.08);"
-						>
-							<div style="color:#94a3b8; margin-bottom:0.45rem;">Details</div>
-							<pre
-								style="margin:0; white-space:pre-wrap; word-break:break-word; color:#cbd5e1; font-size:0.9rem;"
-							>{JSON.stringify(log.details, null, 2)}</pre>
-						</div>
-					{/if}
 				</article>
 			{/each}
 		</div>
 	{:else}
 		<div
-			style="padding:1.25rem; border-radius:22px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.03); color:#cbd5e1;"
+			class="rounded-[24px] border border-dashed border-black/10 bg-black/[0.02] px-5 py-8 text-sm text-zinc-600 dark:border-white/10 dark:bg-white/[0.02] dark:text-zinc-400"
 		>
 			Aucun événement d’audit pour le moment.
 		</div>

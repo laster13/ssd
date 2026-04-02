@@ -1,23 +1,131 @@
 <script lang="ts">
 	let { data } = $props();
 
-	const jobs = $derived(data.jobs ?? []);
-	const machines = $derived(data.machines ?? []);
+	type Job = {
+		id: string;
+		machine_id: string;
+		status: string;
+		created_at?: string;
+		updated_at?: string;
+		payload?: {
+			app_slug?: string;
+		};
+	};
 
-	const machineById = $derived(
-		new Map(machines.map((machine) => [machine.id, machine]))
-	);
+	type Machine = {
+		id: string;
+		hostname?: string;
+		machine_uuid?: string;
+		status?: string;
+	};
+
+	const jobs = $derived((data.jobs ?? []) as Job[]);
+	const machines = $derived((data.machines ?? []) as Machine[]);
+	const machineById = $derived(new Map(machines.map((machine) => [machine.id, machine])));
+
+	function formatDate(value?: string) {
+		if (!value) return '—';
+
+		const date = new Date(value);
+		if (Number.isNaN(date.getTime())) return value;
+
+		return new Intl.DateTimeFormat('fr-FR', {
+			dateStyle: 'medium',
+			timeStyle: 'short'
+		}).format(date);
+	}
+
+	function humanStatus(status: string) {
+		switch (status) {
+			case 'pending':
+				return 'En attente';
+			case 'claimed':
+				return 'Prise en charge';
+			case 'running':
+				return 'Déploiement';
+			case 'completed':
+				return 'En ligne';
+			case 'failed':
+				return 'Incident';
+			default:
+				return status;
+		}
+	}
+
+	function machineStatusLabel(status?: string) {
+		switch (status) {
+			case 'online':
+				return 'En ligne';
+			case 'offline':
+				return 'Hors ligne';
+			case 'provisioning':
+				return 'Provisionnement';
+			case 'maintenance':
+				return 'Maintenance';
+			default:
+				return status || 'Inconnu';
+		}
+	}
+
+	function statusClass(status: string) {
+		switch (status) {
+			case 'completed':
+				return 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/15 dark:bg-emerald-500/8 dark:text-emerald-300';
+			case 'failed':
+				return 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-400/15 dark:bg-rose-500/8 dark:text-rose-300';
+			case 'running':
+				return 'border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-400/15 dark:bg-cyan-500/8 dark:text-cyan-300';
+			case 'claimed':
+				return 'border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-400/15 dark:bg-indigo-500/8 dark:text-indigo-300';
+			default:
+				return 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/15 dark:bg-amber-500/8 dark:text-amber-300';
+		}
+	}
+
+	function statusDotClass(status: string) {
+		switch (status) {
+			case 'completed':
+				return 'bg-emerald-500 dark:bg-emerald-400';
+			case 'failed':
+				return 'bg-rose-500 dark:bg-rose-400';
+			case 'running':
+				return 'bg-cyan-500 dark:bg-cyan-400';
+			case 'claimed':
+				return 'bg-indigo-500 dark:bg-indigo-400';
+			default:
+				return 'bg-amber-500 dark:bg-amber-400';
+		}
+	}
+
+	function machinePillClass(status?: string) {
+		switch (status) {
+			case 'online':
+				return 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/15 dark:bg-emerald-500/8 dark:text-emerald-300';
+			case 'offline':
+				return 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-400/15 dark:bg-rose-500/8 dark:text-rose-300';
+			case 'maintenance':
+				return 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/15 dark:bg-amber-500/8 dark:text-amber-300';
+			default:
+				return 'border-zinc-200 bg-zinc-50 text-zinc-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-300';
+		}
+	}
 
 	const appItems = $derived.by(() => {
 		const seen = new Set<string>();
-		const items = [];
+		const items: Array<{
+			key: string;
+			jobId: string;
+			appSlug: string;
+			status: string;
+			createdAt?: string;
+			updatedAt?: string;
+			machineName: string;
+			machineStatus: string;
+		}> = [];
 
 		for (const job of jobs) {
 			const payload = job.payload ?? {};
 			const appSlug = payload.app_slug ?? 'unknown';
-			const subdomain = payload.subdomain ?? '—';
-			const authType = payload.auth_type ?? '—';
-
 			const key = `${job.machine_id}:${appSlug}`;
 
 			if (seen.has(key)) continue;
@@ -29,8 +137,6 @@
 				key,
 				jobId: job.id,
 				appSlug,
-				subdomain,
-				authType,
 				status: job.status,
 				createdAt: job.created_at,
 				updatedAt: job.updated_at,
@@ -39,182 +145,239 @@
 			});
 		}
 
-		return items;
+		return items.sort((a, b) => {
+			const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+			const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+			return bTime - aTime;
+		});
 	});
 
-	const stats = $derived.by(() => {
-		const values = appItems;
+	const stats = $derived.by(() => ({
+		total: appItems.length,
+		running: appItems.filter((item) => ['pending', 'claimed', 'running'].includes(item.status)).length,
+		failed: appItems.filter((item) => item.status === 'failed').length,
+		completed: appItems.filter((item) => item.status === 'completed').length
+	}));
 
-		return {
-			total: values.length,
-			running: values.filter((item) => ['pending', 'claimed', 'running'].includes(item.status)).length,
-			failed: values.filter((item) => item.status === 'failed').length,
-			completed: values.filter((item) => item.status === 'completed').length
-		};
+	const spotlight = $derived.by(() => {
+		return (
+			appItems.find((item) => item.status === 'running') ||
+			appItems.find((item) => item.status === 'claimed') ||
+			appItems.find((item) => item.status === 'pending') ||
+			appItems[0]
+		);
 	});
-
-	function humanStatus(status: string) {
-		switch (status) {
-			case 'pending':
-				return 'En attente';
-			case 'claimed':
-				return 'Prise en charge';
-			case 'running':
-				return 'En cours';
-			case 'completed':
-				return 'Terminée';
-			case 'failed':
-				return 'Échec';
-			default:
-				return status;
-		}
-	}
-
-	function statusStyle(status: string) {
-		switch (status) {
-			case 'completed':
-				return 'background:rgba(34,197,94,0.12); border:1px solid rgba(34,197,94,0.22); color:#86efac;';
-			case 'failed':
-				return 'background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.22); color:#fca5a5;';
-			case 'running':
-				return 'background:rgba(56,189,248,0.12); border:1px solid rgba(56,189,248,0.22); color:#7dd3fc;';
-			case 'claimed':
-				return 'background:rgba(96,165,250,0.12); border:1px solid rgba(96,165,250,0.22); color:#93c5fd;';
-			default:
-				return 'background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.22); color:#fcd34d;';
-		}
-	}
 </script>
 
 <svelte:head>
 	<title>Mes applications</title>
 </svelte:head>
 
-<section
-	style="position:relative; overflow:hidden; border:1px solid rgba(255,255,255,0.08); border-radius:28px; padding:2rem; background:linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03)); box-shadow: 0 20px 80px rgba(0,0,0,0.35); margin-bottom:1.5rem;"
->
-	<div
-		style="display:grid; grid-template-columns:minmax(0,1.3fr) minmax(280px,0.7fr); gap:2rem; align-items:center;"
-	>
-		<div>
-			<div
-				style="display:inline-flex; align-items:center; gap:0.5rem; padding:0.45rem 0.8rem; border-radius:999px; background:rgba(34,197,94,0.12); border:1px solid rgba(34,197,94,0.25); color:#86efac; font-size:0.9rem; margin-bottom:1rem;"
-			>
-				<span>●</span>
-				<span>Mes applications</span>
-			</div>
+<section class="relative isolate overflow-hidden">
+	<div class="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.08),transparent_26%),radial-gradient(circle_at_top_right,rgba(59,130,246,0.08),transparent_24%),linear-gradient(180deg,rgba(248,250,252,1)_0%,rgba(241,245,249,0.92)_100%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.12),transparent_26%),radial-gradient(circle_at_top_right,rgba(59,130,246,0.10),transparent_22%),linear-gradient(180deg,#09090b_0%,#111827_100%)]"></div>
+	<div class="pointer-events-none absolute inset-x-0 top-0 -z-10 h-px bg-gradient-to-r from-transparent via-black/10 to-transparent dark:via-white/12"></div>
 
-			<h1
-				style="font-size:clamp(2rem, 4vw, 4rem); line-height:1.02; margin:0 0 0.9rem 0; letter-spacing:-0.04em;"
-			>
-				Suis tes apps
-				<span
-					style="background:linear-gradient(90deg, #22c55e 0%, #38bdf8 45%, #a855f7 100%); -webkit-background-clip:text; background-clip:text; color:transparent;"
-				>
-					par serveur
-				</span>
-			</h1>
+	<div class="mx-auto max-w-7xl px-4 pb-8 pt-8 sm:px-6 lg:px-8 lg:pt-12">
+		<div class="relative overflow-hidden rounded-[34px] border border-black/5 bg-white/80 p-6 shadow-[0_25px_80px_rgba(15,23,42,0.08)] backdrop-blur-2xl dark:border-white/8 dark:bg-white/[0.03] dark:shadow-[0_24px_70px_rgba(0,0,0,0.34)] sm:p-8 lg:p-10">
+			<div class="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.84),rgba(255,255,255,0.56))] dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))]"></div>
+			<div class="pointer-events-none absolute -left-24 top-0 h-72 w-72 rounded-full bg-emerald-400/10 blur-3xl dark:bg-emerald-400/10"></div>
+			<div class="pointer-events-none absolute right-[-40px] top-[-30px] h-72 w-72 rounded-full bg-sky-400/10 blur-3xl dark:bg-sky-400/8"></div>
 
-			<p style="margin:0; max-width:52rem; color:#cbd5e1; font-size:1.05rem; line-height:1.7;">
-				Vue simplifiée des applications lancées depuis l’App Store, regroupées par serveur, avec
-				accès rapide au détail et aux logs.
-			</p>
-		</div>
+			<div class="relative grid gap-8 xl:grid-cols-[minmax(0,1.15fr)_420px] xl:items-center">
+				<div>
+					<div class="mb-5 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] dark:border-white/8 dark:bg-white/[0.05] dark:text-emerald-200">
+						<span class="inline-block h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_14px_rgba(16,185,129,0.45)] dark:bg-emerald-400 dark:shadow-[0_0_12px_rgba(52,211,153,0.6)]"></span>
+						Mes applications
+					</div>
 
-		<div
-			style="border-radius:24px; border:1px solid rgba(255,255,255,0.08); background:rgba(15,23,42,0.6); padding:1.25rem; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);"
-		>
-			<div style="display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:0.9rem;">
-				<div style="padding:1rem; border-radius:18px; background:rgba(255,255,255,0.04);">
-					<div style="color:#64748b; font-size:0.85rem;">Applications</div>
-					<div style="font-size:1.8rem; font-weight:700; margin-top:0.35rem;">{stats.total}</div>
+					<h1 class="max-w-4xl text-xl font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50 sm:text-2xl lg:text-3xl xl:text-[2.2rem]">						
+						<span class="bg-[linear-gradient(90deg,#0f172a_0%,#059669_30%,#0284c7_65%,#7c3aed_100%)] bg-clip-text text-transparent dark:bg-[linear-gradient(90deg,#f8fafc_0%,#a7f3d0_25%,#93c5fd_58%,#d8b4fe_100%)]">
+							Pilote tes applications
+						</span>
+					</h1>
+
+					<p class="mt-5 max-w-3xl text-base leading-8 text-zinc-600 dark:text-zinc-300 sm:text-lg">
+						Une vue élégante, claire et crédible pour suivre chaque application déployée par serveur, sans faux indicateurs ni éléments décoratifs trompeurs.
+					</p>
+
+					<div class="mt-8 grid gap-3 sm:grid-cols-4">
+						<div class="rounded-[22px] border border-black/5 bg-white/75 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] dark:border-white/8 dark:bg-white/[0.035]">
+							<div class="text-xs uppercase tracking-[0.22em] text-zinc-500">Total</div>
+							<div class="mt-3 text-3xl font-bold tracking-[-0.05em] text-zinc-950 dark:text-zinc-50">{stats.total}</div>
+							<div class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Applications distinctes</div>
+						</div>
+
+						<div class="rounded-[22px] border border-cyan-200 bg-cyan-50/80 p-4 shadow-[0_12px_30px_rgba(14,165,233,0.08)] dark:border-cyan-400/12 dark:bg-cyan-500/[0.06] dark:shadow-none">
+							<div class="text-xs uppercase tracking-[0.22em] text-cyan-700 dark:text-cyan-200/80">En cours</div>
+							<div class="mt-3 text-3xl font-bold tracking-[-0.05em] text-zinc-950 dark:text-zinc-50">{stats.running}</div>
+							<div class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">En attente ou déploiement</div>
+						</div>
+
+						<div class="rounded-[22px] border border-emerald-200 bg-emerald-50/80 p-4 shadow-[0_12px_30px_rgba(16,185,129,0.08)] dark:border-emerald-400/12 dark:bg-emerald-500/[0.06] dark:shadow-none">
+							<div class="text-xs uppercase tracking-[0.22em] text-emerald-700 dark:text-emerald-200/80">En ligne</div>
+							<div class="mt-3 text-3xl font-bold tracking-[-0.05em] text-zinc-950 dark:text-zinc-50">{stats.completed}</div>
+							<div class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Terminées avec succès</div>
+						</div>
+
+						<div class="rounded-[22px] border border-rose-200 bg-rose-50/80 p-4 shadow-[0_12px_30px_rgba(244,63,94,0.08)] dark:border-rose-400/12 dark:bg-rose-500/[0.06] dark:shadow-none">
+							<div class="text-xs uppercase tracking-[0.22em] text-rose-700 dark:text-rose-200/80">Incidents</div>
+							<div class="mt-3 text-3xl font-bold tracking-[-0.05em] text-zinc-950 dark:text-zinc-50">{stats.failed}</div>
+							<div class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Déploiements en échec</div>
+						</div>
+					</div>
 				</div>
-				<div style="padding:1rem; border-radius:18px; background:rgba(255,255,255,0.04);">
-					<div style="color:#64748b; font-size:0.85rem;">En cours</div>
-					<div style="font-size:1.8rem; font-weight:700; margin-top:0.35rem;">{stats.running}</div>
-				</div>
-				<div style="padding:1rem; border-radius:18px; background:rgba(255,255,255,0.04);">
-					<div style="color:#64748b; font-size:0.85rem;">Terminées</div>
-					<div style="font-size:1.8rem; font-weight:700; margin-top:0.35rem;">{stats.completed}</div>
-				</div>
-				<div style="padding:1rem; border-radius:18px; background:rgba(255,255,255,0.04);">
-					<div style="color:#64748b; font-size:0.85rem;">Échecs</div>
-					<div style="font-size:1.8rem; font-weight:700; margin-top:0.35rem;">{stats.failed}</div>
+
+				<div class="relative overflow-hidden rounded-[28px] border border-black/5 bg-white/78 p-5 shadow-[0_20px_50px_rgba(15,23,42,0.08)] dark:border-white/8 dark:bg-zinc-950/72 dark:shadow-[0_20px_50px_rgba(0,0,0,0.30)]">
+					<div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.72),transparent_56%)] dark:bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.04),transparent_50%)]"></div>
+					<div class="relative">
+						<div class="flex items-center justify-between gap-3">
+
+							{#if spotlight}
+								<div class={`rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.15em] ${statusClass(spotlight.status)}`}>
+									{humanStatus(spotlight.status)}
+								</div>
+							{/if}
+						</div>
+
+						{#if spotlight}
+							<div class="mt-5 space-y-4">
+								<div class="rounded-[20px] border border-black/5 bg-white/82 p-4 dark:border-white/8 dark:bg-white/[0.03]">
+									<div class="mb-3 flex items-center justify-between gap-3">
+										<span class="text-sm text-zinc-500 dark:text-zinc-400">Serveur</span>
+										<span class={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${machinePillClass(spotlight.machineStatus)}`}>
+											{machineStatusLabel(spotlight.machineStatus)}
+										</span>
+									</div>
+									<div class="text-base font-semibold text-zinc-950 dark:text-zinc-100">{spotlight.machineName}</div>
+								</div>
+
+								<div class="grid grid-cols-2 gap-3">
+									<div class="rounded-[20px] border border-black/5 bg-white/82 p-4 dark:border-white/8 dark:bg-white/[0.03]">
+										<div class="text-xs uppercase tracking-[0.2em] text-zinc-500">Créée le</div>
+										<div class="mt-2 text-sm font-semibold text-zinc-950 dark:text-zinc-100">{formatDate(spotlight.createdAt)}</div>
+									</div>
+
+									<div class="rounded-[20px] border border-black/5 bg-white/82 p-4 dark:border-white/8 dark:bg-white/[0.03]">
+										<div class="text-xs uppercase tracking-[0.2em] text-zinc-500">Dernière activité</div>
+										<div class="mt-2 text-sm font-semibold text-zinc-950 dark:text-zinc-100">{formatDate(spotlight.updatedAt)}</div>
+									</div>
+								</div>
+							</div>
+						{:else}
+							<div class="mt-5 rounded-[22px] border border-dashed border-black/10 bg-white/70 p-6 text-sm text-zinc-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400">
+								Aucune application n’est encore déployée.
+							</div>
+						{/if}
+					</div>
 				</div>
 			</div>
 		</div>
 	</div>
 </section>
 
-{#if appItems.length > 0}
-	<section
-		style="display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:1.1:1.1:1.1rem;"
-	>
-		{#each appItems as item}
-			<article
-				style="position:relative; overflow:hidden; border-radius:26px; border:1px solid rgba(255,255,255,0.08); background:linear-gradient(180deg, rgba(15,23,42,0.78), rgba(15,23,42,0.5)); padding:1.15rem; box-shadow:0 18px 50px rgba(0,0,0,0.24);"
-			>
-				<div
-					style="display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; margin-bottom:1rem;"
-				>
-					<div>
-						<h2 style="margin:0; font-size:1.12rem;">{item.appSlug}</h2>
-						<div style="margin-top:0.3rem; color:#94a3b8; font-size:0.92rem;">
-							Serveur : {item.machineName}
+<section class="mx-auto max-w-7xl px-4 pb-12 sm:px-6 lg:px-8">
+	{#if appItems.length > 0}
+		<div class="mb-5 flex items-center justify-between gap-3">
+			<div>
+				<h2 class="text-2xl font-semibold tracking-[-0.05em] text-zinc-950 dark:text-zinc-50 sm:text-3xl">Inventaire des applications</h2>
+				<p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Des cartes lisibles, utiles et cohérentes, avec uniquement les informations qui comptent.</p>
+			</div>
+			<div class="hidden rounded-full border border-black/5 bg-white/80 px-4 py-2 text-xs uppercase tracking-[0.2em] text-zinc-500 dark:border-white/8 dark:bg-white/[0.04] dark:text-zinc-400 md:block">
+				Triées par activité récente
+			</div>
+		</div>
+
+		<div class="grid grid-cols-1 gap-5 md:grid-cols-2 2xl:grid-cols-3">
+			{#each appItems as item}
+				<article class="group relative overflow-hidden rounded-[28px] border border-black/5 bg-white/88 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-xl transition duration-300 hover:-translate-y-1 hover:border-black/10 hover:shadow-[0_24px_55px_rgba(15,23,42,0.12)] dark:border-white/8 dark:bg-zinc-950/78 dark:shadow-[0_20px_50px_rgba(0,0,0,0.32)] dark:hover:border-white/12 dark:hover:bg-zinc-950/84 dark:hover:shadow-[0_24px_60px_rgba(0,0,0,0.38)]">
+					<div class="pointer-events-none absolute inset-0 opacity-0 transition duration-300 group-hover:opacity-100 bg-[radial-gradient(circle_at_top_right,rgba(14,165,233,0.06),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(16,185,129,0.06),transparent_30%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.035),transparent_24%)]"></div>
+
+					<div class="relative">
+						<div class="mb-5 flex items-start justify-between gap-4">
+							<div class="min-w-0">
+								<div class="mb-2 inline-flex items-center gap-2 rounded-full border border-black/5 bg-zinc-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-500">
+									<span class={`h-2 w-2 rounded-full ${statusDotClass(item.status)}`}></span>
+									Statut
+								</div>
+								<h3 class="truncate text-[1.18rem] font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50 sm:text-[1.28rem]">
+									{item.appSlug}
+								</h3>
+								<p class="mt-1 truncate text-sm text-zinc-500 dark:text-zinc-400">Déployée sur {item.machineName}</p>
+							</div>
+
+							<div class={`shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] ${statusClass(item.status)}`}>
+								{humanStatus(item.status)}
+							</div>
+						</div>
+
+						<div class="rounded-[20px] border border-black/5 bg-zinc-50/80 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+							<div class="mb-3 flex items-center justify-between gap-3">
+								<span class="text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-500">Détails</span>
+								<span class={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${machinePillClass(item.machineStatus)}`}>
+									{machineStatusLabel(item.machineStatus)}
+								</span>
+							</div>
+
+							<dl class="space-y-3">
+								<div class="flex items-start justify-between gap-4">
+									<dt class="text-sm text-zinc-500">Serveur</dt>
+									<dd class="max-w-[60%] text-right text-sm font-semibold text-zinc-950 dark:text-zinc-100">{item.machineName}</dd>
+								</div>
+
+								<div class="flex items-start justify-between gap-4">
+									<dt class="text-sm text-zinc-500">État machine</dt>
+									<dd class="max-w-[60%] text-right text-sm font-semibold text-zinc-950 dark:text-zinc-100">{machineStatusLabel(item.machineStatus)}</dd>
+								</div>
+
+								<div class="flex items-start justify-between gap-4">
+									<dt class="text-sm text-zinc-500">Créée le</dt>
+									<dd class="max-w-[60%] text-right text-sm font-semibold text-zinc-950 dark:text-zinc-100">{formatDate(item.createdAt)}</dd>
+								</div>
+
+								<div class="flex items-start justify-between gap-4">
+									<dt class="text-sm text-zinc-500">Dernière mise à jour</dt>
+									<dd class="max-w-[60%] text-right text-sm font-semibold text-zinc-950 dark:text-zinc-100">{formatDate(item.updatedAt)}</dd>
+								</div>
+							</dl>
+						</div>
+
+						<div class="mt-5 flex items-center gap-3">
+							<a
+								href={`/installations/${item.jobId}`}
+								class="inline-flex flex-1 items-center justify-center gap-2 rounded-[18px] border border-cyan-200 bg-[linear-gradient(135deg,rgba(14,165,233,0.96),rgba(37,99,235,0.96))] px-4 py-3 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(37,99,235,0.22)] transition duration-200 hover:scale-[1.01] hover:shadow-[0_18px_38px_rgba(37,99,235,0.28)] dark:border-cyan-400/12 dark:bg-[linear-gradient(135deg,rgba(8,145,178,0.95),rgba(37,99,235,0.92))] dark:shadow-[0_14px_28px_rgba(0,0,0,0.28)] dark:hover:shadow-[0_18px_36px_rgba(0,0,0,0.34)]"
+							>
+								Voir les logs
+							</a>
+
+							<a
+								href={`/installations/new?app=${encodeURIComponent(item.appSlug)}`}
+								class="inline-flex items-center justify-center rounded-[18px] border border-black/5 bg-white px-4 py-3 text-sm font-medium text-zinc-700 transition hover:border-black/10 hover:bg-zinc-50 hover:text-zinc-950 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-200 dark:hover:border-white/14 dark:hover:bg-white/[0.06] dark:hover:text-zinc-50"
+							>
+								Réinstaller
+							</a>
 						</div>
 					</div>
-
-					<div
-						style={`padding:0.45rem 0.7rem; border-radius:999px; font-size:0.82rem; white-space:nowrap; ${statusStyle(item.status)}`}
-					>
-						{humanStatus(item.status)}
-					</div>
+				</article>
+			{/each}
+		</div>
+	{:else}
+		<div class="relative overflow-hidden rounded-[30px] border border-black/5 bg-white/80 p-8 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/8 dark:bg-white/[0.03] dark:shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
+			<div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.08),transparent_32%),radial-gradient(circle_at_bottom,rgba(16,185,129,0.08),transparent_30%)] dark:bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.04),transparent_32%)]"></div>
+			<div class="relative mx-auto max-w-xl text-center">
+				<div class="mx-auto flex h-16 w-16 items-center justify-center rounded-[22px] border border-black/5 bg-white text-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] dark:border-white/8 dark:bg-white/[0.04] dark:shadow-none">
+					✦
 				</div>
-
-				<div style="display:grid; gap:0.7rem; margin-bottom:1.1rem;">
-					<div style="display:flex; justify-content:space-between; gap:1rem;">
-						<span style="color:#64748b;">Sous-domaine</span>
-						<strong style="color:#e2e8f0;">{item.subdomain}</strong>
-					</div>
-
-					<div style="display:flex; justify-content:space-between; gap:1rem;">
-						<span style="color:#64748b;">Auth</span>
-						<strong style="color:#e2e8f0;">{item.authType}</strong>
-					</div>
-
-					<div style="display:flex; justify-content:space-between; gap:1rem;">
-						<span style="color:#64748b;">Machine</span>
-						<strong style="color:#e2e8f0;">{item.machineStatus}</strong>
-					</div>
-
-					<div style="display:flex; justify-content:space-between; gap:1rem;">
-						<span style="color:#64748b;">Dernière mise à jour</span>
-						<strong style="color:#e2e8f0;">{item.updatedAt}</strong>
-					</div>
-				</div>
-
-				<div style="display:flex; align-items:center; justify-content:space-between; gap:0.8rem;">
-					<a
-						href={`/installations/${item.jobId}`}
-						style="display:inline-flex; align-items:center; justify-content:center; gap:0.5rem; padding:0.85rem 1rem; border-radius:16px; text-decoration:none; color:white; font-weight:600; background:linear-gradient(135deg, rgba(14,165,233,0.95), rgba(59,130,246,0.95)); min-width:140px;"
-					>
-						Voir les logs
-					</a>
-
-					<a
-						href={`/installations/new?app=${encodeURIComponent(item.appSlug)}`}
-						style="color:#94a3b8; text-decoration:none; font-size:0.9rem;"
-					>
-						Réinstaller
-					</a>
-				</div>
-			</article>
-		{/each}
-	</section>
-{:else}
-	<div
-		style="margin-top:1.25rem; padding:1.25rem; border-radius:22px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.03); color:#cbd5e1;"
-	>
-		Aucune application lancée pour le moment. Va dans <a href="/app-store" style="color:#7dd3fc;">App Store</a>.
-	</div>
-{/if}
+				<h2 class="mt-5 text-2xl font-semibold tracking-[-0.05em] text-zinc-950 dark:text-zinc-50">Aucune application lancée</h2>
+				<p class="mt-3 text-base leading-7 text-zinc-600 dark:text-zinc-400">
+					Ton espace est prêt pour accueillir un premier déploiement. Lance une app depuis l’App Store pour remplir ce tableau de bord premium.
+				</p>
+				<a
+					href="/app-store"
+					class="mt-6 inline-flex items-center justify-center rounded-[18px] border border-cyan-200 bg-[linear-gradient(135deg,rgba(14,165,233,0.95),rgba(59,130,246,0.95))] px-5 py-3 text-sm font-semibold text-white shadow-[0_16px_40px_rgba(37,99,235,0.20)] transition hover:scale-[1.01] dark:border-cyan-400/12 dark:shadow-[0_16px_32px_rgba(0,0,0,0.30)]"
+				>
+					Ouvrir l’App Store
+				</a>
+			</div>
+		</div>
+	{/if}
+</section>
