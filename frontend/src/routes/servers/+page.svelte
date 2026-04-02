@@ -1,5 +1,5 @@
 <script lang="ts">
-	let { data } = $props();
+	let { data, form } = $props();
 
 	const servers = Array.isArray(data.machines) ? data.machines : [];
 
@@ -103,6 +103,18 @@
 		</div>
 	</header>
 
+	{#if form?.success}
+		<div class="mb-6 rounded-[20px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300">
+			L'appairage du serveur a bien été supprimé.
+		</div>
+	{/if}
+
+	{#if form?.error}
+		<div class="mb-6 rounded-[20px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300">
+			{form.error}
+		</div>
+	{/if}
+
 	{#if servers.length > 0}
 		<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
 			{#each servers as server}
@@ -165,6 +177,27 @@
 								{server.status ?? '-'}
 							</span>
 						</div>
+					</div>
+
+					<div class="mt-5 flex justify-end border-t border-black/5 pt-4 dark:border-white/5">
+						<form
+							method="POST"
+							action="?/delete"
+							onsubmit={(event) => {
+								if (!confirm(`Supprimer l'appairage du serveur "${server.hostname ?? server.machine_uuid}" ?`)) {
+									event.preventDefault();
+								}
+							}}
+						>
+							<input type="hidden" name="_csrf" value={data.csrfToken} />
+							<input type="hidden" name="machine_id" value={server.id} />
+							<button
+								type="submit"
+								class="inline-flex items-center justify-center rounded-[14px] border border-red-200 bg-[linear-gradient(90deg,#ef4444,#dc2626)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(220,38,38,0.18)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(220,38,38,0.24)] dark:border-red-500/20"
+							>
+								Supprimer
+							</button>
+						</form>
 					</div>
 				</article>
 			{/each}

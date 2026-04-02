@@ -51,6 +51,7 @@
 				</p>
 
 				<form method="POST" action="?/generate" class="mt-6">
+					<input type="hidden" name="_csrf" value={data.csrfToken} />
 					<button
 						type="submit"
 						class="inline-flex items-center justify-center rounded-[16px] border border-cyan-200 bg-[linear-gradient(90deg,#38bdf8,#a855f7)] px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(59,130,246,0.20)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(59,130,246,0.26)] dark:border-white/10"

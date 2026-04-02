@@ -2,12 +2,12 @@ import re
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from app.core.audit import audit_event
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from app.catalog.apps import get_catalog_app
 
 from app.api.deps import get_current_user
+from app.catalog.apps import get_catalog_app
+from app.core.audit import audit_event
 from app.core.database import get_db
 from app.models.job import Job
 from app.models.job_log import JobLog
@@ -20,6 +20,7 @@ from app.schemas.job import (
     CreateMyInstallationRequest,
 )
 from app.schemas.job_log import AdminJobLogItem
+from app.schemas.token import RevokeMachineTokenResponse
 
 router = APIRouter(prefix="/me", tags=["me"])
 
@@ -67,7 +68,9 @@ def get_owned_installation_or_404(db: Session, job_id: UUID, current_user: User)
     return job
 
 
-def normalize_and_validate_installation_payload(payload: CreateMyInstallationRequest) -> tuple[str, str, str, str]:
+def normalize_and_validate_installation_payload(
+    payload: CreateMyInstallationRequest,
+) -> tuple[str, str, str, str]:
     requested_slug = payload.app_slug.strip()
     auth_type = payload.auth_type.strip().lower()
     subdomain = payload.subdomain.strip().lower()
@@ -141,6 +144,42 @@ def get_my_machines(
     ]
 
 
+@router.delete("/machines/{machine_id}", response_model=RevokeMachineTokenResponse)
+def delete_my_machine(
+    machine_id: UUID,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    machine = get_owned_machine_or_404(db, machine_id, current_user)
+
+    machine.status = "revoked"
+    machine.auth_token_hash = None
+    machine.auth_token_created_at = None
+
+    db.commit()
+    db.refresh(machine)
+
+    audit_event(
+        event_type="machine.revoke.user.success",
+        severity="warning",
+        success=True,
+        status_code=200,
+        actor_type="user",
+        actor_user_id=current_user.id,
+        target_machine_id=machine.id,
+        request=request,
+        description="User revoked machine pairing",
+        details={"machine_uuid": str(machine.machine_uuid)},
+    )
+
+    return RevokeMachineTokenResponse(
+        ok=True,
+        machine_id=str(machine.id),
+        status=machine.status,
+    )
+
+
 @router.post("/installations", response_model=CreateMachineJobResponse)
 def create_my_installation(
     payload: CreateMyInstallationRequest,
@@ -149,7 +188,9 @@ def create_my_installation(
     current_user: User = Depends(get_current_user),
 ):
     machine = get_owned_machine_or_404(db, payload.machine_id, current_user)
-    app_slug, subdomain, auth_type, install_profile = normalize_and_validate_installation_payload(payload)
+    app_slug, subdomain, auth_type, install_profile = normalize_and_validate_installation_payload(
+        payload
+    )
     ensure_no_active_installation_for_machine(db, machine)
 
     job = Job(
