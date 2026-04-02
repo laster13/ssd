@@ -184,7 +184,11 @@
 							method="POST"
 							action="?/delete"
 							onsubmit={(event) => {
-								if (!confirm(`Supprimer l'appairage du serveur "${server.hostname ?? server.machine_uuid}" ?`)) {
+								if (
+									!confirm(
+										`Supprimer l'appairage du serveur "${server.hostname ?? server.machine_uuid}" ?`
+									)
+								) {
 									event.preventDefault();
 								}
 							}}

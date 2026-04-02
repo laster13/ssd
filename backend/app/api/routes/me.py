@@ -20,7 +20,6 @@ from app.schemas.job import (
     CreateMyInstallationRequest,
 )
 from app.schemas.job_log import AdminJobLogItem
-from app.schemas.token import RevokeMachineTokenResponse
 
 router = APIRouter(prefix="/me", tags=["me"])
 
@@ -144,7 +143,7 @@ def get_my_machines(
     ]
 
 
-@router.delete("/machines/{machine_id}", response_model=RevokeMachineTokenResponse)
+@router.delete("/machines/{machine_id}")
 def delete_my_machine(
     machine_id: UUID,
     request: Request,
@@ -173,11 +172,11 @@ def delete_my_machine(
         details={"machine_uuid": str(machine.machine_uuid)},
     )
 
-    return RevokeMachineTokenResponse(
-        ok=True,
-        machine_id=str(machine.id),
-        status=machine.status,
-    )
+    return {
+        "ok": True,
+        "machine_id": str(machine.id),
+        "status": machine.status,
+    }
 
 
 @router.post("/installations", response_model=CreateMachineJobResponse)
