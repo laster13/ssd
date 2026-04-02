@@ -65,9 +65,11 @@
 								App Store
 							</div>
 
-							<h1 class="text-4xl font-semibold tracking-[-0.06em] text-zinc-950 dark:text-white sm:text-5xl lg:text-6xl">
-								Explore le catalogue
-							</h1>
+                                                        <h1 class="max-w-2xl text-lg font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50 sm:text-xl xl:text-2xl xl:leading-[1.1]">
+	                                                        <span class="mt-1 block bg-[linear-gradient(90deg,#0f172a_0%,#0891b2_18%,#059669_44%,#2563eb_70%,#7c3aed_100%)] bg-clip-text text-transparent dark:bg-[linear-gradient(90deg,#f8fafc_0%,#a7f3d0_18%,#67e8f9_40%,#93c5fd_66%,#d8b4fe_100%)]">
+		                                                Explore le Catalogue
+	                                                        </span>
+                                                        </h1>
 
 							<p class="mt-4 max-w-2xl text-sm leading-7 text-zinc-600 dark:text-zinc-400 sm:text-base">
 								Une sélection soignée pour démarrer vite, puis une bibliothèque complète pour

@@ -9,9 +9,9 @@ _buckets: dict[str, deque[float]] = {}
 
 
 def get_client_ip(request: Request) -> str:
-    forwarded_for = request.headers.get("x-forwarded-for")
-    if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
+    cf_ip = request.headers.get("cf-connecting-ip")
+    if cf_ip:
+        return cf_ip.strip()
 
     if request.client and request.client.host:
         return request.client.host

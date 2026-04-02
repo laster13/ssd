@@ -80,10 +80,10 @@
 			<div class="relative p-6 sm:p-8">
 				<p class="mb-5">
 					<a
-						href="/installations"
+						href="/applications"
 						class="text-sm font-medium text-sky-600 no-underline transition hover:text-sky-700 dark:text-sky-300 dark:hover:text-sky-200"
 					>
-						← Retour aux installations
+						← Retour aux applications
 					</a>
 				</p>
 

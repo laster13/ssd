@@ -1,6 +1,8 @@
-import { fail, redirect, error } from '@sveltejs/kit';
+import { error, fail, redirect } from '@sveltejs/kit';
+
 import type { Actions, PageServerLoad } from './$types';
 import { apiFetchWithAuth } from '$lib/server/api';
+import { validateCsrf } from '$lib/server/security';
 
 const APPS = {
 	chevereto: {
@@ -35,6 +37,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 	}
 
 	const app = APPS[params.slug as keyof typeof APPS];
+
 	if (!app) {
 		throw error(404, 'Application introuvable');
 	}
@@ -57,28 +60,30 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 };
 
 export const actions: Actions = {
-	install: async ({ locals, request, params }) => {
+	install: async ({ locals, request, cookies, url, params }) => {
 		if (!locals.user || !locals.token) {
 			throw redirect(303, '/login');
 		}
 
 		const app = APPS[params.slug as keyof typeof APPS];
+
 		if (!app) {
 			return fail(404, { error: 'Application introuvable' });
 		}
 
-		const formData = await request.formData();
+		const formData = await validateCsrf({
+			request,
+			cookies,
+			url,
+			sessionToken: locals.token
+		});
+
 		const machine_id = String(formData.get('machine_id') ?? '').trim();
 		const subdomain = String(formData.get('subdomain') ?? '').trim();
 		const auth_type = String(formData.get('auth_type') ?? '').trim();
 
 		if (!machine_id || !subdomain || !auth_type) {
-			return fail(400, {
-				error: 'Tous les champs sont requis',
-				machine_id,
-				subdomain,
-				auth_type
-			});
+			return fail(400, { error: 'Tous les champs sont requis', machine_id, subdomain, auth_type });
 		}
 
 		const response = await apiFetchWithAuth(locals.token, `/admin/machines/${machine_id}/jobs`, {
@@ -100,6 +105,7 @@ export const actions: Actions = {
 		}
 
 		const data = await response.json();
+
 		throw redirect(303, `/installations/${data.job_id}`);
 	}
 };

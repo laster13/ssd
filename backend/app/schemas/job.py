@@ -1,7 +1,10 @@
 from datetime import datetime
+from typing import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, StringConstraints
+
+ErrorMessage = Annotated[str, StringConstraints(max_length=4000)]
 
 
 class CreateMachineJobRequest(BaseModel):
@@ -36,7 +39,7 @@ class AgentFetchJobResponse(BaseModel):
 
 class AgentCompleteJobRequest(BaseModel):
     result: dict | None = None
-    error_message: str | None = None
+    error_message: ErrorMessage | None = None
 
 
 class AgentCompleteJobResponse(BaseModel):

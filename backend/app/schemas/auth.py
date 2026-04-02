@@ -1,18 +1,22 @@
 from datetime import datetime
+from typing import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, StringConstraints
+
+PasswordStr = Annotated[str, StringConstraints(min_length=14, max_length=128)]
+OtpStr = Annotated[str, StringConstraints(pattern=r"^\d{6}$")]
 
 
 class RegisterRequest(BaseModel):
     email: EmailStr
-    password: str
+    password: PasswordStr
 
 
 class LoginRequest(BaseModel):
     email: EmailStr
-    password: str
-    otp_code: str | None = None
+    password: PasswordStr
+    otp_code: OtpStr | None = None
 
 
 class AuthTokenResponse(BaseModel):
@@ -36,12 +40,12 @@ class TwoFactorSetupResponse(BaseModel):
 
 
 class TwoFactorConfirmRequest(BaseModel):
-    otp_code: str
+    otp_code: OtpStr
 
 
 class TwoFactorDisableRequest(BaseModel):
-    password: str
-    otp_code: str
+    password: PasswordStr
+    otp_code: OtpStr
 
 
 class TwoFactorStatusResponse(BaseModel):

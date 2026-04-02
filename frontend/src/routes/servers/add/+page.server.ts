@@ -1,4 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
+
 import type { Actions, PageServerLoad } from './$types';
 import { apiFetchWithAuth } from '$lib/server/api';
 import { validateCsrf } from '$lib/server/security';
@@ -12,7 +13,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 };
 
 export const actions: Actions = {
-	generate: async ({ request, cookies, locals, url }) => {
+	generate: async ({ locals, request, cookies, url }) => {
 		if (!locals.user || !locals.token) {
 			throw redirect(303, '/login');
 		}

@@ -88,9 +88,11 @@
 								Library
 							</div>
 
-							<h1 class="text-3xl font-semibold tracking-[-0.05em] text-zinc-950 dark:text-white sm:text-4xl">
-								Bibliothèque complète
-							</h1>
+                                                        <h1 class="max-w-2xl text-lg font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50 sm:text-xl xl:text-2xl xl:leading-[1.1]">
+	                                                        <span class="mt-1 block bg-[linear-gradient(90deg,#0f172a_0%,#0891b2_18%,#059669_44%,#2563eb_70%,#7c3aed_100%)] bg-clip-text text-transparent dark:bg-[linear-gradient(90deg,#f8fafc_0%,#a7f3d0_18%,#67e8f9_40%,#93c5fd_66%,#d8b4fe_100%)]">
+		                                                        Bibliothèque complète
+	                                                        </span>
+                                                        </h1>
 
 							<p class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-400">
 								Accède à tout le catalogue avec recherche, tri et filtres.

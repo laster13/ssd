@@ -1,13 +1,16 @@
 from datetime import datetime
+from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, StringConstraints, conint
+
+JobLogMessage = Annotated[str, StringConstraints(min_length=1, max_length=4000)]
 
 
 class AgentCreateJobLogRequest(BaseModel):
-    seq: int
-    level: str = "info"
-    message: str
+    seq: conint(ge=0)
+    level: Literal["debug", "info", "warning", "error"] = "info"
+    message: JobLogMessage
 
 
 class AgentCreateJobLogResponse(BaseModel):

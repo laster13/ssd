@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_admin
+from sqlalchemy.exc import IntegrityError
 from app.catalog.apps import get_catalog_app
 from app.core.audit import audit_event
 from app.core.database import get_db
@@ -129,6 +130,204 @@ def grant_admin(
         updated_at=user.updated_at,
     )
 
+@router.post("/users/{user_id}/revoke-admin", response_model=UserResponse)
+def revoke_admin(
+    user_id: UUID,
+    request: Request,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    user = db.get(User, user_id)
+
+    if not user:
+        audit_event(
+            event_type="user.admin.revoke.failed",
+            severity="warning",
+            success=False,
+            status_code=404,
+            actor_type="admin",
+            actor_user_id=admin.id,
+            target_user_id=user_id,
+            request=request,
+            description="Revoke admin failed: user not found",
+        )
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if not user.is_admin:
+        audit_event(
+            event_type="user.admin.revoke.failed",
+            severity="info",
+            success=False,
+            status_code=409,
+            actor_type="admin",
+            actor_user_id=admin.id,
+            target_user_id=user.id,
+            request=request,
+            description="Revoke admin failed: user is not admin",
+            details={"email": user.email},
+        )
+        raise HTTPException(status_code=409, detail="User is not admin")
+
+    if user.id == admin.id:
+        audit_event(
+            event_type="user.admin.revoke.failed",
+            severity="critical",
+            success=False,
+            status_code=409,
+            actor_type="admin",
+            actor_user_id=admin.id,
+            target_user_id=user.id,
+            request=request,
+            description="Revoke admin failed: self demotion blocked",
+            details={"email": user.email},
+        )
+        raise HTTPException(status_code=409, detail="You cannot revoke your own admin access")
+
+    admin_count = db.execute(select(User).where(User.is_admin.is_(True))).scalars().all()
+    if len(admin_count) <= 1:
+        audit_event(
+            event_type="user.admin.revoke.failed",
+            severity="critical",
+            success=False,
+            status_code=409,
+            actor_type="admin",
+            actor_user_id=admin.id,
+            target_user_id=user.id,
+            request=request,
+            description="Revoke admin failed: last admin protection",
+            details={"email": user.email},
+        )
+        raise HTTPException(status_code=409, detail="Cannot revoke the last admin")
+
+    user.is_admin = False
+    db.commit()
+    db.refresh(user)
+
+    audit_event(
+        event_type="user.admin.revoke.success",
+        severity="critical",
+        success=True,
+        status_code=200,
+        actor_type="admin",
+        actor_user_id=admin.id,
+        target_user_id=user.id,
+        request=request,
+        description="Admin revoked from user",
+        details={"email": user.email},
+    )
+
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        is_active=user.is_active,
+        is_admin=user.is_admin,
+        created_at=user.created_at,
+        updated_at=user.updated_at,
+    )
+
+
+@router.post("/users/{user_id}/delete", response_model=dict)
+def delete_user_admin(
+    user_id: UUID,
+    request: Request,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    user = db.get(User, user_id)
+
+    if not user:
+        audit_event(
+            event_type="user.delete.failed",
+            severity="warning",
+            success=False,
+            status_code=404,
+            actor_type="admin",
+            actor_user_id=admin.id,
+            target_user_id=user_id,
+            request=request,
+            description="Delete user failed: user not found",
+        )
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if user.id == admin.id:
+        audit_event(
+            event_type="user.delete.failed",
+            severity="critical",
+            success=False,
+            status_code=409,
+            actor_type="admin",
+            actor_user_id=admin.id,
+            target_user_id=user.id,
+            request=request,
+            description="Delete user failed: self deletion blocked",
+            details={"email": user.email},
+        )
+        raise HTTPException(status_code=409, detail="You cannot delete your own account")
+
+    if user.is_admin:
+        admin_count = db.execute(select(User).where(User.is_admin.is_(True))).scalars().all()
+        if len(admin_count) <= 1:
+            audit_event(
+                event_type="user.delete.failed",
+                severity="critical",
+                success=False,
+                status_code=409,
+                actor_type="admin",
+                actor_user_id=admin.id,
+                target_user_id=user.id,
+                request=request,
+                description="Delete user failed: last admin protection",
+                details={"email": user.email},
+            )
+            raise HTTPException(status_code=409, detail="Cannot delete the last admin")
+
+    user_email = user.email
+
+    try:
+        owned_machines = db.execute(
+            select(Machine).where(Machine.owner_id == user.id)
+        ).scalars().all()
+
+        for machine in owned_machines:
+            db.delete(machine)
+
+        db.flush()
+
+        db.delete(user)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+
+        audit_event(
+            event_type="user.delete.failed",
+            severity="warning",
+            success=False,
+            status_code=409,
+            actor_type="admin",
+            actor_user_id=admin.id,
+            target_user_id=user.id,
+            request=request,
+            description="Delete user failed: user has related records",
+            details={"email": user_email},
+        )
+        raise HTTPException(
+            status_code=409,
+            detail="This user cannot be deleted because related records still exist",
+        )
+
+    audit_event(
+        event_type="user.delete.success",
+        severity="critical",
+        success=True,
+        status_code=200,
+        actor_type="admin",
+        actor_user_id=admin.id,
+        request=request,
+        description="User and owned machines deleted by admin",
+        details={"email": user_email},
+    )
+
+    return {"ok": True, "deleted_user_id": str(user_id)}
 
 @router.get("/machines", response_model=list[AdminMachineListItem])
 def list_machines(

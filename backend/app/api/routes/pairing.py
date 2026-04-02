@@ -13,6 +13,7 @@ from app.core.security import (
     generate_pairing_code,
     hash_machine_token,
     hash_pairing_code,
+    normalize_pairing_code,
 )
 from app.models.machine import Machine
 from app.models.pairing_token import PairingToken
@@ -78,7 +79,7 @@ def register_pairing(
 @router.post("/verify", response_model=PairingVerifyResponse)
 def verify_pairing(payload: PairingVerifyRequest, request: Request, db: Session = Depends(get_db)):
     client_ip = get_client_ip(request)
-    pairing_code = payload.pairing_code.strip()
+    pairing_code = normalize_pairing_code(payload.pairing_code)
 
     enforce_rate_limit(f"pairing:verify:ip:{client_ip}", limit=30, window_seconds=600)
     enforce_rate_limit(f"pairing:verify:code:{pairing_code}", limit=10, window_seconds=600)

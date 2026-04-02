@@ -3,6 +3,9 @@
 
 	let { data, form } = $props();
 
+	let copied = $state(false);
+	let copyTimeout: ReturnType<typeof setTimeout> | null = null;
+
 	const pairing = $derived(form?.pairing ?? null);
 	const pairingCode = $derived(pairing?.pairing_code ?? '-');
 	const machineUuid = $derived(pairing?.machine_uuid ?? '-');
@@ -14,6 +17,22 @@
 			? `curl -fsSL ${backendUrl}/bootstrap.sh | sudo bash -s -- --pairing-code ${pairing.pairing_code} --backend-url ${backendUrl}`
 			: ''
 	);
+
+	async function copyBootstrapCommand() {
+		if (!bootstrapCommand) return;
+
+		try {
+			await navigator.clipboard.writeText(bootstrapCommand);
+			copied = true;
+
+			if (copyTimeout) clearTimeout(copyTimeout);
+			copyTimeout = setTimeout(() => {
+				copied = false;
+			}, 2000);
+		} catch (error) {
+			console.error('copy bootstrap command failed', error);
+		}
+	}
 </script>
 
 <svelte:head>
@@ -88,8 +107,54 @@
 					<div
 						class="mb-5 rounded-[20px] border border-black/5 bg-black/[0.03] p-4 dark:border-white/10 dark:bg-[rgba(2,6,23,0.6)]"
 					>
-						<div class="mb-3 text-sm text-zinc-500 dark:text-zinc-400">Commande bootstrap</div>
+						<div class="mb-3 flex items-center justify-between gap-3">
+							<div class="text-sm text-zinc-500 dark:text-zinc-400">Commande bootstrap</div>
+
+							<button
+								type="button"
+								onclick={copyBootstrapCommand}
+								class="inline-flex h-10 w-10 items-center justify-center rounded-[14px] border border-black/8 bg-white/80 text-zinc-700 transition hover:border-black/12 hover:bg-white dark:border-white/10 dark:bg-white/[0.05] dark:text-zinc-200 dark:hover:border-white/14 dark:hover:bg-white/[0.08]"
+								aria-label="Copier la commande bootstrap"
+								title={copied ? 'Copié' : 'Copier'}
+							>
+								{#if copied}
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										class="h-5 w-5"
+									>
+										<path d="M20 6 9 17l-5-5" />
+									</svg>
+								{:else}
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										class="h-5 w-5"
+									>
+										<rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+										<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+									</svg>
+								{/if}
+							</button>
+						</div>
+
 						<pre class="m-0 whitespace-pre-wrap break-words font-mono text-sm leading-7 text-zinc-900 dark:text-zinc-100">{bootstrapCommand}</pre>
+
+						{#if copied}
+							<p class="mt-3 text-xs font-medium text-emerald-600 dark:text-emerald-300">
+								Commande copiée dans le presse-papiers.
+							</p>
+						{/if}
 					</div>
 				{/if}
 

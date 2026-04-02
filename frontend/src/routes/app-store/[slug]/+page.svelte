@@ -33,6 +33,7 @@
 						<h1 class="mb-1 text-3xl font-semibold tracking-[-0.05em] text-zinc-950 dark:text-white sm:text-4xl">
 							Installer {app.name}
 						</h1>
+
 						<p class="m-0 max-w-2xl text-sm leading-7 text-zinc-600 dark:text-zinc-400 sm:text-base">
 							{app.description}
 						</p>
@@ -45,6 +46,8 @@
 				</div>
 
 				<form method="POST" action="?/install" class="grid gap-4">
+					<input type="hidden" name="_csrf" value={data.csrfToken} />
+
 					<label class="grid gap-2">
 						<span class="text-sm font-medium text-zinc-800 dark:text-zinc-200">Serveur cible</span>
 						<select

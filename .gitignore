@@ -1,9 +1,45 @@
-node_modules/
-.env
-vendor/
-tmp/
-cache/
-logs/
-*.log
-dist/
+# OS / editors
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.python-version
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Build / packaging
 build/
+dist/
+*.egg-info/
+
+# Logs
+*.log
+logs/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+.next/
+dist-frontend/
+
+# Misc
+tmp/
+.cache/

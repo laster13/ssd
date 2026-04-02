@@ -24,7 +24,6 @@
 	const navItems = [
 		{ label: 'App Store', href: '/app-store' },
 		{ label: 'Serveurs', href: '/servers' },
-		{ label: 'Installations', href: '/installations' },
 		{ label: 'Applications', href: '/applications' }
 	];
 

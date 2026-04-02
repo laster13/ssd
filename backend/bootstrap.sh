@@ -5,10 +5,15 @@ PAIRING_CODE=""
 BACKEND_URL=""
 INSTALL_DIR="/opt/ssd-agent"
 AGENT_USER=""
+ALLOW_INSECURE_HTTP="${ALLOW_INSECURE_HTTP:-false}"
 
 usage() {
   echo "Usage:"
-  echo "  bootstrap.sh --pairing-code XXXX-XXXX --backend-url http://IP:8000 [--agent-user USER] [--install-dir /opt/ssd-agent]"
+  echo "  bootstrap.sh --pairing-code XXXX-XXXX --backend-url https://admin.example.com [--agent-user USER] [--install-dir /opt/ssd-agent]"
+  echo
+  echo "By default, insecure HTTP is refused."
+  echo "To override temporarily (not recommended), run with:"
+  echo "  ALLOW_INSECURE_HTTP=true ./bootstrap.sh ..."
   exit 1
 }
 
@@ -93,6 +98,14 @@ if [[ -z "${PAIRING_CODE}" || -z "${BACKEND_URL}" ]]; then
   usage
 fi
 
+BACKEND_URL="${BACKEND_URL%/}"
+
+if [[ "${BACKEND_URL}" != https://* && "${ALLOW_INSECURE_HTTP}" != "true" ]]; then
+  echo "[bootstrap] BACKEND_URL must start with https://"
+  echo "[bootstrap] Refusing insecure HTTP bootstrap by default"
+  exit 1
+fi
+
 detect_agent_user
 
 if ! id "${AGENT_USER}" >/dev/null 2>&1; then
@@ -137,7 +150,13 @@ run_as_agent_user "${INSTALL_DIR}/.venv/bin/pip" install --upgrade pip
 run_as_agent_user "${INSTALL_DIR}/.venv/bin/pip" install requests
 
 echo "[bootstrap] Verifying pairing code..."
-VERIFY_RESPONSE="$(curl -fsSL -X POST "${BACKEND_URL}/pairing/verify" \
+
+CURL_FLAGS=(-fsSL --connect-timeout 10 --max-time 30)
+if [[ "${BACKEND_URL}" == https://* ]]; then
+  CURL_FLAGS+=(--proto '=https' --tlsv1.2)
+fi
+
+VERIFY_RESPONSE="$(curl "${CURL_FLAGS[@]}" -X POST "${BACKEND_URL}/pairing/verify" \
   -H "Content-Type: application/json" \
   -d "{\"pairing_code\":\"${PAIRING_CODE}\"}")"
 
@@ -203,12 +222,13 @@ MACHINE_TOKEN = os.environ["MACHINE_TOKEN"]
 HOSTNAME = os.environ.get("HOSTNAME", "unknown-host")
 AGENT_VERSION = os.environ.get("AGENT_VERSION", "0.1.0")
 POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", "5"))
+VERIFY_TLS = os.environ.get("VERIFY_TLS", "true").lower() == "true"
 PY
 
 cat > "${INSTALL_DIR}/agent/api.py" <<'PY'
 import requests
 
-from agent.config import BACKEND_URL, MACHINE_TOKEN
+from agent.config import BACKEND_URL, MACHINE_TOKEN, VERIFY_TLS
 
 
 def auth_headers() -> dict[str, str]:
@@ -224,6 +244,7 @@ def post(path: str, payload: dict | None = None) -> requests.Response:
         json=payload,
         headers=auth_headers(),
         timeout=30,
+        verify=VERIFY_TLS,
     )
 
 
@@ -504,6 +525,7 @@ MACHINE_TOKEN=${MACHINE_TOKEN}
 HOSTNAME=${HOSTNAME_VALUE}
 AGENT_VERSION=0.1.0
 POLL_INTERVAL=5
+VERIFY_TLS=true
 MACHINE_ID=${MACHINE_ID}
 MACHINE_UUID=${MACHINE_UUID}
 EOF

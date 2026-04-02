@@ -2,7 +2,7 @@ import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { apiFetchWithAuth } from '$lib/server/api';
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
 	if (!locals.user || !locals.token) {
 		throw redirect(303, '/login');
 	}
@@ -19,8 +19,21 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const jobs = jobsResponse.ok ? await jobsResponse.json() : [];
 	const machines = machinesResponse.ok ? await machinesResponse.json() : [];
 
+	const initialTab = url.searchParams.get('tab') === 'history' ? 'history' : 'applications';
+
+	const rawFilter = url.searchParams.get('filter');
+	const initialFilter =
+		rawFilter === 'running' ||
+		rawFilter === 'completed' ||
+		rawFilter === 'failed' ||
+		rawFilter === 'all'
+			? rawFilter
+			: 'all';
+
 	return {
 		jobs,
-		machines
+		machines,
+		initialTab,
+		initialFilter
 	};
 };

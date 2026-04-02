@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 import pyotp
 
 from app.api.deps import get_current_user
+from app.core.crypto import decrypt_secret, encrypt_secret
+from app.core.config import settings
 from app.core.audit import audit_event
 from app.core.auth import create_access_token, hash_password, verify_password
 from app.core.database import get_db
@@ -29,13 +31,29 @@ def register(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    if not settings.allow_self_registration:
+        audit_event(
+            event_type="auth.register.blocked",
+            severity="warning",
+            success=False,
+            status_code=403,
+            actor_type="anonymous",
+            request=request,
+            description="Public registration disabled",
+            details={"email": payload.email.strip().lower()},
+        )
+        raise HTTPException(status_code=403, detail="Public registration disabled")
+
     email = payload.email.strip().lower()
     client_ip = get_client_ip(request)
 
     enforce_rate_limit(f"auth:register:ip:{client_ip}", limit=10, window_seconds=3600)
     enforce_rate_limit(f"auth:register:email:{email}", limit=3, window_seconds=3600)
 
-    existing = db.execute(select(User).where(User.email == email).limit(1)).scalar_one_or_none()
+    existing = db.execute(
+        select(User).where(User.email == email).limit(1)
+    ).scalar_one_or_none()
+
     if existing:
         audit_event(
             event_type="auth.register.conflict",
@@ -49,13 +67,11 @@ def register(
         )
         raise HTTPException(status_code=409, detail="Email already registered")
 
-    is_first_user = db.execute(select(User)).scalars().first() is None
-
     user = User(
         email=email,
         password_hash=hash_password(payload.password),
         is_active=True,
-        is_admin=is_first_user,
+        is_admin=False,
         two_factor_enabled=False,
         two_factor_secret=None,
     )
@@ -85,7 +101,6 @@ def register(
         created_at=user.created_at,
         updated_at=user.updated_at,
     )
-
 
 @router.post("/login", response_model=AuthTokenResponse)
 def login(
@@ -177,7 +192,7 @@ def login(
             )
             raise HTTPException(status_code=500, detail="2FA is enabled but secret is missing")
 
-        totp = pyotp.TOTP(user.two_factor_secret)
+        totp = pyotp.TOTP(decrypt_secret(user.two_factor_secret))
         if not totp.verify(payload.otp_code, valid_window=1):
             audit_event(
                 event_type="auth.login.failed_otp",
@@ -245,13 +260,18 @@ def setup_two_factor(
     enforce_rate_limit(f"auth:2fa:setup:ip:{client_ip}", limit=10, window_seconds=3600)
     enforce_rate_limit(f"auth:2fa:setup:user:{current_user.id}", limit=5, window_seconds=3600)
 
+    secret = None
+
     if not current_user.two_factor_secret:
-        current_user.two_factor_secret = pyotp.random_base32()
+        secret = pyotp.random_base32()
+        current_user.two_factor_secret = encrypt_secret(secret)
         db.add(current_user)
         db.commit()
         db.refresh(current_user)
+    else:
+        secret = decrypt_secret(current_user.two_factor_secret)
 
-    totp = pyotp.TOTP(current_user.two_factor_secret)
+    totp = pyotp.TOTP(secret)
     otpauth_url = totp.provisioning_uri(name=current_user.email, issuer_name="SSD")
 
     audit_event(
@@ -268,7 +288,7 @@ def setup_two_factor(
     )
 
     return TwoFactorSetupResponse(
-        secret=current_user.two_factor_secret,
+        secret=secret,
         otpauth_url=otpauth_url,
         already_enabled=current_user.two_factor_enabled,
     )
@@ -300,7 +320,7 @@ def confirm_two_factor(
         )
         raise HTTPException(status_code=400, detail="2FA setup not initialized")
 
-    totp = pyotp.TOTP(current_user.two_factor_secret)
+    totp = pyotp.TOTP(decrypt_secret(current_user.two_factor_secret))
     if not totp.verify(payload.otp_code, valid_window=1):
         audit_event(
             event_type="auth.2fa.confirm.failed",
@@ -376,7 +396,7 @@ def disable_two_factor(
             )
             raise HTTPException(status_code=500, detail="2FA is enabled but secret is missing")
 
-        totp = pyotp.TOTP(current_user.two_factor_secret)
+        totp = pyotp.TOTP(decrypt_secret(current_user.two_factor_secret))
         if not totp.verify(payload.otp_code, valid_window=1):
             audit_event(
                 event_type="auth.2fa.disable.failed",

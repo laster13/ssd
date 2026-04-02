@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import json
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -28,6 +29,8 @@ from app.schemas.me import AgentMeResponse
 from app.schemas.token import RotateMachineTokenResponse
 
 router = APIRouter(prefix="/agent", tags=["agent"])
+
+MAX_RESULT_BYTES = 64 * 1024
 
 
 @router.post("/auth", response_model=AgentAuthResponse)
@@ -113,11 +116,14 @@ async def fetch_next_job(
     machine: Machine = Depends(get_current_machine),
     db: Session = Depends(get_db),
 ):
+    now = datetime.now(timezone.utc)
+
     stmt = (
         select(Job)
         .where(Job.machine_id == machine.id)
         .where(Job.status == "pending")
         .order_by(Job.created_at.asc())
+        .with_for_update(skip_locked=True)
         .limit(1)
     )
 
@@ -126,7 +132,6 @@ async def fetch_next_job(
     if not job:
         return AgentFetchJobResponse(has_job=False)
 
-    now = datetime.now(timezone.utc)
     job.status = "claimed"
     job.claimed_at = now
 
@@ -278,6 +283,11 @@ async def complete_job(
 
     if job.status in {"completed", "failed"}:
         raise HTTPException(status_code=409, detail="Job already finished")
+
+    if payload.result is not None:
+        encoded = json.dumps(payload.result, ensure_ascii=False).encode("utf-8")
+        if len(encoded) > MAX_RESULT_BYTES:
+            raise HTTPException(status_code=413, detail="Result payload too large")
 
     now = datetime.now(timezone.utc)
 

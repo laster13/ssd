@@ -1,11 +1,10 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 
-	let { data, form } = $props();
+	let { data } = $props();
 
 	const jobs = data.jobs ?? [];
 	const machines = data.machines ?? [];
-	const users = data.users ?? [];
 
 	const RUNNING_JOB_STATUSES = ['running', 'processing', 'pending'];
 	const FAILED_JOB_STATUSES = ['failed', 'error'];
@@ -13,11 +12,9 @@
 
 	let machineFilter = $state<'all' | 'active' | 'offline' | 'error' | 'revoked'>('all');
 	let jobFilter = $state<'all' | 'running' | 'failed' | 'success'>('all');
-	let userFilter = $state<'all' | 'admins' | 'eligible' | 'inactive'>('all');
 
 	let machinesSection = $state<HTMLElement | null>(null);
 	let jobsSection = $state<HTMLElement | null>(null);
-	let usersSection = $state<HTMLElement | null>(null);
 
 	function toTimestamp(value: unknown): number | null {
 		if (!value) return null;
@@ -155,28 +152,6 @@
 		}
 	}
 
-	function userRoleLabel(user: { is_admin?: boolean; is_active?: boolean }) {
-		if (user.is_admin) return 'Admin';
-		if (!user.is_active) return 'Inactif';
-		return 'Utilisateur';
-	}
-
-	function userBadgeClass(user: { is_admin?: boolean; is_active?: boolean }) {
-		if (user.is_admin) {
-			return 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300';
-		}
-
-		if (!user.is_active) {
-			return 'border-zinc-200 bg-zinc-100 text-zinc-700 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300';
-		}
-
-		return 'border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-300';
-	}
-
-	function isPromotableUser(user: { is_admin?: boolean; is_active?: boolean }) {
-		return Boolean(user.is_active) && !Boolean(user.is_admin);
-	}
-
 	function isMachineActive(status: string) {
 		return machineCategory(status) === 'active';
 	}
@@ -214,10 +189,6 @@
 	const failedJobsCount = jobs.filter((j) => isJobFailed(j.status)).length;
 	const successJobsCount = jobs.filter((j) => isJobSuccess(j.status)).length;
 
-	const adminUsersCount = users.filter((u) => u.is_admin).length;
-	const inactiveUsersCount = users.filter((u) => !u.is_active).length;
-	const promotableUsersCount = users.filter((u) => isPromotableUser(u)).length;
-
 	const machineItems = machines.map((machine) => {
 		let priority = 4;
 
@@ -248,32 +219,12 @@
 		};
 	});
 
-	const userItems = users.map((user) => {
-		let priority = 2;
-
-		if (user.is_admin) priority = 0;
-		else if (isPromotableUser(user)) priority = 1;
-		else if (!user.is_active) priority = 3;
-
-		return {
-			...user,
-			priority,
-			createdTs: toTimestamp(user.created_at),
-			updatedTs: toTimestamp(user.updated_at)
-		};
-	});
-
 	const sortedMachines = [...machineItems].sort((a, b) => {
 		if (a.priority !== b.priority) return a.priority - b.priority;
 		return (b.lastSeenTs ?? 0) - (a.lastSeenTs ?? 0);
 	});
 
 	const sortedJobs = [...jobItems].sort((a, b) => {
-		if (a.priority !== b.priority) return a.priority - b.priority;
-		return (b.createdTs ?? 0) - (a.createdTs ?? 0);
-	});
-
-	const sortedUsers = [...userItems].sort((a, b) => {
 		if (a.priority !== b.priority) return a.priority - b.priority;
 		return (b.createdTs ?? 0) - (a.createdTs ?? 0);
 	});
@@ -293,15 +244,6 @@
 			if (jobFilter === 'running') return isJobRunning(job.status);
 			if (jobFilter === 'failed') return isJobFailed(job.status);
 			if (jobFilter === 'success') return isJobSuccess(job.status);
-			return true;
-		})
-	);
-
-	const filteredUsers = $derived(
-		sortedUsers.filter((user) => {
-			if (userFilter === 'admins') return user.is_admin;
-			if (userFilter === 'eligible') return isPromotableUser(user);
-			if (userFilter === 'inactive') return !user.is_active;
 			return true;
 		})
 	);
@@ -334,12 +276,6 @@
 		jobFilter = filter;
 		await tick();
 		jobsSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-	}
-
-	async function showUsers(filter: 'all' | 'admins' | 'eligible' | 'inactive') {
-		userFilter = filter;
-		await tick();
-		usersSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 	}
 
 	function machineSectionTitle() {
@@ -397,32 +333,6 @@
 				return 'Historique trié par criticité puis récence.';
 		}
 	}
-
-	function userSectionTitle() {
-		switch (userFilter) {
-			case 'admins':
-				return 'Admins';
-			case 'eligible':
-				return 'Utilisateurs promouvables';
-			case 'inactive':
-				return 'Utilisateurs inactifs';
-			default:
-				return 'Utilisateurs';
-		}
-	}
-
-	function userSectionDescription() {
-		switch (userFilter) {
-			case 'admins':
-				return 'Comptes ayant déjà les droits d’administration.';
-			case 'eligible':
-				return 'Comptes actifs pouvant être promus admin.';
-			case 'inactive':
-				return 'Comptes désactivés, non promouvables.';
-			default:
-				return 'Gestion des rôles admin depuis le back-office.';
-		}
-	}
 </script>
 
 <svelte:head>
@@ -439,13 +349,19 @@
 				Administration
 			</div>
 
-			<h1 class="text-3xl font-semibold tracking-[-0.05em] text-zinc-950 dark:text-white sm:text-4xl">
-				Admin
+			<h1
+				class="max-w-2xl text-lg font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50 sm:text-xl xl:text-2xl xl:leading-[1.1]"
+			>
+				<span
+					class="mt-1 block bg-[linear-gradient(90deg,#0f172a_0%,#0891b2_18%,#059669_44%,#2563eb_70%,#7c3aed_100%)] bg-clip-text text-transparent dark:bg-[linear-gradient(90deg,#f8fafc_0%,#a7f3d0_18%,#67e8f9_40%,#93c5fd_66%,#d8b4fe_100%)]"
+				>
+					Tableau de bord administration
+				</span>
 			</h1>
 
 			<p class="mt-3 max-w-3xl text-sm leading-7 text-zinc-600 dark:text-zinc-400 sm:text-base">
-				Vue d’ensemble des machines, des jobs et des utilisateurs, triée pour repérer rapidement
-				ce qui est normal, ce qui est en cours et ce qui demande une intervention.
+				Vue d’ensemble des machines et des jobs, triée pour repérer rapidement ce qui est
+				normal, ce qui est en cours et ce qui demande une intervention.
 			</p>
 		</div>
 
@@ -456,24 +372,15 @@
 			>
 				Audit sécurité
 			</a>
+
+			<a
+				href="/admin/users"
+				class="inline-flex items-center justify-center rounded-[18px] border border-black/8 bg-black/[0.03] px-4 py-3 text-sm font-medium text-zinc-700 transition hover:bg-black/[0.05] dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-200 dark:hover:bg-white/[0.06]"
+			>
+				Gérer les utilisateurs
+			</a>
 		</div>
 	</div>
-
-	{#if form?.success}
-		<div
-			class="mb-6 rounded-[20px] border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300"
-		>
-			Le rôle admin a bien été ajouté.
-		</div>
-	{/if}
-
-	{#if form?.error}
-		<div
-			class="mb-6 rounded-[20px] border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300"
-		>
-			{form.error}
-		</div>
-	{/if}
 
 	<div class="mb-3">
 		<p class="text-xs font-medium uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
@@ -494,7 +401,7 @@
 				{activeMachinesCount}
 			</div>
 			<p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-				Afficher uniquement les machines disponibles
+				Afficher les machines disponibles
 			</p>
 		</button>
 
@@ -526,7 +433,7 @@
 				{runningJobsCount}
 			</div>
 			<p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-				Afficher les tâches en attente ou d’exécution
+				Tâches en attente ou d’exécution
 			</p>
 		</button>
 
@@ -659,29 +566,12 @@
 					</h2>
 
 					<div class="mt-4 grid gap-3">
-						<button
-							type="button"
-							onclick={() => showUsers('all')}
+						<a
+							href="/admin/users"
 							class="rounded-[18px] border border-black/8 bg-black/[0.03] px-4 py-3 text-left text-sm font-medium text-zinc-700 transition hover:bg-black/[0.05] dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-200 dark:hover:bg-white/[0.06]"
 						>
-							Voir tous les utilisateurs ({users.length})
-						</button>
-
-						<button
-							type="button"
-							onclick={() => showUsers('admins')}
-							class="rounded-[18px] border border-black/8 bg-black/[0.03] px-4 py-3 text-left text-sm font-medium text-zinc-700 transition hover:bg-black/[0.05] dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-200 dark:hover:bg-white/[0.06]"
-						>
-							Voir les admins ({adminUsersCount})
-						</button>
-
-						<button
-							type="button"
-							onclick={() => showUsers('eligible')}
-							class="rounded-[18px] border border-black/8 bg-black/[0.03] px-4 py-3 text-left text-sm font-medium text-zinc-700 transition hover:bg-black/[0.05] dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-200 dark:hover:bg-white/[0.06]"
-						>
-							Voir les utilisateurs promouvables ({promotableUsersCount})
-						</button>
+							Ouvrir la gestion utilisateurs
+						</a>
 
 						<button
 							type="button"
@@ -736,132 +626,16 @@
 							Résumé
 						</div>
 						<div class="mt-3 grid gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-							<p>{users.length} utilisateur(s) au total</p>
-							<p>{adminUsersCount} admin(s)</p>
-							<p>{inactiveUsersCount} utilisateur(s) inactif(s)</p>
 							<p>{machines.length} machine(s) au total</p>
+							<p>{activeMachinesCount} machine(s) en ligne</p>
+							<p>{offlineMachinesCount} machine(s) hors ligne</p>
+							<p>{errorMachinesCount} machine(s) en erreur</p>
 							<p>{jobs.length} job(s) au total</p>
+							<p>{runningJobsCount} job(s) en cours</p>
+							<p>{failedJobsCount} job(s) en échec</p>
 							<p>{successJobsCount} job(s) terminé(s)</p>
 						</div>
 					</div>
-				</div>
-			</div>
-		</div>
-	</div>
-
-	<div
-		bind:this={usersSection}
-		class="mb-6 overflow-hidden rounded-[30px] border border-black/5 bg-white/70 shadow-[0_20px_80px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/[0.035]"
-	>
-		<div class="relative">
-			<div
-				class="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.78),rgba(255,255,255,0.45))] dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.03))]"
-			></div>
-
-			<div class="relative p-6 sm:p-8">
-				<div class="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-					<div>
-						<h2 class="text-xl font-semibold tracking-[-0.03em] text-zinc-950 dark:text-white sm:text-2xl">
-							{userSectionTitle()}
-						</h2>
-						<p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-							{userSectionDescription()}
-						</p>
-					</div>
-
-					<div class="flex flex-wrap gap-2">
-						<button
-							type="button"
-							onclick={() => showUsers('all')}
-							class={`rounded-[12px] border px-3 py-2 text-sm font-medium transition ${filterButtonClass(userFilter === 'all')}`}
-						>
-							Tous
-						</button>
-						<button
-							type="button"
-							onclick={() => showUsers('admins')}
-							class={`rounded-[12px] border px-3 py-2 text-sm font-medium transition ${filterButtonClass(userFilter === 'admins')}`}
-						>
-							Admins
-						</button>
-						<button
-							type="button"
-							onclick={() => showUsers('eligible')}
-							class={`rounded-[12px] border px-3 py-2 text-sm font-medium transition ${filterButtonClass(userFilter === 'eligible')}`}
-						>
-							Promouvables
-						</button>
-						<button
-							type="button"
-							onclick={() => showUsers('inactive')}
-							class={`rounded-[12px] border px-3 py-2 text-sm font-medium transition ${filterButtonClass(userFilter === 'inactive')}`}
-						>
-							Inactifs
-						</button>
-					</div>
-				</div>
-
-				<div class="grid gap-3">
-					{#if filteredUsers.length > 0}
-						{#each filteredUsers as user}
-							<div
-								class="flex flex-col gap-4 rounded-[20px] border border-black/5 bg-black/[0.02] p-4 dark:border-white/10 dark:bg-white/[0.03] sm:flex-row sm:items-start sm:justify-between"
-							>
-								<div class="min-w-0">
-									<div class="text-sm font-semibold text-zinc-950 dark:text-white">
-										{user.email}
-									</div>
-
-									<div class="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-										{userRoleLabel(user)}
-									</div>
-
-									<div class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-										Créé : {formatDateLabel(user.created_at)}
-									</div>
-
-									<div class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-										Dernière mise à jour : {formatDateLabel(user.updated_at)}
-									</div>
-								</div>
-
-								<div class="flex shrink-0 flex-col items-stretch gap-3 sm:items-end">
-									<span
-										class={`inline-flex items-center justify-center rounded-full border px-2.5 py-1 text-xs font-semibold ${userBadgeClass(user)}`}
-									>
-										{userRoleLabel(user)}
-									</span>
-
-									{#if user.is_admin}
-										<div class="text-xs font-medium text-emerald-600 dark:text-emerald-300">
-											Droits admin déjà actifs
-										</div>
-									{:else if !user.is_active}
-										<div class="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-											Compte inactif, promotion impossible
-										</div>
-									{:else}
-										<form method="POST" action="?/grantAdmin" class="w-full sm:w-auto">
-											<input type="hidden" name="_csrf" value={data.csrfToken} />
-											<input type="hidden" name="user_id" value={user.id} />
-											<button
-												type="submit"
-												class="inline-flex w-full items-center justify-center rounded-[14px] border border-emerald-200 bg-[linear-gradient(90deg,#22c55e,#16a34a)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(22,163,74,0.20)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(22,163,74,0.26)] dark:border-emerald-400/20 sm:w-auto"
-											>
-												Promouvoir admin
-											</button>
-										</form>
-									{/if}
-								</div>
-							</div>
-						{/each}
-					{:else}
-						<div
-							class="rounded-[22px] border border-dashed border-black/10 bg-black/[0.02] px-5 py-8 text-sm text-zinc-600 dark:border-white/10 dark:bg-white/[0.02] dark:text-zinc-400"
-						>
-							Aucun utilisateur pour ce filtre.
-						</div>
-					{/if}
 				</div>
 			</div>
 		</div>
