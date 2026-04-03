@@ -79,6 +79,10 @@ async def heartbeat(
     if payload.agent_version is not None:
         machine.agent_version = payload.agent_version
 
+    if payload.ssdv2_installed is not None:
+        machine.ssdv2_installed = payload.ssdv2_installed
+        machine.ssdv2_checked_at = now
+
     machine.last_seen_at = now
 
     db.commit()
@@ -91,7 +95,6 @@ async def heartbeat(
         status=machine.status,
         last_seen_at=machine.last_seen_at,
     )
-
 
 @router.post("/rotate-token", response_model=RotateMachineTokenResponse)
 async def rotate_machine_token(

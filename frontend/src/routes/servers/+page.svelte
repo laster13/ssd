@@ -1,7 +1,20 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+
 	let { data, form } = $props();
 
 	const servers = Array.isArray(data.machines) ? data.machines : [];
+
+	function openServerDetails(machineId: unknown) {
+		goto(`/servers/${String(machineId)}`);
+	}
+
+	function handleCardKeydown(event: KeyboardEvent, machineId: unknown) {
+		if (event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			openServerDetails(machineId);
+		}
+	}
 
 	function shortUuid(value: unknown) {
 		const str = String(value ?? '');
@@ -84,11 +97,11 @@
 						Servers
 					</div>
 
-                                        <h1 class="max-w-2xl text-lg font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50 sm:text-xl xl:text-2xl xl:leading-[1.1]">
-	                                        <span class="mt-1 block bg-[linear-gradient(90deg,#0f172a_0%,#0891b2_18%,#059669_44%,#2563eb_70%,#7c3aed_100%)] bg-clip-text text-transparent dark:bg-[linear-gradient(90deg,#f8fafc_0%,#a7f3d0_18%,#67e8f9_40%,#93c5fd_66%,#d8b4fe_100%)]">
-		                                        Mes serveurs
-	                                        </span>
-                                        </h1>
+					<h1 class="max-w-2xl text-lg font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50 sm:text-xl xl:text-2xl xl:leading-[1.1]">
+						<span class="mt-1 block bg-[linear-gradient(90deg,#0f172a_0%,#0891b2_18%,#059669_44%,#2563eb_70%,#7c3aed_100%)] bg-clip-text text-transparent dark:bg-[linear-gradient(90deg,#f8fafc_0%,#a7f3d0_18%,#67e8f9_40%,#93c5fd_66%,#d8b4fe_100%)]">
+							Mes serveurs
+						</span>
+					</h1>
 
 					<p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600 dark:text-zinc-400 sm:text-base">
 						Retrouve ici les serveurs pairés à ton compte et ajoute-en un nouveau si besoin.
@@ -120,92 +133,113 @@
 	{#if servers.length > 0}
 		<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
 			{#each servers as server}
-				{@const badge = badgeFor(server)}
+			{@const badge = badgeFor(server)}
 
-				<article
-					class="overflow-hidden rounded-[26px] border border-black/5 bg-white/70 p-5 shadow-[0_12px_34px_rgba(15,23,42,0.06)] ring-1 ring-inset ring-black/[0.03] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_18px_42px_rgba(15,23,42,0.10)] dark:border-white/10 dark:bg-white/[0.035] dark:ring-white/[0.04] dark:shadow-[0_12px_34px_rgba(0,0,0,0.20)] dark:hover:shadow-[0_18px_42px_rgba(0,0,0,0.28)]"
-				>
-					<div class="mb-5 flex items-start justify-between gap-3">
-						<div class="min-w-0">
-							<h2 class="truncate text-[1.05rem] font-semibold tracking-[-0.03em] text-zinc-950 dark:text-white">
-								{server.hostname ?? 'Serveur sans nom'}
-							</h2>
+                                <article
+                                	class="overflow-hidden rounded-[26px] border border-black/5 bg-white/70 p-5 shadow-[0_12px_34px_rgba(15,23,42,0.06)] ring-1 ring-inset ring-black/[0.03] transition-all duration-200 hover:shadow-[0_18px_42px_rgba(15,23,42,0.10)] dark:border-white/10 dark:bg-white/[0.035] dark:ring-white/[0.04] dark:shadow-[0_12px_34px_rgba(0,0,0,0.20)] dark:hover:shadow-[0_18px_42px_rgba(0,0,0,0.28)]"
+                                >
+                                	<div class="mb-5 flex items-start justify-between gap-3">
+                                		<div class="min-w-0">
+                                			<h2 class="truncate text-[1.05rem] font-semibold tracking-[-0.03em] text-zinc-950 dark:text-white">
+                                				{server.hostname ?? 'Serveur sans nom'}
+                                			</h2>
 
-							<div class="mt-1 flex flex-wrap items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
-								<span class="truncate">{server.machine_uuid}</span>
-								<span class="rounded-full border border-black/8 bg-black/[0.03] px-2 py-0.5 text-[11px] font-medium text-zinc-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-300">
-									{shortUuid(server.machine_uuid)}
-								</span>
-							</div>
-						</div>
+                                			<div class="mt-1 flex flex-wrap items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
+                                				<span class="truncate">{server.machine_uuid}</span>
+                                				<span class="rounded-full border border-black/8 bg-black/[0.03] px-2 py-0.5 text-[11px] font-medium text-zinc-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-300">
+                                					{shortUuid(server.machine_uuid)}
+                                				</span>
+                                			</div>
+                                		</div>
 
-						<div
-							class={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] ${badge.className}`}
-						>
-							{badge.label}
-						</div>
-					</div>
+                                		<div
+                                			class={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] ${badge.className}`}
+                                		>
+                                			{badge.label}
+                                		</div>
+                                	</div>
 
-					<div class="grid gap-3 text-sm text-zinc-700 dark:text-zinc-300">
-						<div class="flex items-start justify-between gap-3 border-b border-black/5 pb-3 dark:border-white/5">
-							<span class="font-medium text-zinc-500 dark:text-zinc-500">ID</span>
-							<span class="text-right text-zinc-900 dark:text-zinc-100">{server.id}</span>
-						</div>
+                                	<div class="grid gap-3 text-sm text-zinc-700 dark:text-zinc-300">
+                                		<div class="flex items-start justify-between gap-3 border-b border-black/5 pb-3 dark:border-white/5">
+                                			<span class="font-medium text-zinc-500 dark:text-zinc-500">ID</span>
+                                			<span class="text-right text-zinc-900 dark:text-zinc-100">{server.id}</span>
+                                		</div>
 
-						<div class="flex items-start justify-between gap-3 border-b border-black/5 pb-3 dark:border-white/5">
-							<span class="font-medium text-zinc-500 dark:text-zinc-500">UUID court</span>
-							<span class="text-right font-mono text-zinc-900 dark:text-zinc-100">
-								{shortUuid(server.machine_uuid)}
-							</span>
-						</div>
+                                		<div class="flex items-start justify-between gap-3 border-b border-black/5 pb-3 dark:border-white/5">
+                                			<span class="font-medium text-zinc-500 dark:text-zinc-500">UUID court</span>
+                                			<span class="text-right font-mono text-zinc-900 dark:text-zinc-100">
+                                				{shortUuid(server.machine_uuid)}
+                                			</span>
+                                		</div>
 
-						<div class="flex items-start justify-between gap-3 border-b border-black/5 pb-3 dark:border-white/5">
-							<span class="font-medium text-zinc-500 dark:text-zinc-500">Agent</span>
-							<span class="text-right text-zinc-900 dark:text-zinc-100">
-								{server.agent_version ?? '-'}
-							</span>
-						</div>
+                                		<div class="flex items-start justify-between gap-3 border-b border-black/5 pb-3 dark:border-white/5">
+                                			<span class="font-medium text-zinc-500 dark:text-zinc-500">Agent</span>
+                                			<span class="text-right text-zinc-900 dark:text-zinc-100">
+                                				{server.agent_version ?? '-'}
+                                			</span>
+                                		</div>
 
-						<div class="flex items-start justify-between gap-3 border-b border-black/5 pb-3 dark:border-white/5">
-							<span class="font-medium text-zinc-500 dark:text-zinc-500">Dernier contact</span>
-							<span class="text-right text-zinc-900 dark:text-zinc-100">
-								{formatDate(server.last_seen_at)}
-							</span>
-						</div>
+                                		<div class="flex items-start justify-between gap-3 border-b border-black/5 pb-3 dark:border-white/5">
+                                			<span class="font-medium text-zinc-500 dark:text-zinc-500">État actuel</span>
 
-						<div class="flex items-start justify-between gap-3">
-							<span class="font-medium text-zinc-500 dark:text-zinc-500">Statut brut</span>
-							<span class="text-right text-zinc-900 dark:text-zinc-100">
-								{server.status ?? '-'}
-							</span>
-						</div>
-					</div>
+                                			{#if server.ssdv2_installed}
+                                				<span class="text-right font-medium text-emerald-600 dark:text-emerald-400">
+                                					SSDv2 installé
+                                				</span>
+                                			{:else}
+                                				<span class="text-right font-medium text-zinc-700 dark:text-zinc-300">
+                                					Non installé
+                                				</span>
+                                			{/if}
+                                		</div>
 
-					<div class="mt-5 flex justify-end border-t border-black/5 pt-4 dark:border-white/5">
-						<form
-							method="POST"
-							action="?/delete"
-							onsubmit={(event) => {
-								if (
-									!confirm(
-										`Supprimer l'appairage du serveur "${server.hostname ?? server.machine_uuid}" ?`
-									)
-								) {
-									event.preventDefault();
-								}
-							}}
-						>
-							<input type="hidden" name="_csrf" value={data.csrfToken} />
-							<input type="hidden" name="machine_id" value={server.id} />
-							<button
-								type="submit"
-								class="inline-flex items-center justify-center rounded-[14px] border border-red-200 bg-[linear-gradient(90deg,#ef4444,#dc2626)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(220,38,38,0.18)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(220,38,38,0.24)] dark:border-red-500/20"
-							>
-								Supprimer
-							</button>
-						</form>
-					</div>
-				</article>
+                                		<div class="flex items-start justify-between gap-3 border-b border-black/5 pb-3 dark:border-white/5">
+                                			<span class="font-medium text-zinc-500 dark:text-zinc-500">Dernier contact</span>
+                                			<span class="text-right text-zinc-900 dark:text-zinc-100">
+                                				{formatDate(server.last_seen_at)}
+                                			</span>
+                                		</div>
+
+                                		<div class="flex items-start justify-between gap-3">
+                                			<span class="font-medium text-zinc-500 dark:text-zinc-500">Statut brut</span>
+                                			<span class="text-right text-zinc-900 dark:text-zinc-100">
+                                				{server.status ?? '-'}
+                                			</span>
+                                		</div>
+                                	</div>
+
+                                	<div class="mt-5 flex items-center justify-between border-t border-black/5 pt-4 dark:border-white/5">
+                                		<a
+                                			href={`/servers/${server.id}`}
+                                			class="inline-flex items-center justify-center rounded-[14px] border border-cyan-200 bg-[linear-gradient(90deg,#38bdf8,#2563eb)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(37,99,235,0.18)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(37,99,235,0.24)] dark:border-white/10"
+                                		>
+                                			{server.ssdv2_installed ? 'Gérer SSDv2' : 'Configurer le serveur'}
+                                		</a>
+
+                                		<form
+                                			method="POST"
+                                			action="?/delete"
+                                			onsubmit={(event) => {
+                                				if (
+                                					!confirm(
+                                						`Supprimer l'appairage du serveur "${server.hostname ?? server.machine_uuid}" ?`
+                                					)
+                                				) {
+                                					event.preventDefault();
+                                				}
+                                			}}
+                                		>
+                                			<input type="hidden" name="_csrf" value={data.csrfToken} />
+                                			<input type="hidden" name="machine_id" value={server.id} />
+                                			<button
+                                				type="submit"
+                                				class="inline-flex items-center justify-center rounded-[14px] border border-red-200 bg-[linear-gradient(90deg,#ef4444,#dc2626)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(220,38,38,0.18)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(220,38,38,0.24)] dark:border-red-500/20"
+                                			>
+                                				Supprimer
+                                			</button>
+                                		</form>
+                                	</div>
+                                </article>
 			{/each}
 		</div>
 	{:else}

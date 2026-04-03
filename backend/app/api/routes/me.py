@@ -1,7 +1,7 @@
 import re
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -12,6 +12,7 @@ from app.core.database import get_db
 from app.models.job import Job
 from app.models.job_log import JobLog
 from app.models.machine import Machine
+from app.models.machine_settings import MachineSettings
 from app.models.user import User
 from app.schemas.job import (
     AdminJobListItem,
@@ -20,6 +21,10 @@ from app.schemas.job import (
     CreateMyInstallationRequest,
 )
 from app.schemas.job_log import AdminJobLogItem
+from app.schemas.machine_settings import (
+    MachineSettingsResponse,
+    UpdateMachineSettingsRequest,
+)
 
 router = APIRouter(prefix="/me", tags=["me"])
 
@@ -48,6 +53,90 @@ def get_owned_machine_or_404(db: Session, machine_id: UUID, current_user: User) 
         raise HTTPException(status_code=404, detail="Machine not found")
 
     return machine
+
+
+@router.get("/machines/{machine_id}/settings", response_model=MachineSettingsResponse)
+def get_machine_settings(
+    machine_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    machine = get_owned_machine_or_404(db, machine_id, current_user)
+
+    stmt = select(MachineSettings).where(MachineSettings.machine_id == machine.id)
+    settings = db.execute(stmt).scalar_one_or_none()
+
+    if settings is None:
+        settings = MachineSettings(
+            machine_id=machine.id,
+            oauth_enabled=False,
+        )
+        db.add(settings)
+        db.commit()
+        db.refresh(settings)
+
+    return MachineSettingsResponse(
+        machine_id=settings.machine_id,
+        username=settings.username,
+        email=settings.email,
+        domain=settings.domain,
+        password=settings.password,
+        cloudflare_login=settings.cloudflare_login,
+        cloudflare_api_key=settings.cloudflare_api_key,
+        oauth_enabled=settings.oauth_enabled,
+        oauth_client=settings.oauth_client,
+        oauth_secret=settings.oauth_secret,
+        oauth_mail=settings.oauth_mail,
+        created_at=settings.created_at,
+        updated_at=settings.updated_at,
+    )
+
+
+@router.patch("/machines/{machine_id}/settings", response_model=MachineSettingsResponse)
+def update_machine_settings(
+    machine_id: UUID,
+    payload: UpdateMachineSettingsRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    machine = get_owned_machine_or_404(db, machine_id, current_user)
+
+    stmt = select(MachineSettings).where(MachineSettings.machine_id == machine.id)
+    settings = db.execute(stmt).scalar_one_or_none()
+
+    if settings is None:
+        settings = MachineSettings(machine_id=machine.id, oauth_enabled=False)
+        db.add(settings)
+
+    settings.username = payload.username
+    settings.email = payload.email
+    settings.domain = payload.domain
+    settings.password = payload.password
+    settings.cloudflare_login = payload.cloudflare_login
+    settings.cloudflare_api_key = payload.cloudflare_api_key
+    settings.oauth_enabled = payload.oauth_enabled
+    settings.oauth_client = payload.oauth_client
+    settings.oauth_secret = payload.oauth_secret
+    settings.oauth_mail = payload.oauth_mail
+
+    db.commit()
+    db.refresh(settings)
+
+    return MachineSettingsResponse(
+        machine_id=settings.machine_id,
+        username=settings.username,
+        email=settings.email,
+        domain=settings.domain,
+        password=settings.password,
+        cloudflare_login=settings.cloudflare_login,
+        cloudflare_api_key=settings.cloudflare_api_key,
+        oauth_enabled=settings.oauth_enabled,
+        oauth_client=settings.oauth_client,
+        oauth_secret=settings.oauth_secret,
+        oauth_mail=settings.oauth_mail,
+        created_at=settings.created_at,
+        updated_at=settings.updated_at,
+    )
 
 
 def get_owned_installation_or_404(db: Session, job_id: UUID, current_user: User) -> Job:
@@ -135,6 +224,8 @@ def get_my_machines(
             "status": machine.status,
             "hostname": machine.hostname,
             "agent_version": machine.agent_version,
+            "ssdv2_installed": machine.ssdv2_installed,
+            "ssdv2_checked_at": machine.ssdv2_checked_at,
             "last_seen_at": machine.last_seen_at,
             "created_at": machine.created_at,
             "updated_at": machine.updated_at,

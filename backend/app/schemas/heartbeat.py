@@ -7,6 +7,7 @@ from pydantic import BaseModel
 class AgentHeartbeatRequest(BaseModel):
     hostname: str | None = None
     agent_version: str | None = None
+    ssdv2_installed: bool | None = None
 
 
 class AgentHeartbeatResponse(BaseModel):
