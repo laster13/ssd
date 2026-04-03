@@ -1,18 +1,46 @@
 import getpass
+import sys
 
+from pydantic import EmailStr, ValidationError, TypeAdapter
 from sqlalchemy import select
 
 from app.core.auth import hash_password
 from app.core.database import SessionLocal
 from app.models.user import User
 
+MIN_PASSWORD_LENGTH = 14
+email_adapter = TypeAdapter(EmailStr)
 
-def main():
-    email = input("Admin email: ").strip().lower()
-    password = getpass.getpass("Admin password: ")
 
-    if len(password) < 14:
-        raise SystemExit("Password too short (minimum 14 characters)")
+def prompt_email() -> str:
+    raw = input("Admin email: ").strip().lower()
+    try:
+        return str(email_adapter.validate_python(raw))
+    except ValidationError as exc:
+        raise SystemExit(f"Invalid email address: {exc.errors()[0]['msg']}")
+
+
+def prompt_password() -> str:
+    password = getpass.getpass(f"Admin password (min {MIN_PASSWORD_LENGTH} chars): ")
+    confirm = getpass.getpass("Confirm password: ")
+
+    if password != confirm:
+        raise SystemExit("Passwords do not match")
+
+    if len(password) < MIN_PASSWORD_LENGTH:
+        raise SystemExit(
+            f"Password too short (minimum {MIN_PASSWORD_LENGTH} characters)"
+        )
+
+    return password
+
+
+def main() -> None:
+    print("Create a new admin user")
+    print("-" * 24)
+
+    email = prompt_email()
+    password = prompt_password()
 
     db = SessionLocal()
     try:
@@ -21,7 +49,7 @@ def main():
         ).scalar_one_or_none()
 
         if existing:
-            raise SystemExit("User already exists")
+            raise SystemExit(f"User already exists: {email}")
 
         user = User(
             email=email,
@@ -36,7 +64,12 @@ def main():
         db.commit()
         db.refresh(user)
 
+        print()
         print(f"Admin created: {user.email} ({user.id})")
+        print("Reminder: enable 2FA immediately after first login.")
+    except KeyboardInterrupt:
+        print("\nCancelled.", file=sys.stderr)
+        raise SystemExit(130)
     finally:
         db.close()
 

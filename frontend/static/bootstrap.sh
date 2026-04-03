@@ -5,10 +5,15 @@ PAIRING_CODE=""
 BACKEND_URL=""
 INSTALL_DIR="/opt/ssd-agent"
 AGENT_USER=""
+ALLOW_INSECURE_HTTP="${ALLOW_INSECURE_HTTP:-false}"
 
 usage() {
   echo "Usage:"
-  echo "  bootstrap.sh --pairing-code XXXX-XXXX --backend-url http://IP:8000 [--agent-user USER] [--install-dir /opt/ssd-agent]"
+  echo "  bootstrap.sh --pairing-code XXXX-XXXX --backend-url https://admin.example.com [--agent-user USER] [--install-dir /opt/ssd-agent]"
+  echo
+  echo "By default, insecure HTTP is refused."
+  echo "To override temporarily (not recommended), run with:"
+  echo "  ALLOW_INSECURE_HTTP=true ./bootstrap.sh ..."
   exit 1
 }
 
@@ -93,6 +98,14 @@ if [[ -z "${PAIRING_CODE}" || -z "${BACKEND_URL}" ]]; then
   usage
 fi
 
+BACKEND_URL="${BACKEND_URL%/}"
+
+if [[ "${BACKEND_URL}" != https://* && "${ALLOW_INSECURE_HTTP}" != "true" ]]; then
+  echo "[bootstrap] BACKEND_URL must start with https://"
+  echo "[bootstrap] Refusing insecure HTTP bootstrap by default"
+  exit 1
+fi
+
 detect_agent_user
 
 if ! id "${AGENT_USER}" >/dev/null 2>&1; then
@@ -125,10 +138,19 @@ apt-get install -y python3 python3-venv python3-pip curl ca-certificates
 echo "[bootstrap] Creating install directory..."
 mkdir -p "${INSTALL_DIR}/agent"
 mkdir -p "${INSTALL_DIR}/logs"
+mkdir -p "${INSTALL_DIR}/tmp/ansible"
+mkdir -p "${AGENT_HOME}/.ansible/tmp"
+mkdir -p "${AGENT_HOME}/seedbox"
+
 chown -R "${AGENT_USER}:${AGENT_USER}" "${INSTALL_DIR}"
+chown -R "${AGENT_USER}:${AGENT_USER}" "${AGENT_HOME}/.ansible"
+chown -R "${AGENT_USER}:${AGENT_USER}" "${AGENT_HOME}/seedbox"
+
 chmod 750 "${INSTALL_DIR}"
 chmod 750 "${INSTALL_DIR}/agent"
 chmod 750 "${INSTALL_DIR}/logs"
+chmod 750 "${INSTALL_DIR}/tmp"
+chmod 750 "${INSTALL_DIR}/tmp/ansible"
 
 echo "[bootstrap] Creating virtualenv..."
 rm -rf "${INSTALL_DIR}/.venv"
@@ -137,7 +159,13 @@ run_as_agent_user "${INSTALL_DIR}/.venv/bin/pip" install --upgrade pip
 run_as_agent_user "${INSTALL_DIR}/.venv/bin/pip" install requests
 
 echo "[bootstrap] Verifying pairing code..."
-VERIFY_RESPONSE="$(curl -fsSL -X POST "${BACKEND_URL}/pairing/verify" \
+
+CURL_FLAGS=(-fsSL --connect-timeout 10 --max-time 30)
+if [[ "${BACKEND_URL}" == https://* ]]; then
+  CURL_FLAGS+=(--proto '=https' --tlsv1.2)
+fi
+
+VERIFY_RESPONSE="$(curl "${CURL_FLAGS[@]}" -X POST "${BACKEND_URL}/pairing/verify" \
   -H "Content-Type: application/json" \
   -d "{\"pairing_code\":\"${PAIRING_CODE}\"}")"
 
@@ -203,12 +231,13 @@ MACHINE_TOKEN = os.environ["MACHINE_TOKEN"]
 HOSTNAME = os.environ.get("HOSTNAME", "unknown-host")
 AGENT_VERSION = os.environ.get("AGENT_VERSION", "0.1.0")
 POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", "5"))
+VERIFY_TLS = os.environ.get("VERIFY_TLS", "true").lower() == "true"
 PY
 
 cat > "${INSTALL_DIR}/agent/api.py" <<'PY'
 import requests
 
-from agent.config import BACKEND_URL, MACHINE_TOKEN
+from agent.config import BACKEND_URL, MACHINE_TOKEN, VERIFY_TLS
 
 
 def auth_headers() -> dict[str, str]:
@@ -224,6 +253,7 @@ def post(path: str, payload: dict | None = None) -> requests.Response:
         json=payload,
         headers=auth_headers(),
         timeout=30,
+        verify=VERIFY_TLS,
     )
 
 
@@ -260,7 +290,11 @@ def send_log(job_id: str, seq: int, level: str, message: str) -> dict:
             "message": message,
         },
     )
-    response.raise_for_status()
+    if response.status_code >= 400:
+        raise requests.HTTPError(
+            f"{response.status_code} Client Error for url: {response.url} | response={response.text}",
+            response=response,
+        )
     return response.json()
 
 
@@ -288,6 +322,22 @@ ALLOWED_INSTALL_PROFILE = "seedbox_standard"
 ALLOWED_AUTH_TYPES = {"aucune", "basique", "oauth", "authelia", "oauth2-proxy"}
 SLUG_RE = re.compile(r"^[a-zA-Z0-9_.+-]+$")
 SUBDOMAIN_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
+ANSI_ESCAPE_RE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]")
+
+
+def clean_log_message(message: str) -> str:
+    message = ANSI_ESCAPE_RE.sub("", message)
+    message = CONTROL_CHARS_RE.sub("", message)
+    message = message.replace("\r", "")
+    return message.strip()
+
+
+def safe_send_log(job_id: str, seq: int, level: str, message: str) -> None:
+    cleaned = clean_log_message(message)
+    if not cleaned:
+        return
+    send_log(job_id, seq, level, cleaned[:4000])
 
 
 def shell_line(command: str) -> tuple[int, str]:
@@ -345,24 +395,24 @@ def run_seedbox_standard(job_id: str, seq: int, app_slug: str, subdomain: str, a
     ]
 
     for command in pre_commands:
-        send_log(job_id, seq, "info", f"running command: {command}")
+        safe_send_log(job_id, seq, "info", f"running command: {command}")
         seq += 1
 
         return_code, output = shell_line(command)
 
         if output:
             for line in output.splitlines():
-                send_log(job_id, seq, "info", line)
+                safe_send_log(job_id, seq, "info", line)
                 seq += 1
 
         if return_code != 0:
-            send_log(job_id, seq, "error", f"command failed with return code={return_code}")
+            safe_send_log(job_id, seq, "error", f"command failed with return code={return_code}")
             complete_job(job_id, error_message=f"Preparation command failed with return code {return_code}")
             return seq, return_code
 
     command = f"cd {compose_dir} && source profile.sh && launch_service {app_slug_q}"
 
-    send_log(job_id, seq, "info", f"running command: {command}")
+    safe_send_log(job_id, seq, "info", f"running command: {command}")
     seq += 1
 
     process = subprocess.Popen(
@@ -379,8 +429,7 @@ def run_seedbox_standard(job_id: str, seq: int, app_slug: str, subdomain: str, a
         message = line.rstrip()
         if not message:
             continue
-
-        send_log(job_id, seq, "info", message)
+        safe_send_log(job_id, seq, "info", message)
         seq += 1
 
     return_code = process.wait()
@@ -396,18 +445,18 @@ def run_job(job: dict) -> None:
 
     try:
         if job_type != ALLOWED_JOB_TYPE:
-            send_log(job_id, seq, "error", f"unsupported job type={job_type}")
+            safe_send_log(job_id, seq, "error", f"unsupported job type={job_type}")
             complete_job(job_id, error_message=f"Unsupported job type: {job_type}")
             return
 
         try:
             app_slug, install_profile, subdomain, auth_type = validate_payload(payload)
         except ValueError as exc:
-            send_log(job_id, seq, "error", str(exc))
+            safe_send_log(job_id, seq, "error", str(exc))
             complete_job(job_id, error_message=str(exc))
             return
 
-        send_log(
+        safe_send_log(
             job_id,
             seq,
             "info",
@@ -416,7 +465,7 @@ def run_job(job: dict) -> None:
         seq += 1
 
         if install_profile != ALLOWED_INSTALL_PROFILE:
-            send_log(job_id, seq, "error", f"unsupported install profile={install_profile}")
+            safe_send_log(job_id, seq, "error", f"unsupported install profile={install_profile}")
             complete_job(job_id, error_message=f"Unsupported install profile: {install_profile}")
             return
 
@@ -429,7 +478,7 @@ def run_job(job: dict) -> None:
         )
 
         if return_code == 0:
-            send_log(job_id, seq, "info", f"job finished successfully for app={app_slug}")
+            safe_send_log(job_id, seq, "info", f"job finished successfully for app={app_slug}")
             complete_job(
                 job_id,
                 result={
@@ -442,7 +491,7 @@ def run_job(job: dict) -> None:
                 },
             )
         else:
-            send_log(job_id, seq, "error", f"job failed with return code={return_code}")
+            safe_send_log(job_id, seq, "error", f"job failed with return code={return_code}")
             complete_job(
                 job_id,
                 error_message=f"Command failed with return code {return_code}",
@@ -450,7 +499,7 @@ def run_job(job: dict) -> None:
 
     except Exception as exc:
         try:
-            send_log(job_id, seq, "error", f"exception: {exc}")
+            safe_send_log(job_id, seq, "error", f"exception: {exc}")
             complete_job(job_id, error_message=str(exc))
         except Exception:
             pass
@@ -504,6 +553,7 @@ MACHINE_TOKEN=${MACHINE_TOKEN}
 HOSTNAME=${HOSTNAME_VALUE}
 AGENT_VERSION=0.1.0
 POLL_INTERVAL=5
+VERIFY_TLS=true
 MACHINE_ID=${MACHINE_ID}
 MACHINE_UUID=${MACHINE_UUID}
 EOF
@@ -526,11 +576,14 @@ Group=${AGENT_USER}
 WorkingDirectory=${INSTALL_DIR}
 Environment=PYTHONUNBUFFERED=1
 Environment=HOME=${AGENT_HOME}
+Environment=TERM=xterm
+Environment=TMPDIR=${INSTALL_DIR}/tmp
+Environment=ANSIBLE_LOCAL_TEMP=${INSTALL_DIR}/tmp/ansible
+Environment=ANSIBLE_REMOTE_TMP=${INSTALL_DIR}/tmp/ansible
 ExecStart=${INSTALL_DIR}/.venv/bin/python -m agent.main
 Restart=always
 RestartSec=5
 
-NoNewPrivileges=yes
 PrivateTmp=yes
 PrivateDevices=yes
 ProtectSystem=full
@@ -547,7 +600,7 @@ MemoryDenyWriteExecute=yes
 RemoveIPC=yes
 UMask=0077
 
-ReadWritePaths=${COMPOSE_DIR} ${INSTALL_DIR}
+ReadWritePaths=${COMPOSE_DIR} ${INSTALL_DIR} ${AGENT_HOME}/.ansible ${AGENT_HOME}/seedbox /root/.ssh
 SystemCallArchitectures=native
 
 [Install]

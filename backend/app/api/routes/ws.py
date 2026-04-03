@@ -13,23 +13,49 @@ from app.models.user import User
 
 router = APIRouter(tags=["ws"])
 
+TOKEN_COOKIE_NAME = "token"
+
+ALLOWED_WS_ORIGINS = {
+    "https://ssd.lastharo.eu",
+    "https://panel.lastharo.eu",
+}
+
+
+def is_allowed_origin(websocket: WebSocket) -> bool:
+    origin = websocket.headers.get("origin")
+    return origin in ALLOWED_WS_ORIGINS
+
 
 def extract_ws_token(websocket: WebSocket) -> str | None:
     authorization = websocket.headers.get("authorization")
     if authorization:
         parts = authorization.split(" ", 1)
         if len(parts) == 2 and parts[0].lower() == "bearer":
-            return parts[1].strip()
+            token = parts[1].strip()
+            if token:
+                return token
 
     token = websocket.query_params.get("token")
     if token:
-        return token.strip()
+        token = token.strip()
+        if token:
+            return token
+
+    cookie_token = websocket.cookies.get(TOKEN_COOKIE_NAME)
+    if cookie_token:
+        cookie_token = cookie_token.strip()
+        if cookie_token:
+            return cookie_token
 
     return None
 
 
 @router.websocket("/ws/jobs/{job_id}")
 async def websocket_job_logs(websocket: WebSocket, job_id: UUID):
+    if not is_allowed_origin(websocket):
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
     token = extract_ws_token(websocket)
     if not token:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
@@ -47,6 +73,8 @@ async def websocket_job_logs(websocket: WebSocket, job_id: UUID):
         return
 
     db = SessionLocal()
+    connected = False
+
     try:
         user = db.execute(
             select(User).where(User.id == subject).limit(1)
@@ -56,37 +84,35 @@ async def websocket_job_logs(websocket: WebSocket, job_id: UUID):
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
             return
 
-        job = db.execute(
-            select(Job)
+        row = db.execute(
+            select(Job, Machine)
             .join(Machine, Machine.id == Job.machine_id)
             .where(Job.id == job_id)
             .limit(1)
-        ).scalar_one_or_none()
+        ).first()
 
-        if not job:
+        if not row:
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
             return
 
-        machine = db.execute(
-            select(Machine).where(Machine.id == job.machine_id).limit(1)
-        ).scalar_one_or_none()
-
-        if not machine:
-            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-            return
+        job, machine = row
 
         if not user.is_admin and machine.owner_id != user.id:
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
             return
 
         await job_ws_manager.connect(job_id, websocket)
+        connected = True
 
         try:
             while True:
                 await websocket.receive_text()
         except WebSocketDisconnect:
-            job_ws_manager.disconnect(job_id, websocket)
+            pass
         except Exception:
-            job_ws_manager.disconnect(job_id, websocket)
+            pass
+
     finally:
+        if connected:
+            job_ws_manager.disconnect(job_id, websocket)
         db.close()
