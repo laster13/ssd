@@ -263,12 +263,13 @@ def authenticate() -> dict:
     return response.json()
 
 
-def heartbeat(hostname: str, agent_version: str) -> dict:
+def heartbeat(hostname: str, agent_version: str, ssdv2_installed: bool) -> dict:
     response = post(
         "/agent/heartbeat",
         {
             "hostname": hostname,
             "agent_version": agent_version,
+            "ssdv2_installed": ssdv2_installed,
         },
     )
     response.raise_for_status()
@@ -310,205 +311,10 @@ def complete_job(job_id: str, result: dict | None = None, error_message: str | N
     return response.json()
 PY
 
-cat > "${INSTALL_DIR}/agent/runner.py" <<'PY'
-import re
-import shlex
-import subprocess
-
-from agent.api import complete_job, send_log
-
-ALLOWED_JOB_TYPE = "install_app"
-ALLOWED_INSTALL_PROFILE = "seedbox_standard"
-ALLOWED_AUTH_TYPES = {"aucune", "basique", "oauth", "authelia", "oauth2-proxy"}
-SLUG_RE = re.compile(r"^[a-zA-Z0-9_.+-]+$")
-SUBDOMAIN_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
-ANSI_ESCAPE_RE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
-CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]")
-
-
-def clean_log_message(message: str) -> str:
-    message = ANSI_ESCAPE_RE.sub("", message)
-    message = CONTROL_CHARS_RE.sub("", message)
-    message = message.replace("\r", "")
-    return message.strip()
-
-
-def safe_send_log(job_id: str, seq: int, level: str, message: str) -> None:
-    cleaned = clean_log_message(message)
-    if not cleaned:
-        return
-    send_log(job_id, seq, level, cleaned[:4000])
-
-
-def shell_line(command: str) -> tuple[int, str]:
-    process = subprocess.run(
-        ["bash", "-lc", command],
-        capture_output=True,
-        text=True,
-    )
-
-    output = process.stdout.strip()
-    if process.stderr.strip():
-        output = f"{output}\n{process.stderr.strip()}".strip()
-
-    return process.returncode, output
-
-
-def validate_payload(payload: dict) -> tuple[str, str, str, str]:
-    app_slug = str(payload.get("app_slug") or "").strip()
-    install_profile = str(payload.get("install_profile") or "").strip()
-    subdomain = str(payload.get("subdomain") or "").strip().lower()
-    auth_type = str(payload.get("auth_type") or "").strip().lower()
-
-    if not app_slug:
-        raise ValueError("Missing app_slug in payload")
-
-    if not SLUG_RE.fullmatch(app_slug):
-        raise ValueError("Invalid app_slug format")
-
-    if install_profile != ALLOWED_INSTALL_PROFILE:
-        raise ValueError(f"Unsupported install_profile: {install_profile!r}")
-
-    if not subdomain:
-        raise ValueError("Missing subdomain in payload")
-
-    if not SUBDOMAIN_RE.fullmatch(subdomain):
-        raise ValueError("Invalid subdomain format")
-
-    if auth_type not in ALLOWED_AUTH_TYPES:
-        raise ValueError(f"Unsupported auth_type: {auth_type!r}")
-
-    return app_slug, install_profile, subdomain, auth_type
-
-
-def run_seedbox_standard(job_id: str, seq: int, app_slug: str, subdomain: str, auth_type: str) -> tuple[int, int]:
-    compose_dir = '"$HOME/seedbox-compose"'
-    app_slug_q = shlex.quote(app_slug)
-    subdomain_q = shlex.quote(subdomain)
-    auth_type_q = shlex.quote(auth_type)
-    app_key_q = shlex.quote(f"sub.{app_slug}.{app_slug}")
-    auth_key_q = shlex.quote(f"sub.{app_slug}.auth")
-
-    pre_commands = [
-        f"cd {compose_dir} && source profile.sh && manage_account_yml {app_key_q} {subdomain_q}",
-        f"cd {compose_dir} && source profile.sh && manage_account_yml {auth_key_q} {auth_type_q}",
-    ]
-
-    for command in pre_commands:
-        safe_send_log(job_id, seq, "info", f"running command: {command}")
-        seq += 1
-
-        return_code, output = shell_line(command)
-
-        if output:
-            for line in output.splitlines():
-                safe_send_log(job_id, seq, "info", line)
-                seq += 1
-
-        if return_code != 0:
-            safe_send_log(job_id, seq, "error", f"command failed with return code={return_code}")
-            complete_job(job_id, error_message=f"Preparation command failed with return code {return_code}")
-            return seq, return_code
-
-    command = f"cd {compose_dir} && source profile.sh && launch_service {app_slug_q}"
-
-    safe_send_log(job_id, seq, "info", f"running command: {command}")
-    seq += 1
-
-    process = subprocess.Popen(
-        ["bash", "-lc", command],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1,
-    )
-
-    assert process.stdout is not None
-
-    for line in process.stdout:
-        message = line.rstrip()
-        if not message:
-            continue
-        safe_send_log(job_id, seq, "info", message)
-        seq += 1
-
-    return_code = process.wait()
-    return seq, return_code
-
-
-def run_job(job: dict) -> None:
-    job_id = job["job_id"]
-    job_type = job["type"]
-    payload = job.get("payload") or {}
-
-    seq = 1
-
-    try:
-        if job_type != ALLOWED_JOB_TYPE:
-            safe_send_log(job_id, seq, "error", f"unsupported job type={job_type}")
-            complete_job(job_id, error_message=f"Unsupported job type: {job_type}")
-            return
-
-        try:
-            app_slug, install_profile, subdomain, auth_type = validate_payload(payload)
-        except ValueError as exc:
-            safe_send_log(job_id, seq, "error", str(exc))
-            complete_job(job_id, error_message=str(exc))
-            return
-
-        safe_send_log(
-            job_id,
-            seq,
-            "info",
-            f"validated payload: app_slug={app_slug} install_profile={install_profile} subdomain={subdomain} auth_type={auth_type}",
-        )
-        seq += 1
-
-        if install_profile != ALLOWED_INSTALL_PROFILE:
-            safe_send_log(job_id, seq, "error", f"unsupported install profile={install_profile}")
-            complete_job(job_id, error_message=f"Unsupported install profile: {install_profile}")
-            return
-
-        seq, return_code = run_seedbox_standard(
-            job_id=job_id,
-            seq=seq,
-            app_slug=app_slug,
-            subdomain=subdomain,
-            auth_type=auth_type,
-        )
-
-        if return_code == 0:
-            safe_send_log(job_id, seq, "info", f"job finished successfully for app={app_slug}")
-            complete_job(
-                job_id,
-                result={
-                    "message": "install finished",
-                    "app_slug": app_slug,
-                    "install_profile": install_profile,
-                    "subdomain": subdomain,
-                    "auth_type": auth_type,
-                    "return_code": return_code,
-                },
-            )
-        else:
-            safe_send_log(job_id, seq, "error", f"job failed with return code={return_code}")
-            complete_job(
-                job_id,
-                error_message=f"Command failed with return code {return_code}",
-            )
-
-    except Exception as exc:
-        try:
-            safe_send_log(job_id, seq, "error", f"exception: {exc}")
-            complete_job(job_id, error_message=str(exc))
-        except Exception:
-            pass
-        raise
-PY
-
 cat > "${INSTALL_DIR}/agent/main.py" <<'PY'
 import time
-from datetime import datetime
+from datetime import datetime, timezone
+from pathlib import Path
 
 from agent.api import authenticate, fetch_job, heartbeat
 from agent.config import AGENT_VERSION, HOSTNAME, POLL_INTERVAL
@@ -516,7 +322,12 @@ from agent.runner import run_job
 
 
 def log(message: str) -> None:
-    print(f"[{datetime.utcnow().isoformat()}] [agent] {message}", flush=True)
+    print(f"[{datetime.now(timezone.utc).isoformat()}] [agent] {message}", flush=True)
+
+
+def is_ssdv2_installed() -> bool:
+    target = Path.home() / "seedbox-compose" / "ssddb"
+    return target.exists()
 
 
 def main() -> None:
@@ -525,8 +336,13 @@ def main() -> None:
 
     while True:
         try:
-            hb = heartbeat(HOSTNAME, AGENT_VERSION)
-            log(f"heartbeat ok: last_seen_at={hb['last_seen_at']}")
+            ssdv2_installed = is_ssdv2_installed()
+
+            hb = heartbeat(HOSTNAME, AGENT_VERSION, ssdv2_installed)
+            log(
+                f"heartbeat ok: last_seen_at={hb['last_seen_at']} "
+                f"ssdv2_installed={ssdv2_installed}"
+            )
 
             job_response = fetch_job()
 
@@ -545,6 +361,234 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+PY
+
+cat > "${INSTALL_DIR}/agent/runner.py" <<'PY'
+import shlex
+import subprocess
+
+from agent.api import complete_job, send_log
+
+
+def shell_line(command: str) -> tuple[int, str]:
+    process = subprocess.run(
+        ["bash", "-lc", command],
+        capture_output=True,
+        text=True,
+    )
+    output = process.stdout.strip()
+
+    if process.stderr.strip():
+        output = f"{output}\n{process.stderr.strip()}".strip()
+
+    return process.returncode, output
+
+
+def quote(value: object) -> str:
+    return shlex.quote("" if value is None else str(value))
+
+
+def run_logged_command(
+    job_id: str,
+    seq: int,
+    command: str,
+    *,
+    reveal_command: bool = True,
+    label: str | None = None,
+) -> tuple[int, int]:
+    if reveal_command:
+        send_log(job_id, seq, "info", f"running command: {command}")
+    else:
+        send_log(job_id, seq, "info", label or "running hidden command")
+    seq += 1
+
+    return_code, output = shell_line(command)
+
+    if output:
+        for line in output.splitlines():
+            message = line.rstrip()
+            if not message:
+                continue
+            send_log(job_id, seq, "info", message)
+            seq += 1
+
+    return return_code, seq
+
+
+def run_streaming_command(
+    job_id: str,
+    seq: int,
+    command: str,
+) -> tuple[int, int]:
+    send_log(job_id, seq, "info", f"running command: {command}")
+    seq += 1
+
+    process = subprocess.Popen(
+        ["bash", "-lc", command],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
+
+    assert process.stdout is not None
+
+    for line in process.stdout:
+        message = line.rstrip()
+        if not message:
+            continue
+        send_log(job_id, seq, "info", message)
+        seq += 1
+
+    return_code = process.wait()
+    return return_code, seq
+
+
+def run_install_app(job_id: str, payload: dict, seq: int) -> tuple[bool, int, dict | None, str | None]:
+    app_slug = payload.get("app_slug")
+    subdomain = payload.get("subdomain")
+    auth_type = payload.get("auth_type")
+
+    if not app_slug:
+        return False, seq, None, "Missing app_slug in payload"
+    if not subdomain:
+        return False, seq, None, "Missing subdomain in payload"
+    if not auth_type:
+        return False, seq, None, "Missing auth_type in payload"
+
+    pre_commands = [
+        f"cd ~/seedbox-compose && source profile.sh && manage_account_yml sub.{quote(app_slug)}.{quote(app_slug)} {quote(subdomain)}",
+        f"cd ~/seedbox-compose && source profile.sh && manage_account_yml sub.{quote(app_slug)}.auth {quote(auth_type)}",
+    ]
+
+    for command in pre_commands:
+        return_code, seq = run_logged_command(job_id, seq, command)
+        if return_code != 0:
+            send_log(job_id, seq, "error", f"command failed with return code={return_code}")
+            seq += 1
+            return False, seq, None, f"Preparation command failed with return code {return_code}"
+
+    command = f"cd ~/seedbox-compose && source profile.sh && launch_service {quote(app_slug)}"
+    return_code, seq = run_streaming_command(job_id, seq, command)
+
+    if return_code == 0:
+        result = {
+            "message": "install finished",
+            "app_slug": app_slug,
+            "subdomain": subdomain,
+            "auth_type": auth_type,
+            "return_code": return_code,
+        }
+        return True, seq, result, None
+
+    return False, seq, None, f"Command failed with return code {return_code}"
+
+
+def run_install_ssdv2(job_id: str, payload: dict, seq: int) -> tuple[bool, int, dict | None, str | None]:
+    required_keys = [
+        "username",
+        "email",
+        "domain",
+        "password",
+        "cloudflare_login",
+        "cloudflare_api_key",
+    ]
+
+    missing = [key for key in required_keys if not str(payload.get(key) or "").strip()]
+    if missing:
+        return False, seq, None, f"Missing required payload fields: {', '.join(missing)}"
+
+    oauth_enabled = bool(payload.get("oauth_enabled"))
+
+    if oauth_enabled:
+        oauth_missing = [
+            key
+            for key in ["oauth_client", "oauth_secret", "oauth_mail"]
+            if not str(payload.get(key) or "").strip()
+        ]
+        if oauth_missing:
+            return False, seq, None, f"Missing required OAuth payload fields: {', '.join(oauth_missing)}"
+
+    compose_dir = "~/seedbox-compose"
+    profile_prefix = f"cd {compose_dir} && source profile.sh"
+
+    pre_commands: list[tuple[str, str]] = [
+        ("updating all.yml: username", f"{profile_prefix} && manage_account_yml username {quote(payload.get('username'))}"),
+        ("updating all.yml: email", f"{profile_prefix} && manage_account_yml email {quote(payload.get('email'))}"),
+        ("updating all.yml: domain", f"{profile_prefix} && manage_account_yml domain {quote(payload.get('domain'))}"),
+        ("updating all.yml: password", f"{profile_prefix} && manage_account_yml password {quote(payload.get('password'))}"),
+        ("updating all.yml: cloudflare_login", f"{profile_prefix} && manage_account_yml cloudflare_login {quote(payload.get('cloudflare_login'))}"),
+        ("updating all.yml: cloudflare_api_key", f"{profile_prefix} && manage_account_yml cloudflare_api_key {quote(payload.get('cloudflare_api_key'))}"),
+        ("updating all.yml: oauth_enabled", f"{profile_prefix} && manage_account_yml oauth_enabled {quote(str(oauth_enabled).lower())}"),
+    ]
+
+    if oauth_enabled:
+        pre_commands.extend(
+            [
+                ("updating all.yml: oauth_client", f"{profile_prefix} && manage_account_yml oauth_client {quote(payload.get('oauth_client'))}"),
+                ("updating all.yml: oauth_secret", f"{profile_prefix} && manage_account_yml oauth_secret {quote(payload.get('oauth_secret'))}"),
+                ("updating all.yml: oauth_mail", f"{profile_prefix} && manage_account_yml oauth_mail {quote(payload.get('oauth_mail'))}"),
+            ]
+        )
+
+    for label, command in pre_commands:
+        return_code, seq = run_logged_command(
+            job_id,
+            seq,
+            command,
+            reveal_command=False,
+            label=label,
+        )
+        if return_code != 0:
+            send_log(job_id, seq, "error", f"command failed with return code={return_code}")
+            seq += 1
+            return False, seq, None, f"Preparation command failed with return code {return_code}"
+
+    command = f"cd {compose_dir} && source profile.sh && bash install.sh"
+    return_code, seq = run_streaming_command(job_id, seq, command)
+
+    if return_code == 0:
+        result = {
+            "message": "SSDv2 install finished",
+            "domain": payload.get("domain"),
+            "oauth_enabled": oauth_enabled,
+            "return_code": return_code,
+        }
+        return True, seq, result, None
+
+    return False, seq, None, f"Command failed with return code {return_code}"
+
+
+def run_job(job: dict) -> None:
+    job_id = job["job_id"]
+    job_type = job["type"]
+    payload = job.get("payload") or {}
+    seq = 1
+
+    try:
+        if job_type == "install_app":
+            success, seq, result, error_message = run_install_app(job_id, payload, seq)
+        elif job_type == "install_ssdv2":
+            success, seq, result, error_message = run_install_ssdv2(job_id, payload, seq)
+        else:
+            send_log(job_id, seq, "error", f"unsupported job type={job_type}")
+            complete_job(job_id, error_message=f"Unsupported job type: {job_type}")
+            return
+
+        if success:
+            send_log(job_id, seq, "info", f"job finished successfully for type={job_type}")
+            complete_job(job_id, result=result)
+        else:
+            send_log(job_id, seq, "error", error_message or "job failed")
+            complete_job(job_id, error_message=error_message or "Job failed")
+
+    except Exception as exc:
+        try:
+            send_log(job_id, seq, "error", f"exception: {exc}")
+            complete_job(job_id, error_message=str(exc))
+        except Exception:
+            pass
+        raise
 PY
 
 cat > "${INSTALL_DIR}/.env" <<EOF
@@ -586,21 +630,20 @@ RestartSec=5
 
 PrivateTmp=yes
 PrivateDevices=yes
-ProtectSystem=full
-ProtectHome=read-only
+ProtectSystem=off
+ProtectHome=off
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectControlGroups=yes
 ProtectClock=yes
 ProtectHostname=yes
-RestrictSUIDSGID=yes
+RestrictSUIDSGID=no
 RestrictRealtime=yes
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
 RemoveIPC=yes
 UMask=0077
 
-ReadWritePaths=${COMPOSE_DIR} ${INSTALL_DIR} ${AGENT_HOME}/.ansible ${AGENT_HOME}/seedbox /root/.ssh
 SystemCallArchitectures=native
 
 [Install]

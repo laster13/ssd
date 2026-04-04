@@ -115,8 +115,15 @@ export const actions: Actions = {
 			return fail(response.status, { uninstallError });
 		}
 
-		return {
-			uninstallSuccess: 'Désinstallation lancée.'
-		};
+		const payload = await response.json();
+		const jobId = String(payload?.job_id ?? '').trim();
+
+		if (!jobId) {
+			return fail(500, {
+				uninstallError: 'La désinstallation a été créée, mais aucun job_id n’a été retourné.'
+			});
+		}
+
+		throw redirect(303, `/installations/${jobId}`);
 	}
 };
