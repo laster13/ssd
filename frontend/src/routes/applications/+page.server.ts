@@ -75,5 +75,48 @@ export const actions: Actions = {
 		return {
 			deleteSuccess: 'Job supprimé de l’historique.'
 		};
+	},
+
+	uninstallApplication: async ({ request, locals }) => {
+		if (!locals.user || !locals.token) {
+			throw redirect(303, '/login');
+		}
+
+		const formData = await request.formData();
+		const machineId = String(formData.get('machine_id') ?? '').trim();
+		const appSlug = String(formData.get('app_slug') ?? '').trim();
+
+		if (!machineId || !appSlug) {
+			return fail(400, {
+				uninstallError: 'Informations de désinstallation manquantes.'
+			});
+		}
+
+		const response = await apiFetchWithAuth(locals.token, '/me/uninstallations', {
+			method: 'POST',
+			body: JSON.stringify({
+				machine_id: machineId,
+				app_slug: appSlug
+			})
+		});
+
+		if (!response.ok) {
+			let uninstallError = 'Impossible de lancer la désinstallation.';
+
+			try {
+				const payload = await response.json();
+				if (typeof payload?.detail === 'string' && payload.detail.trim()) {
+					uninstallError = payload.detail.trim();
+				}
+			} catch {
+				// noop
+			}
+
+			return fail(response.status, { uninstallError });
+		}
+
+		return {
+			uninstallSuccess: 'Désinstallation lancée.'
+		};
 	}
 };

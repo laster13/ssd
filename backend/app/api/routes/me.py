@@ -2,6 +2,7 @@ import re
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -36,9 +37,14 @@ ALLOWED_AUTH_TYPES = {
     "oauth2-proxy",
 }
 
-INSTALL_JOB_TYPES = ["install_app", "install_ssdv2"]
+INSTALL_JOB_TYPES = ["install_app", "install_ssdv2", "uninstall_app"]
 
 SUBDOMAIN_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])?$")
+
+
+class CreateMyUninstallationRequest(BaseModel):
+    machine_id: UUID
+    app_slug: str
 
 
 def get_owned_machine_or_404(db: Session, machine_id: UUID, current_user: User) -> Machine:
@@ -234,6 +240,18 @@ def normalize_and_validate_installation_payload(
     return catalog_app["slug"], subdomain, auth_type, install_profile
 
 
+def normalize_uninstall_app_slug(app_slug: str) -> tuple[str, str]:
+    normalized_slug = app_slug.strip()
+    if not normalized_slug:
+        raise HTTPException(status_code=400, detail="app_slug is required")
+
+    catalog_app = get_catalog_app(normalized_slug)
+    if catalog_app:
+        return catalog_app["slug"], str(catalog_app.get("name") or catalog_app["slug"])
+
+    return normalized_slug, normalized_slug
+
+
 def ensure_no_active_installation_for_machine(db: Session, machine: Machine) -> None:
     stmt = (
         select(Job.id)
@@ -417,6 +435,54 @@ def create_my_installation(
         request=request,
         description="User created install job",
         details={"job_id": str(job.id), "payload": job.payload},
+    )
+
+    return CreateMachineJobResponse(
+        job_id=job.id,
+        machine_id=job.machine_id,
+        status=job.status,
+        type=job.type,
+        payload=job.payload,
+    )
+
+
+@router.post("/uninstallations", response_model=CreateMachineJobResponse)
+def create_my_uninstallation(
+    payload: CreateMyUninstallationRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    machine = get_owned_machine_or_404(db, payload.machine_id, current_user)
+    ensure_no_active_installation_for_machine(db, machine)
+
+    app_slug, app_name = normalize_uninstall_app_slug(payload.app_slug)
+
+    job = Job(
+        machine_id=machine.id,
+        type="uninstall_app",
+        status="pending",
+        payload={
+            "app_slug": app_slug,
+            "app_name": app_name,
+        },
+    )
+
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+
+    audit_event(
+        event_type="job.uninstall.user.success",
+        severity="info",
+        success=True,
+        status_code=200,
+        actor_type="user",
+        actor_user_id=current_user.id,
+        target_machine_id=machine.id,
+        request=request,
+        description="User created uninstall job",
+        details={"job_id": str(job.id), "app_slug": app_slug},
     )
 
     return CreateMachineJobResponse(

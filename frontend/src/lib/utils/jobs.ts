@@ -4,6 +4,7 @@ export type HistoryFilter = 'all' | 'running' | 'completed' | 'failed';
 export type Job = {
 	id: string;
 	machine_id: string;
+	type?: string;
 	status: string;
 	created_at?: string;
 	updated_at?: string;
