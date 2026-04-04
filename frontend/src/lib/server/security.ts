@@ -1,4 +1,5 @@
 import { dev } from '$app/environment';
+import { env } from '$env/dynamic/private';
 import { error, type Cookies } from '@sveltejs/kit';
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
@@ -6,8 +7,8 @@ const TOKEN_COOKIE = 'token';
 const CSRF_COOKIE = 'csrf_token';
 
 const CSRF_SECRET =
-	process.env.CSRF_SECRET ??
-	process.env.JWT_SECRET_KEY ??
+	env.CSRF_SECRET ??
+	env.JWT_SECRET_KEY ??
 	(dev ? 'dev-only-csrf-secret-change-me' : '');
 
 if (!CSRF_SECRET) {

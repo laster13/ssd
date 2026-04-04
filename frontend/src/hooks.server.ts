@@ -1,11 +1,10 @@
 import type { Handle } from '@sveltejs/kit';
 import { redirect } from '@sveltejs/kit';
-import { PUBLIC_BACKEND_URL } from '$env/static/public';
 import { clearSessionCookies } from '$lib/server/security';
-
-const BACKEND_URL = PUBLIC_BACKEND_URL || 'http://127.0.0.1:8000';
+import { getServerBackendUrl } from '$lib/server/backend';
 
 export const handle: Handle = async ({ event, resolve }) => {
+	const BACKEND_URL = getServerBackendUrl();
 	const token = event.cookies.get('token');
 
 	event.locals.token = token ?? null;
