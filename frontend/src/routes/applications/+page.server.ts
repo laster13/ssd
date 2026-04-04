@@ -124,6 +124,6 @@ export const actions: Actions = {
 			});
 		}
 
-		throw redirect(303, `/installations/${jobId}`);
+		throw redirect(303, `/uninstallations/${jobId}`);
 	}
 };

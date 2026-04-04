@@ -12,8 +12,8 @@
 	function humanStatus(status: string) {
 		if (status === 'pending') return 'En attente';
 		if (status === 'claimed') return 'Préparation';
-		if (status === 'running') return 'Installation en cours';
-		if (status === 'completed') return 'Installation terminée';
+		if (status === 'running') return 'Suppression en cours';
+		if (status === 'completed') return 'Suppression terminée';
 		if (status === 'failed') return 'Échec';
 		return status;
 	}
@@ -26,12 +26,12 @@
 			return 'border border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300';
 		}
 		if (status === 'running') {
-			return 'border border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-300';
+			return 'border border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300';
 		}
 		if (status === 'claimed') {
-			return 'border border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-300';
+			return 'border border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-500/20 dark:bg-orange-500/10 dark:text-orange-300';
 		}
-		return 'border border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300';
+		return 'border border-zinc-200 bg-zinc-50 text-zinc-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-300';
 	}
 
 	onMount(() => {
@@ -69,7 +69,7 @@
 </script>
 
 <svelte:head>
-	<title>Suivi d’installation</title>
+	<title>Suivi de désinstallation</title>
 </svelte:head>
 
 <section class="relative isolate min-h-screen overflow-hidden bg-[linear-gradient(180deg,#f8fafc_0%,#eef6ff_38%,#f8fafc_100%)] dark:bg-[linear-gradient(180deg,#07111f_0%,#0a1324_38%,#07111f_100%)]">
@@ -87,43 +87,38 @@
 					<p class="mb-5">
 						<a
 							href="/applications"
-							class="text-sm font-medium text-sky-600 no-underline transition hover:text-sky-700 dark:text-sky-300 dark:hover:text-sky-200"
+							class="text-sm font-medium text-orange-600 no-underline transition hover:text-orange-700 dark:text-orange-300 dark:hover:text-orange-200"
 						>
 							← Retour aux applications
 						</a>
 					</p>
 
-					<div class="mb-3 inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-cyan-50/90 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-700 dark:border-cyan-400/20 dark:bg-cyan-500/10 dark:text-cyan-200">
-						<span class="h-1.5 w-1.5 rounded-full bg-cyan-500 dark:bg-cyan-400"></span>
-						Installation
+					<div class="mb-3 inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50/90 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-700 dark:border-orange-400/20 dark:bg-orange-500/10 dark:text-orange-200">
+						<span class="h-1.5 w-1.5 rounded-full bg-orange-500 dark:bg-orange-400"></span>
+						Désinstallation
 					</div>
 
 					<h1 class="mb-2 text-3xl font-semibold tracking-[-0.05em] text-zinc-950 dark:text-white sm:text-4xl">
-						Suivi d’installation
+						Suivi de désinstallation
 					</h1>
 
 					<p class="mb-6 text-sm text-zinc-600 dark:text-zinc-400">
-						Suivi en temps réel du déploiement de ton application.
+						Suivi en temps réel de la suppression de ton application.
 					</p>
 
 					<div class="mb-6 rounded-[22px] border border-black/5 bg-white/78 px-5 py-5 text-sm text-zinc-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-300">
 						<div class="grid gap-4 sm:grid-cols-2">
 							<div>
 								<strong class="text-zinc-900 dark:text-zinc-100">Application :</strong>
+								<span class="ml-2">{job.payload?.app_name ?? job.payload?.app_slug ?? '-'}</span>
+							</div>
+
+							<div>
+								<strong class="text-zinc-900 dark:text-zinc-100">Slug :</strong>
 								<span class="ml-2">{job.payload?.app_slug ?? '-'}</span>
 							</div>
 
-							<div>
-								<strong class="text-zinc-900 dark:text-zinc-100">Sous-domaine :</strong>
-								<span class="ml-2">{job.payload?.subdomain ?? '-'}</span>
-							</div>
-
-							<div>
-								<strong class="text-zinc-900 dark:text-zinc-100">Authentification :</strong>
-								<span class="ml-2">{job.payload?.auth_type ?? '-'}</span>
-							</div>
-
-							<div class="flex items-center gap-3">
+							<div class="flex items-center gap-3 sm:col-span-2">
 								<strong class="text-zinc-900 dark:text-zinc-100">Statut :</strong>
 								<span class={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] ${statusClass(job.status)}`}>
 									{humanStatus(job.status)}
@@ -133,25 +128,25 @@
 					</div>
 
 					{#if !isFinished()}
-						<div class="mb-5 rounded-[18px] border border-cyan-200 bg-cyan-50/80 px-4 py-4 text-sm text-cyan-700 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-300">
+						<div class="mb-5 rounded-[18px] border border-orange-200 bg-orange-50/80 px-4 py-4 text-sm text-orange-700 dark:border-orange-500/20 dark:bg-orange-500/10 dark:text-orange-300">
 							Connexion temps réel active…
 						</div>
 					{/if}
 
 					{#if job.status === 'completed'}
 						<div class="mb-5 rounded-[18px] border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300">
-							L’installation est terminée avec succès.
+							La désinstallation est terminée avec succès.
 						</div>
 					{/if}
 
 					{#if job.status === 'failed'}
 						<div class="mb-5 rounded-[18px] border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300">
-							L’installation a échoué.
+							La désinstallation a échoué.
 						</div>
 					{/if}
 
 					<h2 class="mb-4 text-xl font-semibold tracking-[-0.03em] text-zinc-950 dark:text-white">
-						Journal d’installation
+						Journal de désinstallation
 					</h2>
 
 					{#if logs.length > 0}
