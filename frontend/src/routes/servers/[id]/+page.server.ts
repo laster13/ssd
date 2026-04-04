@@ -14,7 +14,60 @@ function asString(value: FormDataEntryValue | null): string {
 	return String(value ?? '').trim();
 }
 
-export const load: PageServerLoad = async ({ locals, params }) => {
+function hasNonEmpty(value: FormDataEntryValue | null): boolean {
+	return asString(value).length > 0;
+}
+
+function buildVisibleValues(formData: FormData) {
+	return {
+		username: asString(formData.get('username')),
+		email: asString(formData.get('email')),
+		domain: asString(formData.get('domain')),
+		oauth_enabled: normalizeBoolean(formData.get('oauth_enabled')),
+		oauth_mail: asString(formData.get('oauth_mail'))
+	};
+}
+
+function buildSettingsPayload(formData: FormData) {
+	const payload: Record<string, unknown> = {
+		username: asString(formData.get('username')),
+		email: asString(formData.get('email')),
+		domain: asString(formData.get('domain')),
+		oauth_enabled: normalizeBoolean(formData.get('oauth_enabled'))
+	};
+
+	// Champs sensibles : on n’envoie une nouvelle valeur que si l’utilisateur en saisit une.
+	// Si le champ est laissé vide, la valeur existante côté backend est conservée.
+	if (hasNonEmpty(formData.get('password'))) {
+		payload.password = asString(formData.get('password'));
+	}
+
+	if (hasNonEmpty(formData.get('cloudflare_login'))) {
+		payload.cloudflare_login = asString(formData.get('cloudflare_login'));
+	}
+
+	if (hasNonEmpty(formData.get('cloudflare_api_key'))) {
+		payload.cloudflare_api_key = asString(formData.get('cloudflare_api_key'));
+	}
+
+	// oauth_mail n’est pas un secret, mais il n’est présent dans le formulaire
+	// que si OAuth est affiché/activé.
+	if (formData.has('oauth_mail')) {
+		payload.oauth_mail = asString(formData.get('oauth_mail'));
+	}
+
+	if (hasNonEmpty(formData.get('oauth_client'))) {
+		payload.oauth_client = asString(formData.get('oauth_client'));
+	}
+
+	if (hasNonEmpty(formData.get('oauth_secret'))) {
+		payload.oauth_secret = asString(formData.get('oauth_secret'));
+	}
+
+	return payload;
+}
+
+export const load: PageServerLoad = async ({ locals, params, url }) => {
 	if (!locals.user || !locals.token) {
 		throw redirect(303, '/login');
 	}
@@ -59,7 +112,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		machine,
 		settings,
 		latestSsdv2Job,
-		saveSuccess: false
+		saveSuccess: url.searchParams.get('saved') === '1'
 	};
 };
 
@@ -76,18 +129,8 @@ export const actions: Actions = {
 			sessionToken: locals.token
 		});
 
-		const payload = {
-			username: asString(formData.get('username')),
-			email: asString(formData.get('email')),
-			domain: asString(formData.get('domain')),
-			password: asString(formData.get('password')),
-			cloudflare_login: asString(formData.get('cloudflare_login')),
-			cloudflare_api_key: asString(formData.get('cloudflare_api_key')),
-			oauth_enabled: normalizeBoolean(formData.get('oauth_enabled')),
-			oauth_client: asString(formData.get('oauth_client')),
-			oauth_secret: asString(formData.get('oauth_secret')),
-			oauth_mail: asString(formData.get('oauth_mail'))
-		};
+		const visibleValues = buildVisibleValues(formData);
+		const payload = buildSettingsPayload(formData);
 
 		const response = await apiFetchWithAuth(locals.token, `/me/machines/${params.id}/settings`, {
 			method: 'PATCH',
@@ -108,16 +151,11 @@ export const actions: Actions = {
 
 			return fail(response.status, {
 				error: message,
-				values: payload
+				values: visibleValues
 			});
 		}
 
-		const settings = await response.json();
-
-		return {
-			success: true,
-			settings
-		};
+		throw redirect(303, `/servers/${params.id}?saved=1#configuration`);
 	},
 
 	install: async ({ request, cookies, locals, url, params }) => {

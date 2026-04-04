@@ -1,4 +1,5 @@
 import re
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -29,22 +30,73 @@ from app.schemas.machine_settings import (
 
 router = APIRouter(prefix="/me", tags=["me"])
 
-ALLOWED_AUTH_TYPES = {
-    "aucune",
-    "basique",
-    "oauth",
-    "authelia",
-    "oauth2-proxy",
-}
-
 INSTALL_JOB_TYPES = ["install_app", "install_ssdv2", "uninstall_app"]
 
 SUBDOMAIN_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])?$")
+
+SENSITIVE_JOB_PAYLOAD_KEYS = {
+    "password",
+    "cloudflare_login",
+    "cloudflare_api_key",
+    "oauth_client",
+    "oauth_secret",
+}
 
 
 class CreateMyUninstallationRequest(BaseModel):
     machine_id: UUID
     app_slug: str
+
+
+def has_non_empty(value: Any) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def normalize_optional_string(value: Any) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        value = value.strip()
+        return value or None
+    return str(value)
+
+
+def dump_model_updates(model: BaseModel) -> dict[str, Any]:
+    if hasattr(model, "model_dump"):
+        return model.model_dump(exclude_unset=True)
+    return model.dict(exclude_unset=True)
+
+
+def build_machine_settings_response(settings: MachineSettings) -> MachineSettingsResponse:
+    return MachineSettingsResponse(
+        machine_id=settings.machine_id,
+        username=settings.username,
+        email=settings.email,
+        domain=settings.domain,
+        oauth_enabled=settings.oauth_enabled,
+        oauth_mail=settings.oauth_mail,
+        password_configured=has_non_empty(settings.password),
+        cloudflare_login_configured=has_non_empty(settings.cloudflare_login),
+        cloudflare_api_key_configured=has_non_empty(settings.cloudflare_api_key),
+        oauth_client_configured=has_non_empty(settings.oauth_client),
+        oauth_secret_configured=has_non_empty(settings.oauth_secret),
+        created_at=settings.created_at,
+        updated_at=settings.updated_at,
+    )
+
+
+def redact_job_payload(payload: dict | None) -> dict | None:
+    if not isinstance(payload, dict):
+        return payload
+
+    redacted = dict(payload)
+
+    for key in SENSITIVE_JOB_PAYLOAD_KEYS:
+        if key in redacted:
+            redacted.pop(key, None)
+            redacted[f"{key}_configured"] = True
+
+    return redacted
 
 
 def get_owned_machine_or_404(db: Session, machine_id: UUID, current_user: User) -> Machine:
@@ -128,21 +180,7 @@ def get_machine_settings(
         db.commit()
         db.refresh(settings)
 
-    return MachineSettingsResponse(
-        machine_id=settings.machine_id,
-        username=settings.username,
-        email=settings.email,
-        domain=settings.domain,
-        password=settings.password,
-        cloudflare_login=settings.cloudflare_login,
-        cloudflare_api_key=settings.cloudflare_api_key,
-        oauth_enabled=settings.oauth_enabled,
-        oauth_client=settings.oauth_client,
-        oauth_secret=settings.oauth_secret,
-        oauth_mail=settings.oauth_mail,
-        created_at=settings.created_at,
-        updated_at=settings.updated_at,
-    )
+    return build_machine_settings_response(settings)
 
 
 @router.patch("/machines/{machine_id}/settings", response_model=MachineSettingsResponse)
@@ -161,35 +199,31 @@ def update_machine_settings(
         settings = MachineSettings(machine_id=machine.id, oauth_enabled=False)
         db.add(settings)
 
-    settings.username = payload.username
-    settings.email = payload.email
-    settings.domain = payload.domain
-    settings.password = payload.password
-    settings.cloudflare_login = payload.cloudflare_login
-    settings.cloudflare_api_key = payload.cloudflare_api_key
-    settings.oauth_enabled = payload.oauth_enabled
-    settings.oauth_client = payload.oauth_client
-    settings.oauth_secret = payload.oauth_secret
-    settings.oauth_mail = payload.oauth_mail
+    updates = dump_model_updates(payload)
+
+    string_fields = {
+        "username",
+        "email",
+        "domain",
+        "password",
+        "cloudflare_login",
+        "cloudflare_api_key",
+        "oauth_client",
+        "oauth_secret",
+        "oauth_mail",
+    }
+
+    for field in string_fields:
+        if field in updates:
+            setattr(settings, field, normalize_optional_string(updates[field]))
+
+    if "oauth_enabled" in updates:
+        settings.oauth_enabled = bool(updates["oauth_enabled"])
 
     db.commit()
     db.refresh(settings)
 
-    return MachineSettingsResponse(
-        machine_id=settings.machine_id,
-        username=settings.username,
-        email=settings.email,
-        domain=settings.domain,
-        password=settings.password,
-        cloudflare_login=settings.cloudflare_login,
-        cloudflare_api_key=settings.cloudflare_api_key,
-        oauth_enabled=settings.oauth_enabled,
-        oauth_client=settings.oauth_client,
-        oauth_secret=settings.oauth_secret,
-        oauth_mail=settings.oauth_mail,
-        created_at=settings.created_at,
-        updated_at=settings.updated_at,
-    )
+    return build_machine_settings_response(settings)
 
 
 def get_owned_installation_or_404(db: Session, job_id: UUID, current_user: User) -> Job:
@@ -391,7 +425,7 @@ def create_ssdv2_installation(
         machine_id=job.machine_id,
         status=job.status,
         type=job.type,
-        payload=job.payload,
+        payload=redact_job_payload(job.payload),
     )
 
 
@@ -442,7 +476,7 @@ def create_my_installation(
         machine_id=job.machine_id,
         status=job.status,
         type=job.type,
-        payload=job.payload,
+        payload=redact_job_payload(job.payload),
     )
 
 
@@ -490,7 +524,7 @@ def create_my_uninstallation(
         machine_id=job.machine_id,
         status=job.status,
         type=job.type,
-        payload=job.payload,
+        payload=redact_job_payload(job.payload),
     )
 
 
@@ -514,7 +548,7 @@ def list_my_installations(
             machine_id=job.machine_id,
             type=job.type,
             status=job.status,
-            payload=job.payload,
+            payload=redact_job_payload(job.payload),
             created_at=job.created_at,
             updated_at=job.updated_at,
         )
@@ -581,7 +615,7 @@ def get_my_installation(
         machine_id=job.machine_id,
         type=job.type,
         status=job.status,
-        payload=job.payload,
+        payload=redact_job_payload(job.payload),
         result=job.result,
         error_message=job.error_message,
         claimed_at=job.claimed_at,

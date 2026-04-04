@@ -1,11 +1,19 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { setSessionCookie, validateCsrf } from '$lib/server/security';
-import { getServerBackendUrl } from '$lib/server/backend';
 
-export const load: PageServerLoad = async ({ locals }) => {
+import { getServerBackendUrl } from '$lib/server/backend';
+import { setSessionCookie, validateCsrf } from '$lib/server/security';
+
+function normalizeNext(rawNext: string | null): string {
+	if (!rawNext) return '/app-store';
+	if (!rawNext.startsWith('/')) return '/app-store';
+	if (rawNext.startsWith('//')) return '/app-store';
+	return rawNext;
+}
+
+export const load: PageServerLoad = async ({ locals, url }) => {
 	if (locals.user) {
-		throw redirect(303, '/app-store');
+		throw redirect(303, normalizeNext(url.searchParams.get('next')));
 	}
 
 	return {};
@@ -14,7 +22,13 @@ export const load: PageServerLoad = async ({ locals }) => {
 export const actions: Actions = {
 	default: async ({ request, cookies, fetch, url }) => {
 		const BACKEND_URL = getServerBackendUrl();
-		const formData = await validateCsrf({ request, cookies, url, sessionToken: null });
+
+		const formData = await validateCsrf({
+			request,
+			cookies,
+			url,
+			sessionToken: null
+		});
 
 		const email = String(formData.get('email') ?? '').trim();
 		const password = String(formData.get('password') ?? '').trim();
@@ -56,7 +70,7 @@ export const actions: Actions = {
 					message = errorData.detail;
 				}
 			} catch {
-				// no-op
+				// réponse non JSON ou vide
 			}
 
 			return fail(response.status, {
@@ -68,7 +82,16 @@ export const actions: Actions = {
 
 		const data = await response.json();
 
+		if (typeof data?.access_token !== 'string' || !data.access_token) {
+			return fail(502, {
+				error: 'Réponse backend invalide',
+				email,
+				otp_code
+			});
+		}
+
 		setSessionCookie(cookies, data.access_token);
-		throw redirect(303, '/app-store');
+
+		throw redirect(303, normalizeNext(url.searchParams.get('next')));
 	}
 };

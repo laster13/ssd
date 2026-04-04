@@ -1,21 +1,95 @@
 <script lang="ts">
 	let { data, form } = $props();
 
-	const savedSettings = form?.settings ?? data.settings;
+	function computeSavedSettings() {
+		return {
+			username: form?.values?.username ?? data.settings.username ?? '',
+			email: form?.values?.email ?? data.settings.email ?? '',
+			domain: form?.values?.domain ?? data.settings.domain ?? '',
+			oauth_enabled:
+				typeof form?.values?.oauth_enabled === 'boolean'
+					? form.values.oauth_enabled
+					: Boolean(data.settings.oauth_enabled),
+			oauth_mail: form?.values?.oauth_mail ?? data.settings.oauth_mail ?? '',
+
+			password_configured: Boolean(data.settings.password_configured),
+			cloudflare_login_configured: Boolean(data.settings.cloudflare_login_configured),
+			cloudflare_api_key_configured: Boolean(data.settings.cloudflare_api_key_configured),
+			oauth_client_configured: Boolean(data.settings.oauth_client_configured),
+			oauth_secret_configured: Boolean(data.settings.oauth_secret_configured),
+
+			updated_at: data.settings.updated_at ?? null
+		};
+	}
+
+	let savedSettings = $derived(computeSavedSettings());
+
 	const isInstalled = Boolean(data.machine.ssdv2_installed);
 	const latestSsdv2Job = data.latestSsdv2Job ?? null;
 
 	let settings = $state({
-		username: savedSettings.username ?? '',
-		email: savedSettings.email ?? '',
-		domain: savedSettings.domain ?? '',
-		password: savedSettings.password ?? '',
-		cloudflare_login: savedSettings.cloudflare_login ?? '',
-		cloudflare_api_key: savedSettings.cloudflare_api_key ?? '',
-		oauth_enabled: Boolean(savedSettings.oauth_enabled),
-		oauth_client: savedSettings.oauth_client ?? '',
-		oauth_secret: savedSettings.oauth_secret ?? '',
-		oauth_mail: savedSettings.oauth_mail ?? ''
+		username: '',
+		email: '',
+		domain: '',
+
+		password: '',
+		cloudflare_login: '',
+		cloudflare_api_key: '',
+
+		oauth_enabled: false,
+		oauth_client: '',
+		oauth_secret: '',
+		oauth_mail: ''
+	});
+
+	let secretTouched = $state({
+		password: false,
+		cloudflare_login: false,
+		cloudflare_api_key: false,
+		oauth_client: false,
+		oauth_secret: false
+	});
+
+	let lastHydrationKey = '';
+
+	$effect(() => {
+		const key = JSON.stringify({
+			updated_at: savedSettings.updated_at,
+			saveSuccess: data.saveSuccess,
+			error: form?.error ?? null,
+			username: savedSettings.username,
+			email: savedSettings.email,
+			domain: savedSettings.domain,
+			oauth_enabled: savedSettings.oauth_enabled,
+			oauth_mail: savedSettings.oauth_mail,
+			password_configured: savedSettings.password_configured,
+			cloudflare_login_configured: savedSettings.cloudflare_login_configured,
+			cloudflare_api_key_configured: savedSettings.cloudflare_api_key_configured,
+			oauth_client_configured: savedSettings.oauth_client_configured,
+			oauth_secret_configured: savedSettings.oauth_secret_configured
+		});
+
+		if (key === lastHydrationKey) return;
+		lastHydrationKey = key;
+
+		settings.username = savedSettings.username;
+		settings.email = savedSettings.email;
+		settings.domain = savedSettings.domain;
+
+		settings.password = '';
+		settings.cloudflare_login = '';
+		settings.cloudflare_api_key = '';
+
+		settings.oauth_enabled = savedSettings.oauth_enabled;
+		settings.oauth_client = '';
+		settings.oauth_secret = '';
+		settings.oauth_mail = savedSettings.oauth_mail;
+
+		secretTouched.password = false;
+		secretTouched.cloudflare_login = false;
+		secretTouched.cloudflare_api_key = false;
+		secretTouched.oauth_client = false;
+		secretTouched.oauth_secret = false;
 	});
 
 	function normalizeString(value: unknown) {
@@ -24,6 +98,14 @@
 
 	function normalizeBoolean(value: unknown) {
 		return value === true || value === 'true' || value === '1' || value === 'on';
+	}
+
+	function hasTypedSecret(value: unknown) {
+		return normalizeString(value).length > 0;
+	}
+
+	function configuredOrTyped(configured: boolean, typedValue: unknown, touched = false) {
+		return configured || (touched && hasTypedSecret(typedValue));
 	}
 
 	function humanJobStatus(status: unknown) {
@@ -43,41 +125,78 @@
 		}
 	}
 
-	function isSettingsReady(values: Record<string, unknown>) {
+	function isCurrentSettingsReady(values: Record<string, unknown>) {
 		const baseReady =
 			normalizeString(values.username).length > 0 &&
 			normalizeString(values.email).length > 0 &&
 			normalizeString(values.domain).length > 0 &&
-			normalizeString(values.password).length > 0 &&
-			normalizeString(values.cloudflare_login).length > 0 &&
-			normalizeString(values.cloudflare_api_key).length > 0;
+			configuredOrTyped(savedSettings.password_configured, values.password, secretTouched.password) &&
+			configuredOrTyped(
+				savedSettings.cloudflare_login_configured,
+				values.cloudflare_login,
+				secretTouched.cloudflare_login
+			) &&
+			configuredOrTyped(
+				savedSettings.cloudflare_api_key_configured,
+				values.cloudflare_api_key,
+				secretTouched.cloudflare_api_key
+			);
 
 		if (!baseReady) return false;
 
 		if (normalizeBoolean(values.oauth_enabled)) {
 			return (
-				normalizeString(values.oauth_client).length > 0 &&
-				normalizeString(values.oauth_secret).length > 0 &&
-				normalizeString(values.oauth_mail).length > 0
+				normalizeString(values.oauth_mail).length > 0 &&
+				configuredOrTyped(
+					savedSettings.oauth_client_configured,
+					values.oauth_client,
+					secretTouched.oauth_client
+				) &&
+				configuredOrTyped(
+					savedSettings.oauth_secret_configured,
+					values.oauth_secret,
+					secretTouched.oauth_secret
+				)
 			);
 		}
 
 		return true;
 	}
 
-	function hasUnsavedChanges(current: Record<string, unknown>, saved: Record<string, unknown>) {
+	function isSavedSettingsReady(saved: typeof savedSettings) {
+		const baseReady =
+			normalizeString(saved.username).length > 0 &&
+			normalizeString(saved.email).length > 0 &&
+			normalizeString(saved.domain).length > 0 &&
+			Boolean(saved.password_configured) &&
+			Boolean(saved.cloudflare_login_configured) &&
+			Boolean(saved.cloudflare_api_key_configured);
+
+		if (!baseReady) return false;
+
+		if (normalizeBoolean(saved.oauth_enabled)) {
+			return (
+				normalizeString(saved.oauth_mail).length > 0 &&
+				Boolean(saved.oauth_client_configured) &&
+				Boolean(saved.oauth_secret_configured)
+			);
+		}
+
+		return true;
+	}
+
+	function hasUnsavedChanges(current: typeof settings, saved: typeof savedSettings) {
 		return (
 			normalizeString(current.username) !== normalizeString(saved.username) ||
 			normalizeString(current.email) !== normalizeString(saved.email) ||
 			normalizeString(current.domain) !== normalizeString(saved.domain) ||
-			normalizeString(current.password) !== normalizeString(saved.password) ||
-			normalizeString(current.cloudflare_login) !== normalizeString(saved.cloudflare_login) ||
-			normalizeString(current.cloudflare_api_key) !==
-				normalizeString(saved.cloudflare_api_key) ||
 			normalizeBoolean(current.oauth_enabled) !== normalizeBoolean(saved.oauth_enabled) ||
-			normalizeString(current.oauth_client) !== normalizeString(saved.oauth_client) ||
-			normalizeString(current.oauth_secret) !== normalizeString(saved.oauth_secret) ||
-			normalizeString(current.oauth_mail) !== normalizeString(saved.oauth_mail)
+			normalizeString(current.oauth_mail) !== normalizeString(saved.oauth_mail) ||
+			(secretTouched.password && hasTypedSecret(current.password)) ||
+			(secretTouched.cloudflare_login && hasTypedSecret(current.cloudflare_login)) ||
+			(secretTouched.cloudflare_api_key && hasTypedSecret(current.cloudflare_api_key)) ||
+			(secretTouched.oauth_client && hasTypedSecret(current.oauth_client)) ||
+			(secretTouched.oauth_secret && hasTypedSecret(current.oauth_secret))
 		);
 	}
 
@@ -93,7 +212,26 @@
 		}).format(date);
 	}
 
-	const savedConfigReady = isSettingsReady(savedSettings);
+	function statusText(configured: boolean, typedValue: unknown, touched = false) {
+		if (touched && hasTypedSecret(typedValue)) return 'Nouvelle valeur saisie';
+		return configured ? 'Déjà configuré' : 'Non configuré';
+	}
+
+	function statusClass(configured: boolean, typedValue: unknown, touched = false) {
+		if (touched && hasTypedSecret(typedValue)) {
+			return 'border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-300';
+		}
+
+		if (configured) {
+			return 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300';
+		}
+
+		return 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300';
+	}
+
+	const savedConfigReady = $derived(isSavedSettingsReady(savedSettings));
+	const currentConfigReady = $derived(isCurrentSettingsReady(settings));
+	const unsavedChanges = $derived(hasUnsavedChanges(settings, savedSettings));
 </script>
 
 <svelte:head>
@@ -115,7 +253,7 @@
 					</a>
 				</p>
 
-				{#if form?.success}
+				{#if data.saveSuccess}
 					<div class="mb-6 rounded-[20px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300">
 						Configuration sauvegardée avec succès.
 					</div>
@@ -215,7 +353,7 @@
 						</div>
 
 						<div class={`rounded-[18px] border px-4 py-4 ${
-							hasUnsavedChanges(settings, savedSettings)
+							unsavedChanges
 								? 'border-amber-200 bg-amber-50/80 dark:border-amber-500/20 dark:bg-amber-500/10'
 								: 'border-emerald-200 bg-emerald-50/80 dark:border-emerald-500/20 dark:bg-emerald-500/10'
 						}`}>
@@ -223,16 +361,14 @@
 								État du formulaire
 							</p>
 							<p class={`mt-1 text-sm font-semibold ${
-								hasUnsavedChanges(settings, savedSettings)
+								unsavedChanges
 									? 'text-amber-700 dark:text-amber-300'
 									: 'text-emerald-700 dark:text-emerald-300'
 							}`}>
-								{hasUnsavedChanges(settings, savedSettings)
-									? 'Modifications non sauvegardées'
-									: 'Synchronisé avec le serveur'}
+								{unsavedChanges ? 'Modifications non sauvegardées' : 'Synchronisé avec le serveur'}
 							</p>
 							<p class="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
-								{#if hasUnsavedChanges(settings, savedSettings)}
+								{#if unsavedChanges}
 									Sauvegarde tes changements avant de pouvoir poursuivre.
 								{:else}
 									Les valeurs affichées correspondent à la configuration enregistrée.
@@ -279,7 +415,7 @@
 					</div>
 				</div>
 
-				<form id="configuration" method="POST" action="?/save" class="grid gap-4 sm:grid-cols-2">
+				<form id="configuration" method="POST" action="?/save" class="grid gap-4 sm:grid-cols-2" autocomplete="off">
 					<input type="hidden" name="_csrf" value={data.csrfToken} />
 
 					<div class="sm:col-span-2">
@@ -287,7 +423,7 @@
 							Étape 1 · Configuration
 						</div>
 						<p class="text-sm text-zinc-600 dark:text-zinc-400">
-							Complète d’abord ces champs, puis sauvegarde-les. L’installation ne sera proposée qu’après enregistrement.
+							Complète d’abord ces champs, puis sauvegarde-les. Les secrets existants ne sont plus affichés en clair.
 						</p>
 					</div>
 
@@ -340,54 +476,73 @@
 						</label>
 					</div>
 
-					<div class="relative rounded-[22px] border border-white/20 bg-white/60 px-4 pb-3 pt-6 shadow-inner backdrop-blur-md transition-all dark:bg-gray-800/60">
+					<div class="rounded-[22px] border border-white/20 bg-white/60 p-4 shadow-inner backdrop-blur-md transition-all dark:bg-gray-800/60">
 						<input
 							id="password"
 							name="password"
 							type="password"
 							bind:value={settings.password}
-							placeholder=" "
-							class="peer w-full bg-transparent text-sm text-gray-800 outline-none placeholder-transparent dark:text-gray-100"
+							autocomplete="new-password"
+							data-1p-ignore
+							data-lpignore="true"
+							placeholder="Nouveau mot de passe"
+							class="w-full bg-transparent text-sm text-gray-800 outline-none dark:text-gray-100"
+							oninput={() => (secretTouched.password = true)}
 						/>
-						<label
-							for="password"
-							class="pointer-events-none absolute left-4 top-2 text-[11px] uppercase tracking-[0.12em] text-gray-400 transition-all duration-200 peer-placeholder-shown:top-4 peer-placeholder-shown:text-sm peer-placeholder-shown:normal-case peer-placeholder-shown:tracking-normal peer-focus:top-2 peer-focus:text-[11px] peer-focus:uppercase peer-focus:tracking-[0.12em] peer-focus:text-cyan-500 peer-not-placeholder-shown:top-2 peer-not-placeholder-shown:text-[11px] peer-not-placeholder-shown:uppercase peer-not-placeholder-shown:tracking-[0.12em] peer-not-placeholder-shown:text-cyan-500"
-						>
-							Password
-						</label>
+						<div class="mt-3 flex items-center justify-between gap-3">
+							<span class={`inline-flex rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] ${statusClass(savedSettings.password_configured, settings.password, secretTouched.password)}`}>
+								{statusText(savedSettings.password_configured, settings.password, secretTouched.password)}
+							</span>
+							<span class="text-xs text-zinc-500 dark:text-zinc-400">
+								Laisse vide pour conserver l’existant
+							</span>
+						</div>
 					</div>
 
-					<div class="relative rounded-[22px] border border-white/20 bg-white/60 px-4 pb-3 pt-6 shadow-inner backdrop-blur-md transition-all dark:bg-gray-800/60">
+					<div class="rounded-[22px] border border-white/20 bg-white/60 p-4 shadow-inner backdrop-blur-md transition-all dark:bg-gray-800/60">
 						<input
 							id="cloudflare_login"
 							name="cloudflare_login"
+							type="email"
 							bind:value={settings.cloudflare_login}
-							placeholder=" "
-							class="peer w-full bg-transparent text-sm text-gray-800 outline-none placeholder-transparent dark:text-gray-100"
+							autocomplete="off"
+							data-1p-ignore
+							data-lpignore="true"
+							placeholder="Nouveau Cloudflare Mail"
+							class="w-full bg-transparent text-sm text-gray-800 outline-none dark:text-gray-100"
+							oninput={() => (secretTouched.cloudflare_login = true)}
 						/>
-						<label
-							for="cloudflare_login"
-							class="pointer-events-none absolute left-4 top-2 text-[11px] uppercase tracking-[0.12em] text-gray-400 transition-all duration-200 peer-placeholder-shown:top-4 peer-placeholder-shown:text-sm peer-placeholder-shown:normal-case peer-placeholder-shown:tracking-normal peer-focus:top-2 peer-focus:text-[11px] peer-focus:uppercase peer-focus:tracking-[0.12em] peer-focus:text-cyan-500 peer-not-placeholder-shown:top-2 peer-not-placeholder-shown:text-[11px] peer-not-placeholder-shown:uppercase peer-not-placeholder-shown:tracking-[0.12em] peer-not-placeholder-shown:text-cyan-500"
-						>
-							Cloudflare Mail
-						</label>
+						<div class="mt-3 flex items-center justify-between gap-3">
+							<span class={`inline-flex rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] ${statusClass(savedSettings.cloudflare_login_configured, settings.cloudflare_login, secretTouched.cloudflare_login)}`}>
+								{statusText(savedSettings.cloudflare_login_configured, settings.cloudflare_login, secretTouched.cloudflare_login)}
+							</span>
+							<span class="text-xs text-zinc-500 dark:text-zinc-400">
+								Laisse vide pour conserver l’existant
+							</span>
+						</div>
 					</div>
 
-					<div class="relative rounded-[22px] border border-white/20 bg-white/60 px-4 pb-3 pt-6 shadow-inner backdrop-blur-md transition-all dark:bg-gray-800/60">
+					<div class="rounded-[22px] border border-white/20 bg-white/60 p-4 shadow-inner backdrop-blur-md transition-all dark:bg-gray-800/60 sm:col-span-2">
 						<input
 							id="cloudflare_api_key"
 							name="cloudflare_api_key"
 							type="password"
 							bind:value={settings.cloudflare_api_key}
-							placeholder=" "
-							class="peer w-full bg-transparent text-sm text-gray-800 outline-none placeholder-transparent dark:text-gray-100"
+							autocomplete="new-password"
+							data-1p-ignore
+							data-lpignore="true"
+							placeholder="Nouvelle Cloudflare API Key"
+							class="w-full bg-transparent text-sm text-gray-800 outline-none dark:text-gray-100"
+							oninput={() => (secretTouched.cloudflare_api_key = true)}
 						/>
-						<label
-							for="cloudflare_api_key"
-							class="pointer-events-none absolute left-4 top-2 text-[11px] uppercase tracking-[0.12em] text-gray-400 transition-all duration-200 peer-placeholder-shown:top-4 peer-placeholder-shown:text-sm peer-placeholder-shown:normal-case peer-placeholder-shown:tracking-normal peer-focus:top-2 peer-focus:text-[11px] peer-focus:uppercase peer-focus:tracking-[0.12em] peer-focus:text-cyan-500 peer-not-placeholder-shown:top-2 peer-not-placeholder-shown:text-[11px] peer-not-placeholder-shown:uppercase peer-not-placeholder-shown:tracking-[0.12em] peer-not-placeholder-shown:text-cyan-500"
-						>
-							Cloudflare API Key
-						</label>
+						<div class="mt-3 flex items-center justify-between gap-3">
+							<span class={`inline-flex rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] ${statusClass(savedSettings.cloudflare_api_key_configured, settings.cloudflare_api_key, secretTouched.cloudflare_api_key)}`}>
+								{statusText(savedSettings.cloudflare_api_key_configured, settings.cloudflare_api_key, secretTouched.cloudflare_api_key)}
+							</span>
+							<span class="text-xs text-zinc-500 dark:text-zinc-400">
+								Laisse vide pour conserver l’existant
+							</span>
+						</div>
 					</div>
 
 					<div
@@ -432,43 +587,56 @@
 					</div>
 
 					{#if settings.oauth_enabled}
-						<div class="relative rounded-[22px] border border-white/20 bg-white/60 px-4 pb-3 pt-6 shadow-inner backdrop-blur-md transition-all dark:bg-gray-800/60">
+						<div class="rounded-[22px] border border-white/20 bg-white/60 p-4 shadow-inner backdrop-blur-md transition-all dark:bg-gray-800/60">
 							<input
 								id="oauth_client"
 								name="oauth_client"
 								bind:value={settings.oauth_client}
-								placeholder=" "
-								class="peer w-full bg-transparent text-sm text-gray-800 outline-none placeholder-transparent dark:text-gray-100"
+								autocomplete="off"
+								data-1p-ignore
+								data-lpignore="true"
+								placeholder="Nouveau OAuth Client"
+								class="w-full bg-transparent text-sm text-gray-800 outline-none dark:text-gray-100"
+								oninput={() => (secretTouched.oauth_client = true)}
 							/>
-							<label
-								for="oauth_client"
-								class="pointer-events-none absolute left-4 top-2 text-[11px] uppercase tracking-[0.12em] text-gray-400 transition-all duration-200 peer-placeholder-shown:top-4 peer-placeholder-shown:text-sm peer-placeholder-shown:normal-case peer-placeholder-shown:tracking-normal peer-focus:top-2 peer-focus:text-[11px] peer-focus:uppercase peer-focus:tracking-[0.12em] peer-focus:text-cyan-500 peer-not-placeholder-shown:top-2 peer-not-placeholder-shown:text-[11px] peer-not-placeholder-shown:uppercase peer-not-placeholder-shown:tracking-[0.12em] peer-not-placeholder-shown:text-cyan-500"
-							>
-								OAuth Client
-							</label>
+							<div class="mt-3 flex items-center justify-between gap-3">
+								<span class={`inline-flex rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] ${statusClass(savedSettings.oauth_client_configured, settings.oauth_client, secretTouched.oauth_client)}`}>
+									{statusText(savedSettings.oauth_client_configured, settings.oauth_client, secretTouched.oauth_client)}
+								</span>
+								<span class="text-xs text-zinc-500 dark:text-zinc-400">
+									Laisse vide pour conserver l’existant
+								</span>
+							</div>
 						</div>
 
-						<div class="relative rounded-[22px] border border-white/20 bg-white/60 px-4 pb-3 pt-6 shadow-inner backdrop-blur-md transition-all dark:bg-gray-800/60">
+						<div class="rounded-[22px] border border-white/20 bg-white/60 p-4 shadow-inner backdrop-blur-md transition-all dark:bg-gray-800/60">
 							<input
 								id="oauth_secret"
 								name="oauth_secret"
 								type="password"
 								bind:value={settings.oauth_secret}
-								placeholder=" "
-								class="peer w-full bg-transparent text-sm text-gray-800 outline-none placeholder-transparent dark:text-gray-100"
+								autocomplete="new-password"
+								data-1p-ignore
+								data-lpignore="true"
+								placeholder="Nouveau OAuth Secret"
+								class="w-full bg-transparent text-sm text-gray-800 outline-none dark:text-gray-100"
+								oninput={() => (secretTouched.oauth_secret = true)}
 							/>
-							<label
-								for="oauth_secret"
-								class="pointer-events-none absolute left-4 top-2 text-[11px] uppercase tracking-[0.12em] text-gray-400 transition-all duration-200 peer-placeholder-shown:top-4 peer-placeholder-shown:text-sm peer-placeholder-shown:normal-case peer-placeholder-shown:tracking-normal peer-focus:top-2 peer-focus:text-[11px] peer-focus:uppercase peer-focus:tracking-[0.12em] peer-focus:text-cyan-500 peer-not-placeholder-shown:top-2 peer-not-placeholder-shown:text-[11px] peer-not-placeholder-shown:uppercase peer-not-placeholder-shown:tracking-[0.12em] peer-not-placeholder-shown:text-cyan-500"
-							>
-								OAuth Secret
-							</label>
+							<div class="mt-3 flex items-center justify-between gap-3">
+								<span class={`inline-flex rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] ${statusClass(savedSettings.oauth_secret_configured, settings.oauth_secret, secretTouched.oauth_secret)}`}>
+									{statusText(savedSettings.oauth_secret_configured, settings.oauth_secret, secretTouched.oauth_secret)}
+								</span>
+								<span class="text-xs text-zinc-500 dark:text-zinc-400">
+									Laisse vide pour conserver l’existant
+								</span>
+							</div>
 						</div>
 
 						<div class="relative rounded-[22px] border border-white/20 bg-white/60 px-4 pb-3 pt-6 shadow-inner backdrop-blur-md transition-all dark:bg-gray-800/60 sm:col-span-2">
 							<input
 								id="oauth_mail"
 								name="oauth_mail"
+								type="email"
 								bind:value={settings.oauth_mail}
 								placeholder=" "
 								class="peer w-full bg-transparent text-sm text-gray-800 outline-none placeholder-transparent dark:text-gray-100"
@@ -484,7 +652,7 @@
 
 					<div class="mt-4 flex items-center justify-between gap-4 border-t border-black/5 pt-5 dark:border-white/10 sm:col-span-2">
 						<p class="text-xs text-zinc-500 dark:text-zinc-400">
-							Enregistre d’abord cette configuration. L’installation ne sera possible qu’à partir des valeurs sauvegardées.
+							Les secrets existants sont conservés tant que tu laisses les champs sensibles vides.
 						</p>
 
 						<button
@@ -518,7 +686,7 @@
 								<p class="mt-2 text-sm leading-7 text-zinc-600 dark:text-zinc-400">
 									Complète et sauvegarde d’abord la configuration avant de pouvoir lancer SSDv2.
 								</p>
-							{:else if hasUnsavedChanges(settings, savedSettings)}
+							{:else if unsavedChanges}
 								<p class="mt-2 text-sm leading-7 text-zinc-600 dark:text-zinc-400">
 									Tu as modifié des champs. Sauvegarde-les avant de lancer l’installation pour garantir que le serveur utilisera la bonne configuration.
 								</p>
@@ -529,12 +697,11 @@
 							{/if}
 						</div>
 
-						<div class="flex flex-col gap-3 sm:flex-row">
-
+						<div class="flex flex-col gap-3 lg:items-end">
 							{#if latestSsdv2Job}
 								<a
 									href={`/ssdv2-installations/${latestSsdv2Job.id}`}
-									class="inline-flex items-center justify-center rounded-[16px] border border-sky-200 bg-[linear-gradient(90deg,#38bdf8,#2563eb)] px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(37,99,235,0.20)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(37,99,235,0.28)]"
+									class="text-sm font-medium text-sky-600 no-underline transition hover:text-sky-700 dark:text-sky-300 dark:hover:text-sky-200"
 								>
 									Voir le suivi SSDv2
 								</a>
@@ -542,21 +709,19 @@
 
 							<form method="POST" action="?/install">
 								<input type="hidden" name="_csrf" value={data.csrfToken} />
-
 								<button
 									type="submit"
-									disabled={isInstalled || !savedConfigReady || hasUnsavedChanges(settings, savedSettings)}
-									class={`inline-flex items-center justify-center rounded-[16px] px-5 py-3 text-sm font-semibold text-white transition-all duration-200 ${
-										isInstalled || !savedConfigReady || hasUnsavedChanges(settings, savedSettings)
-											? 'cursor-not-allowed bg-zinc-300 text-zinc-600 opacity-70 dark:bg-zinc-700 dark:text-zinc-300'
-											: 'bg-[linear-gradient(90deg,#f59e0b,#f97316)] shadow-[0_12px_30px_rgba(249,115,22,0.20)] hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(249,115,22,0.28)]'
-									}`}
+									disabled={isInstalled || !savedConfigReady || unsavedChanges}
+									class="inline-flex items-center justify-center rounded-[16px] px-5 py-3 text-sm font-semibold text-white transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60
+									{isInstalled || !savedConfigReady || unsavedChanges
+										? 'bg-zinc-400 shadow-none dark:bg-zinc-700'
+										: 'bg-[linear-gradient(90deg,#22c55e,#16a34a)] shadow-[0_12px_30px_rgba(34,197,94,0.18)] hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(34,197,94,0.24)]'}"
 								>
 									{#if isInstalled}
 										Déjà installé
 									{:else if !savedConfigReady}
 										Compléter puis sauvegarder
-									{:else if hasUnsavedChanges(settings, savedSettings)}
+									{:else if unsavedChanges}
 										Sauvegarder avant installation
 									{:else}
 										Installer SSDv2
@@ -566,39 +731,31 @@
 						</div>
 					</div>
 
-					<div class={`mt-4 rounded-[18px] border px-4 py-4 ${
-						isInstalled
-							? 'border-emerald-200 bg-emerald-50/80 dark:border-emerald-500/20 dark:bg-emerald-500/10'
-							: !savedConfigReady || hasUnsavedChanges(settings, savedSettings)
-								? 'border-amber-200 bg-amber-50/80 dark:border-amber-500/20 dark:bg-amber-500/10'
-								: 'border-sky-200 bg-sky-50/80 dark:border-sky-500/20 dark:bg-sky-500/10'
-					}`}>
+					<div class="mt-5 rounded-[18px] border border-black/5 bg-black/[0.03] px-4 py-4 text-sm dark:border-white/10 dark:bg-white/[0.03]">
 						{#if isInstalled}
-							<p class="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+							<p class="font-medium text-zinc-900 dark:text-zinc-100">
 								SSDv2 est déjà installé sur ce serveur.
 							</p>
-							<p class="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
+							<p class="mt-1 text-zinc-600 dark:text-zinc-400">
 								L’installation n’est pas proposée dans cet état.
 							</p>
 						{:else if !savedConfigReady}
-							<p class="text-sm font-semibold text-amber-700 dark:text-amber-300">
-								Configuration incomplète.
-							</p>
-							<p class="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
+							<p class="font-medium text-zinc-900 dark:text-zinc-100">Configuration incomplète.</p>
+							<p class="mt-1 text-zinc-600 dark:text-zinc-400">
 								Renseigne tous les champs requis, puis clique sur “Sauvegarder la configuration”.
 							</p>
-						{:else if hasUnsavedChanges(settings, savedSettings)}
-							<p class="text-sm font-semibold text-amber-700 dark:text-amber-300">
+						{:else if unsavedChanges}
+							<p class="font-medium text-zinc-900 dark:text-zinc-100">
 								Des changements ne sont pas encore sauvegardés.
 							</p>
-							<p class="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
+							<p class="mt-1 text-zinc-600 dark:text-zinc-400">
 								L’installation utilisera uniquement la configuration enregistrée côté serveur.
 							</p>
 						{:else}
-							<p class="text-sm font-semibold text-sky-700 dark:text-sky-300">
+							<p class="font-medium text-zinc-900 dark:text-zinc-100">
 								Le serveur est prêt pour l’installation.
 							</p>
-							<p class="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
+							<p class="mt-1 text-zinc-600 dark:text-zinc-400">
 								Le bouton lancera le job SSDv2, puis tu seras redirigé vers la page de suivi dédiée.
 							</p>
 						{/if}

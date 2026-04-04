@@ -15,25 +15,30 @@ if (!CSRF_SECRET) {
 	throw new Error('Missing CSRF_SECRET or JWT_SECRET_KEY for frontend security helpers');
 }
 
+const COOKIE_SECURE = !dev;
+
 export const authCookieOptions = {
 	path: '/',
 	httpOnly: true,
-	sameSite: 'strict' as const,
-	secure: !dev
+	sameSite: 'lax' as const,
+	secure: COOKIE_SECURE
 };
 
 export const csrfCookieOptions = {
 	path: '/',
 	httpOnly: true,
 	sameSite: 'strict' as const,
-	secure: !dev
+	secure: COOKIE_SECURE
 };
 
 function safeEqual(a: string, b: string): boolean {
 	const aBuf = Buffer.from(a);
 	const bBuf = Buffer.from(b);
 
-	if (aBuf.length !== bBuf.length) return false;
+	if (aBuf.length !== bBuf.length) {
+		return false;
+	}
+
 	return timingSafeEqual(aBuf, bBuf);
 }
 
@@ -51,7 +56,10 @@ function buildToken(sessionBinding: string): string {
 
 function isValidToken(token: string, sessionBinding: string): boolean {
 	const parts = token.split('.');
-	if (parts.length !== 2) return false;
+
+	if (parts.length !== 2) {
+		return false;
+	}
 
 	const [raw, providedSig] = parts;
 	const expectedSig = signRawToken(raw, sessionBinding);
@@ -85,7 +93,10 @@ function getExpectedOrigin(url: URL, headers: Headers): string {
 	return `${proto}://${host}`;
 }
 
-export function ensureCsrfCookie(cookies: Cookies, sessionToken: string | null | undefined): string {
+export function ensureCsrfCookie(
+	cookies: Cookies,
+	sessionToken: string | null | undefined
+): string {
 	const binding = sessionToken ?? '';
 	const existing = cookies.get(CSRF_COOKIE);
 
@@ -119,6 +130,7 @@ export async function validateCsrf(opts: {
 	}
 
 	const cookieToken = cookies.get(CSRF_COOKIE);
+
 	if (!cookieToken) {
 		throw error(403, 'Missing CSRF cookie');
 	}
@@ -135,6 +147,7 @@ export async function validateCsrf(opts: {
 	}
 
 	const binding = sessionToken ?? '';
+
 	if (!isValidToken(submittedToken, binding)) {
 		throw error(403, 'Invalid CSRF token');
 	}
