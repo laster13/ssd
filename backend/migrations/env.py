@@ -1,14 +1,16 @@
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-from app.models.machine_settings import MachineSettings
 from alembic import context
+from sqlalchemy import engine_from_config, pool
 
 from app.core.config import settings
 from app.core.database import Base
 from app.models.machine import Machine
+from app.models.machine_settings import MachineSettings
 from app.models.pairing_token import PairingToken
+from app.models.streamfusion_addon_config import StreamFusionAddonConfig
+from app.models.streamfusion_addon_token import StreamFusionAddonToken
+from app.models.user import User
 
 config = context.config
 

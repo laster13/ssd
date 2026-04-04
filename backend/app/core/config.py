@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     jwt_access_token_expire_minutes: int = 15
     allow_self_registration: bool = True
 
+    streamfusion_public_base_url: str = "https://streamfusion.lastharo.eu"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
