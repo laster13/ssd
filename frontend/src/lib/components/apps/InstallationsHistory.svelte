@@ -10,11 +10,19 @@
 
 	let {
 		jobs = [],
-		filter = 'all'
+		filter = 'all',
+		deleteError = null,
+		deleteSuccess = null
 	}: {
 		jobs?: Job[];
 		filter?: HistoryFilter;
+		deleteError?: string | null;
+		deleteSuccess?: string | null;
 	} = $props();
+
+	function canDeleteJob(job: Job) {
+		return job.status === 'completed' || job.status === 'failed';
+	}
 
 	const sortedJobs = $derived.by(() => {
 		return [...jobs].sort((a, b) => {
@@ -108,29 +116,59 @@
 				Filtre actif : {historyFilterLabel(filter)}
 			</div>
 
+			{#if deleteSuccess}
+				<div class="mb-4 rounded-[20px] border border-emerald-200 bg-emerald-50/90 px-4 py-3 text-sm font-medium text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-200">
+					{deleteSuccess}
+				</div>
+			{/if}
+
+			{#if deleteError}
+				<div class="mb-4 rounded-[20px] border border-rose-200 bg-rose-50/90 px-4 py-3 text-sm font-medium text-rose-700 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-200">
+					{deleteError}
+				</div>
+			{/if}
+
 			{#if filteredJobs.length > 0}
 				<div class="grid gap-4">
 					{#each filteredJobs as job}
-						<a
-							href={`/installations/${job.id}`}
+						<div
 							class="group relative flex items-center justify-between gap-4 overflow-hidden rounded-[24px] border border-black/5 bg-white/72 px-5 py-4 text-zinc-900 shadow-[0_16px_40px_rgba(15,23,42,0.07)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 hover:border-black/10 hover:shadow-[0_22px_48px_rgba(15,23,42,0.11)] dark:border-white/10 dark:bg-white/[0.035] dark:text-white dark:shadow-[0_14px_34px_rgba(0,0,0,0.22)] dark:hover:border-white/14 dark:hover:bg-white/[0.05]"
 						>
 							<div class="pointer-events-none absolute inset-0 opacity-0 transition duration-300 group-hover:opacity-100 bg-[radial-gradient(circle_at_top_right,rgba(14,165,233,0.08),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(124,58,237,0.08),transparent_28%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.08),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(124,58,237,0.08),transparent_28%)]"></div>
 
-							<div class="relative min-w-0">
-								<div class="truncate text-[15px] font-semibold tracking-[-0.02em] text-zinc-950 dark:text-white sm:text-base">
-									{appName(job)}
+							<a href={`/installations/${job.id}`} class="relative flex min-w-0 flex-1 items-center justify-between gap-4">
+								<div class="min-w-0">
+									<div class="truncate text-[15px] font-semibold tracking-[-0.02em] text-zinc-950 dark:text-white sm:text-base">
+										{appName(job)}
+									</div>
+
+									<div class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+										{formatFrenchDate(job.created_at)}
+									</div>
 								</div>
 
-								<div class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-									{formatFrenchDate(job.created_at)}
+								<div class="relative shrink-0">
+									<JobStatusBadge status={job.status} variant="history" className="shrink-0" />
 								</div>
-							</div>
+							</a>
 
-							<div class="relative">
-								<JobStatusBadge status={job.status} variant="history" className="shrink-0" />
-							</div>
-						</a>
+							{#if canDeleteJob(job)}
+								<form method="POST" action="?/deleteInstallation" class="relative shrink-0">
+									<input type="hidden" name="job_id" value={job.id} />
+									<button
+										type="submit"
+										class="inline-flex items-center justify-center rounded-[14px] border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-rose-700 transition hover:border-rose-300 hover:bg-rose-100 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-200 dark:hover:border-rose-400/30 dark:hover:bg-rose-500/15"
+										onclick={(event) => {
+											if (!confirm('Supprimer définitivement ce job de l’historique ?')) {
+												event.preventDefault();
+											}
+										}}
+									>
+										Supprimer
+									</button>
+								</form>
+							{/if}
+						</div>
 					{/each}
 				</div>
 			{:else}

@@ -36,6 +36,8 @@ ALLOWED_AUTH_TYPES = {
     "oauth2-proxy",
 }
 
+INSTALL_JOB_TYPES = ["install_app", "install_ssdv2"]
+
 SUBDOMAIN_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])?$")
 
 
@@ -53,6 +55,51 @@ def get_owned_machine_or_404(db: Session, machine_id: UUID, current_user: User) 
         raise HTTPException(status_code=404, detail="Machine not found")
 
     return machine
+
+
+def get_machine_settings_or_400(db: Session, machine_id: UUID) -> MachineSettings:
+    stmt = (
+        select(MachineSettings)
+        .where(MachineSettings.machine_id == machine_id)
+        .limit(1)
+    )
+    settings = db.execute(stmt).scalar_one_or_none()
+
+    if not settings:
+        raise HTTPException(status_code=400, detail="Machine settings not found")
+
+    return settings
+
+
+def validate_machine_settings_for_install(settings: MachineSettings) -> None:
+    required_fields = {
+        "username": settings.username,
+        "email": settings.email,
+        "domain": settings.domain,
+        "password": settings.password,
+        "cloudflare_login": settings.cloudflare_login,
+        "cloudflare_api_key": settings.cloudflare_api_key,
+    }
+
+    missing = [key for key, value in required_fields.items() if not str(value or "").strip()]
+    if missing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Missing required machine settings: {', '.join(missing)}",
+        )
+
+    if settings.oauth_enabled:
+        oauth_required = {
+            "oauth_client": settings.oauth_client,
+            "oauth_secret": settings.oauth_secret,
+            "oauth_mail": settings.oauth_mail,
+        }
+        oauth_missing = [key for key, value in oauth_required.items() if not str(value or "").strip()]
+        if oauth_missing:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Missing required OAuth settings: {', '.join(oauth_missing)}",
+            )
 
 
 @router.get("/machines/{machine_id}/settings", response_model=MachineSettingsResponse)
@@ -144,7 +191,7 @@ def get_owned_installation_or_404(db: Session, job_id: UUID, current_user: User)
         select(Job)
         .join(Machine, Job.machine_id == Machine.id)
         .where(Job.id == job_id)
-        .where(Job.type == "install_app")
+        .where(Job.type.in_(INSTALL_JOB_TYPES))
         .where(Machine.owner_id == current_user.id)
         .limit(1)
     )
@@ -191,7 +238,7 @@ def ensure_no_active_installation_for_machine(db: Session, machine: Machine) -> 
     stmt = (
         select(Job.id)
         .where(Job.machine_id == machine.id)
-        .where(Job.type == "install_app")
+        .where(Job.type.in_(INSTALL_JOB_TYPES))
         .where(Job.status.in_(["pending", "claimed", "running"]))
         .limit(1)
     )
@@ -270,6 +317,66 @@ def delete_my_machine(
     }
 
 
+@router.post("/machines/{machine_id}/install-ssdv2", response_model=CreateMachineJobResponse)
+def create_ssdv2_installation(
+    machine_id: UUID,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    machine = get_owned_machine_or_404(db, machine_id, current_user)
+    settings = get_machine_settings_or_400(db, machine.id)
+    validate_machine_settings_for_install(settings)
+    ensure_no_active_installation_for_machine(db, machine)
+
+    payload = {
+        "machine_id": str(machine.id),
+        "hostname": machine.hostname,
+        "username": settings.username,
+        "email": settings.email,
+        "domain": settings.domain,
+        "password": settings.password,
+        "cloudflare_login": settings.cloudflare_login,
+        "cloudflare_api_key": settings.cloudflare_api_key,
+        "oauth_enabled": settings.oauth_enabled,
+        "oauth_client": settings.oauth_client,
+        "oauth_secret": settings.oauth_secret,
+        "oauth_mail": settings.oauth_mail,
+    }
+
+    job = Job(
+        machine_id=machine.id,
+        type="install_ssdv2",
+        status="pending",
+        payload=payload,
+    )
+
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+
+    audit_event(
+        event_type="job.create.user.success",
+        severity="info",
+        success=True,
+        status_code=200,
+        actor_type="user",
+        actor_user_id=current_user.id,
+        target_machine_id=machine.id,
+        request=request,
+        description="User created SSDv2 install job",
+        details={"job_id": str(job.id), "type": job.type},
+    )
+
+    return CreateMachineJobResponse(
+        job_id=job.id,
+        machine_id=job.machine_id,
+        status=job.status,
+        type=job.type,
+        payload=job.payload,
+    )
+
+
 @router.post("/installations", response_model=CreateMachineJobResponse)
 def create_my_installation(
     payload: CreateMyInstallationRequest,
@@ -329,7 +436,7 @@ def list_my_installations(
     stmt = (
         select(Job)
         .join(Machine, Job.machine_id == Machine.id)
-        .where(Job.type == "install_app")
+        .where(Job.type.in_(INSTALL_JOB_TYPES))
         .where(Machine.owner_id == current_user.id)
         .order_by(Job.created_at.desc())
     )
@@ -347,6 +454,52 @@ def list_my_installations(
         )
         for job in jobs
     ]
+
+
+@router.delete("/installations/{job_id}")
+def delete_my_installation(
+    job_id: UUID,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    job = get_owned_installation_or_404(db, job_id, current_user)
+
+    if job.status in {"pending", "claimed", "running"}:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="An installation in progress cannot be deleted",
+        )
+
+    deleted_job_id = job.id
+    target_machine_id = job.machine_id
+    deleted_status = job.status
+    deleted_job_type = job.type
+
+    db.delete(job)
+    db.commit()
+
+    audit_event(
+        event_type="job.delete.user.success",
+        severity="info",
+        success=True,
+        status_code=200,
+        actor_type="user",
+        actor_user_id=current_user.id,
+        target_machine_id=target_machine_id,
+        request=request,
+        description="User deleted install job",
+        details={
+            "job_id": str(deleted_job_id),
+            "job_status": deleted_status,
+            "job_type": deleted_job_type,
+        },
+    )
+
+    return {
+        "ok": True,
+        "job_id": str(deleted_job_id),
+    }
 
 
 @router.get("/installations/{job_id}", response_model=AdminJobResponse)

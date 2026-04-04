@@ -3,6 +3,7 @@
 
 	const savedSettings = form?.settings ?? data.settings;
 	const isInstalled = Boolean(data.machine.ssdv2_installed);
+	const latestSsdv2Job = data.latestSsdv2Job ?? null;
 
 	let settings = $state({
 		username: savedSettings.username ?? '',
@@ -23,6 +24,23 @@
 
 	function normalizeBoolean(value: unknown) {
 		return value === true || value === 'true' || value === '1' || value === 'on';
+	}
+
+	function humanJobStatus(status: unknown) {
+		switch (String(status ?? '').toLowerCase()) {
+			case 'pending':
+				return 'En attente';
+			case 'claimed':
+				return 'Préparation';
+			case 'running':
+				return 'Installation en cours';
+			case 'completed':
+				return 'Terminée';
+			case 'failed':
+				return 'Échec';
+			default:
+				return String(status ?? 'Inconnu');
+		}
 	}
 
 	function isSettingsReady(values: Record<string, unknown>) {
@@ -47,10 +65,7 @@
 		return true;
 	}
 
-	function hasUnsavedChanges(
-		current: Record<string, unknown>,
-		saved: Record<string, unknown>
-	) {
+	function hasUnsavedChanges(current: Record<string, unknown>, saved: Record<string, unknown>) {
 		return (
 			normalizeString(current.username) !== normalizeString(saved.username) ||
 			normalizeString(current.email) !== normalizeString(saved.email) ||
@@ -109,6 +124,12 @@
 				{#if form?.error}
 					<div class="mb-6 rounded-[20px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300">
 						{form.error}
+					</div>
+				{/if}
+
+				{#if form?.installError}
+					<div class="mb-6 rounded-[20px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300">
+						{form.installError}
 					</div>
 				{/if}
 
@@ -181,7 +202,9 @@
 								{/if}
 							</p>
 							<p class="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
-								{#if isInstalled}
+								{#if latestSsdv2Job}
+									Dernier suivi disponible : {humanJobStatus(latestSsdv2Job.status)}.
+								{:else if isInstalled}
 									SSDv2 est déjà détecté sur ce serveur.
 								{:else if savedConfigReady}
 									Le serveur peut maintenant recevoir SSDv2.
@@ -489,7 +512,7 @@
 
 							{#if isInstalled}
 								<p class="mt-2 text-sm leading-7 text-zinc-600 dark:text-zinc-400">
-									SSDv2 est déjà présent sur ce serveur. Tu peux continuer à gérer la configuration sans relancer l’installation.
+									SSDv2 est déjà présent sur ce serveur.
 								</p>
 							{:else if !savedConfigReady}
 								<p class="mt-2 text-sm leading-7 text-zinc-600 dark:text-zinc-400">
@@ -507,42 +530,49 @@
 						</div>
 
 						<div class="flex flex-col gap-3 sm:flex-row">
-							<a
-								href="#configuration"
-								class="inline-flex items-center justify-center rounded-[16px] border border-zinc-200 bg-white px-5 py-3 text-sm font-semibold text-zinc-800 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/[0.05] dark:text-white"
-							>
-								Revoir la configuration
-							</a>
 
-							<button
-								type="button"
-								disabled={isInstalled || !savedConfigReady || hasUnsavedChanges(settings, savedSettings)}
-								class={`inline-flex items-center justify-center rounded-[16px] px-5 py-3 text-sm font-semibold text-white transition-all duration-200 ${
-									isInstalled || !savedConfigReady || hasUnsavedChanges(settings, savedSettings)
-										? 'cursor-not-allowed bg-zinc-300 text-zinc-600 opacity-70 dark:bg-zinc-700 dark:text-zinc-300'
-										: 'bg-[linear-gradient(90deg,#f59e0b,#f97316)] shadow-[0_12px_30px_rgba(249,115,22,0.20)] hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(249,115,22,0.28)]'
-								}`}
-							>
-								{#if isInstalled}
-									Déjà installé
-								{:else if !savedConfigReady}
-									Compléter puis sauvegarder
-								{:else if hasUnsavedChanges(settings, savedSettings)}
-									Sauvegarder avant installation
-								{:else}
-									Installer SSDv2
-								{/if}
-							</button>
+							{#if latestSsdv2Job}
+								<a
+									href={`/ssdv2-installations/${latestSsdv2Job.id}`}
+									class="inline-flex items-center justify-center rounded-[16px] border border-sky-200 bg-[linear-gradient(90deg,#38bdf8,#2563eb)] px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(37,99,235,0.20)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(37,99,235,0.28)]"
+								>
+									Voir le suivi SSDv2
+								</a>
+							{/if}
+
+							<form method="POST" action="?/install">
+								<input type="hidden" name="_csrf" value={data.csrfToken} />
+
+								<button
+									type="submit"
+									disabled={isInstalled || !savedConfigReady || hasUnsavedChanges(settings, savedSettings)}
+									class={`inline-flex items-center justify-center rounded-[16px] px-5 py-3 text-sm font-semibold text-white transition-all duration-200 ${
+										isInstalled || !savedConfigReady || hasUnsavedChanges(settings, savedSettings)
+											? 'cursor-not-allowed bg-zinc-300 text-zinc-600 opacity-70 dark:bg-zinc-700 dark:text-zinc-300'
+											: 'bg-[linear-gradient(90deg,#f59e0b,#f97316)] shadow-[0_12px_30px_rgba(249,115,22,0.20)] hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(249,115,22,0.28)]'
+									}`}
+								>
+									{#if isInstalled}
+										Déjà installé
+									{:else if !savedConfigReady}
+										Compléter puis sauvegarder
+									{:else if hasUnsavedChanges(settings, savedSettings)}
+										Sauvegarder avant installation
+									{:else}
+										Installer SSDv2
+									{/if}
+								</button>
+							</form>
 						</div>
 					</div>
 
-					<div class="mt-4 rounded-[18px] border px-4 py-4 ${
+					<div class={`mt-4 rounded-[18px] border px-4 py-4 ${
 						isInstalled
 							? 'border-emerald-200 bg-emerald-50/80 dark:border-emerald-500/20 dark:bg-emerald-500/10'
 							: !savedConfigReady || hasUnsavedChanges(settings, savedSettings)
 								? 'border-amber-200 bg-amber-50/80 dark:border-amber-500/20 dark:bg-amber-500/10'
 								: 'border-sky-200 bg-sky-50/80 dark:border-sky-500/20 dark:bg-sky-500/10'
-					}">
+					}`}>
 						{#if isInstalled}
 							<p class="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
 								SSDv2 est déjà installé sur ce serveur.
@@ -569,7 +599,7 @@
 								Le serveur est prêt pour l’installation.
 							</p>
 							<p class="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
-								Le bouton est maintenant disponible. Tu pourras brancher ensuite l’action backend réelle sur ce CTA.
+								Le bouton lancera le job SSDv2, puis tu seras redirigé vers la page de suivi dédiée.
 							</p>
 						{/if}
 					</div>

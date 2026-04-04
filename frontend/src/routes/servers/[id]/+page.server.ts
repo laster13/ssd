@@ -19,9 +19,10 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		throw redirect(303, '/login');
 	}
 
-	const [machinesResponse, settingsResponse] = await Promise.all([
+	const [machinesResponse, settingsResponse, jobsResponse] = await Promise.all([
 		apiFetchWithAuth(locals.token, '/me/machines', { method: 'GET' }),
-		apiFetchWithAuth(locals.token, `/me/machines/${params.id}/settings`, { method: 'GET' })
+		apiFetchWithAuth(locals.token, `/me/machines/${params.id}/settings`, { method: 'GET' }),
+		apiFetchWithAuth(locals.token, '/me/installations', { method: 'GET' })
 	]);
 
 	if (!machinesResponse.ok) {
@@ -34,6 +35,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 
 	const machines = await machinesResponse.json();
 	const settings = await settingsResponse.json();
+	const jobs = jobsResponse.ok ? await jobsResponse.json() : [];
 
 	const normalizedMachines = Array.isArray(machines) ? machines : [];
 	const machine = normalizedMachines.find((item: any) => String(item?.id) === params.id);
@@ -42,9 +44,21 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		throw error(404, 'Serveur introuvable');
 	}
 
+	const latestSsdv2Job = (Array.isArray(jobs) ? jobs : [])
+		.filter(
+			(item: any) =>
+				String(item?.machine_id ?? '') === params.id && String(item?.type ?? '') === 'install_ssdv2'
+		)
+		.sort((a: any, b: any) => {
+			const aTime = new Date(String(a?.created_at ?? 0)).getTime();
+			const bTime = new Date(String(b?.created_at ?? 0)).getTime();
+			return bTime - aTime;
+		})[0] ?? null;
+
 	return {
 		machine,
 		settings,
+		latestSsdv2Job,
 		saveSuccess: false
 	};
 };
@@ -104,5 +118,46 @@ export const actions: Actions = {
 			success: true,
 			settings
 		};
+	},
+
+	install: async ({ request, cookies, locals, url, params }) => {
+		if (!locals.user || !locals.token) {
+			throw redirect(303, '/login');
+		}
+
+		await validateCsrf({
+			request,
+			cookies,
+			url,
+			sessionToken: locals.token
+		});
+
+		const response = await apiFetchWithAuth(
+			locals.token,
+			`/me/machines/${params.id}/install-ssdv2`,
+			{
+				method: 'POST'
+			}
+		);
+
+		if (!response.ok) {
+			let message = "Impossible de lancer l'installation SSDv2";
+
+			try {
+				const apiError = await response.json();
+				if (typeof apiError?.detail === 'string' && apiError.detail.trim()) {
+					message = apiError.detail;
+				}
+			} catch {
+				// no-op
+			}
+
+			return fail(response.status, {
+				installError: message
+			});
+		}
+
+		const job = await response.json();
+		throw redirect(303, `/ssdv2-installations/${job.job_id}`);
 	}
 };

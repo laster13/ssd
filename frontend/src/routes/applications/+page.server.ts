@@ -1,5 +1,5 @@
-import { redirect } from '@sveltejs/kit';
-import type { PageServerLoad } from './$types';
+import { fail, redirect } from '@sveltejs/kit';
+import type { Actions, PageServerLoad } from './$types';
 import { apiFetchWithAuth } from '$lib/server/api';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
@@ -36,4 +36,44 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		initialTab,
 		initialFilter
 	};
+};
+
+export const actions: Actions = {
+	deleteInstallation: async ({ request, locals }) => {
+		if (!locals.user || !locals.token) {
+			throw redirect(303, '/login');
+		}
+
+		const formData = await request.formData();
+		const jobId = String(formData.get('job_id') ?? '').trim();
+
+		if (!jobId) {
+			return fail(400, {
+				deleteError: 'Identifiant du job manquant.'
+			});
+		}
+
+		const response = await apiFetchWithAuth(locals.token, `/me/installations/${jobId}`, {
+			method: 'DELETE'
+		});
+
+		if (!response.ok) {
+			let deleteError = 'Impossible de supprimer ce job.';
+
+			try {
+				const payload = await response.json();
+				if (typeof payload?.detail === 'string' && payload.detail.trim()) {
+					deleteError = payload.detail.trim();
+				}
+			} catch {
+				// noop
+			}
+
+			return fail(response.status, { deleteError });
+		}
+
+		return {
+			deleteSuccess: 'Job supprimé de l’historique.'
+		};
+	}
 };

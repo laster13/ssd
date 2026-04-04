@@ -3,7 +3,7 @@
 	import InstallationsHistory from '$lib/components/apps/InstallationsHistory.svelte';
 	import type { HistoryFilter, Job, Machine } from '$lib/utils/jobs';
 
-	let { data } = $props();
+	let { data, form } = $props();
 
 	const jobs = $derived((data.jobs ?? []) as Job[]);
 	const machines = $derived((data.machines ?? []) as Machine[]);
@@ -13,6 +13,8 @@
 			| 'history'
 	);
 	const historyFilter = $derived((data.initialFilter ?? 'all') as HistoryFilter);
+	const deleteError = $derived((form?.deleteError ?? null) as string | null);
+	const deleteSuccess = $derived((form?.deleteSuccess ?? null) as string | null);
 </script>
 
 <svelte:head>
@@ -122,5 +124,5 @@
 {#if activeTab === 'applications'}
 	<ApplicationInventory {jobs} {machines} />
 {:else}
-	<InstallationsHistory {jobs} filter={historyFilter} />
+	<InstallationsHistory {jobs} filter={historyFilter} {deleteError} {deleteSuccess} />
 {/if}
