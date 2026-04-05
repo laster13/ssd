@@ -24,7 +24,8 @@
 	const navItems = [
 		{ label: 'App Store', href: '/app-store' },
 		{ label: 'Serveurs', href: '/servers' },
-		{ label: 'Applications', href: '/applications' }
+		{ label: 'Applications', href: '/applications' },
+		{ label: 'Stream-Fusion', href: '/settings/streamfusion' }
 	];
 
 	function isActive(href: string) {
