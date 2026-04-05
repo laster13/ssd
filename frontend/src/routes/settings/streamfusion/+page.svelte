@@ -150,29 +150,6 @@
 					</section>
 				{/if}
 
-				<section
-					class="rounded-[22px] border border-black/5 bg-white/60 p-5 dark:border-white/10 dark:bg-[rgba(15,23,42,0.45)]"
-				>
-					<h2 class="text-xl font-semibold tracking-[-0.03em] text-zinc-950 dark:text-white">
-						Informations
-					</h2>
-
-					<div class="mt-4 grid gap-3 text-sm leading-7 text-zinc-600 dark:text-zinc-400">
-						<p>
-							Le lien généré ici sert uniquement à ouvrir la page de configuration de
-							StreamFusion.
-						</p>
-						<p>
-							La gestion des clés API et leur révocation se fait directement dans le panneau
-							d’administration de StreamFusion.
-						</p>
-						<p>
-							Si tu perds ce lien de configuration, il faudra en générer un nouveau puis
-							reconfigurer ton addon.
-						</p>
-					</div>
-				</section>
-
 				{#if form?.error}
 					<p class="mt-5 text-sm font-medium text-red-600 dark:text-red-300">{form.error}</p>
 				{/if}

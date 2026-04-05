@@ -1,6 +1,5 @@
 from datetime import datetime, timezone
-from uuid import UUID
-from urllib.parse import quote, parse_qs, urlsplit
+from urllib.parse import parse_qs, quote, urlsplit
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
 from sqlalchemy import select
@@ -16,11 +15,8 @@ from app.core.security import (
 from app.models.streamfusion_addon_token import StreamFusionAddonToken
 from app.models.user import User
 from app.schemas.streamfusion import (
-    StreamFusionTokenActionResponse,
     StreamFusionTokenCreateRequest,
     StreamFusionTokenCreateResponse,
-    StreamFusionTokenListResponse,
-    StreamFusionTokenResponse,
 )
 
 router = APIRouter(tags=["streamfusion"])
@@ -38,17 +34,6 @@ def build_configure_url(plain_token: str) -> str:
     return f"{base}/configure?token={quote(plain_token)}"
 
 
-def token_to_response(row: StreamFusionAddonToken) -> StreamFusionTokenResponse:
-    return StreamFusionTokenResponse(
-        id=row.id,
-        label=row.label,
-        created_at=row.created_at,
-        last_used_at=row.last_used_at,
-        revoked_at=row.revoked_at,
-        expires_at=row.expires_at,
-    )
-
-
 def token_to_create_response(
     row: StreamFusionAddonToken,
     plain_token: str,
@@ -63,25 +48,6 @@ def token_to_create_response(
         plain_token=plain_token,
         configure_url=build_configure_url(plain_token),
     )
-
-
-def get_owned_token_or_404(
-    db: Session,
-    token_id: UUID,
-    current_user: User,
-) -> StreamFusionAddonToken:
-    stmt = (
-        select(StreamFusionAddonToken)
-        .where(StreamFusionAddonToken.id == token_id)
-        .where(StreamFusionAddonToken.user_id == current_user.id)
-        .limit(1)
-    )
-    row = db.execute(stmt).scalar_one_or_none()
-
-    if not row:
-        raise HTTPException(status_code=404, detail="StreamFusion token not found")
-
-    return row
 
 
 def get_valid_streamfusion_token_or_404(
@@ -124,23 +90,6 @@ def extract_token_from_forwarded_uri(x_forwarded_uri: str | None) -> str | None:
     return token or None
 
 
-@router.get("/me/streamfusion/tokens", response_model=StreamFusionTokenListResponse)
-def list_streamfusion_tokens(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    stmt = (
-        select(StreamFusionAddonToken)
-        .where(StreamFusionAddonToken.user_id == current_user.id)
-        .order_by(StreamFusionAddonToken.created_at.desc())
-    )
-    rows = db.execute(stmt).scalars().all()
-
-    return StreamFusionTokenListResponse(
-        items=[token_to_response(row) for row in rows]
-    )
-
-
 @router.post(
     "/me/streamfusion/tokens",
     response_model=StreamFusionTokenCreateResponse,
@@ -165,55 +114,6 @@ def create_streamfusion_token(
     db.refresh(row)
 
     return token_to_create_response(row, plain_token)
-
-
-@router.delete("/me/streamfusion/tokens/{token_id}", response_model=StreamFusionTokenActionResponse)
-def revoke_streamfusion_token(
-    token_id: UUID,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    row = get_owned_token_or_404(db, token_id, current_user)
-
-    if row.revoked_at is None:
-        row.revoked_at = datetime.now(timezone.utc)
-        db.commit()
-        db.refresh(row)
-
-    return StreamFusionTokenActionResponse(ok=True, id=row.id)
-
-
-@router.post(
-    "/me/streamfusion/tokens/{token_id}/rotate",
-    response_model=StreamFusionTokenCreateResponse,
-)
-def rotate_streamfusion_token(
-    token_id: UUID,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    old_row = get_owned_token_or_404(db, token_id, current_user)
-
-    if old_row.revoked_at is not None:
-        raise HTTPException(status_code=400, detail="StreamFusion token already revoked")
-
-    old_row.revoked_at = datetime.now(timezone.utc)
-
-    plain_token = generate_streamfusion_addon_token()
-    token_hash = hash_streamfusion_addon_token(plain_token)
-
-    new_row = StreamFusionAddonToken(
-        user_id=current_user.id,
-        token_hash=token_hash,
-        label=old_row.label,
-        expires_at=old_row.expires_at,
-    )
-
-    db.add(new_row)
-    db.commit()
-    db.refresh(new_row)
-
-    return token_to_create_response(new_row, plain_token)
 
 
 @router.get("/streamfusion/resolve")

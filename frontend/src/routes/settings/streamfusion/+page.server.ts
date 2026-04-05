@@ -1,4 +1,4 @@
-import { error, fail, redirect } from '@sveltejs/kit';
+import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
 import { apiFetchWithAuth } from '$lib/server/api';
@@ -22,19 +22,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		throw redirect(303, '/login');
 	}
 
-	const response = await apiFetchWithAuth(locals.token, '/me/streamfusion/tokens', {
-		method: 'GET'
-	});
-
-	if (!response.ok) {
-		throw error(response.status, 'Impossible de charger les accès StreamFusion');
-	}
-
-	const data = await response.json();
-
-	return {
-		tokens: data.items ?? []
-	};
+	return {};
 };
 
 export const actions: Actions = {
@@ -70,82 +58,6 @@ export const actions: Actions = {
 
 		return {
 			created
-		};
-	},
-
-	revoke: async ({ locals, request, cookies, url }) => {
-		if (!locals.user || !locals.token) {
-			throw redirect(303, '/login');
-		}
-
-		const formData = await validateCsrf({
-			request,
-			cookies,
-			url,
-			sessionToken: locals.token
-		});
-
-		const tokenId = String(formData.get('token_id') ?? '').trim();
-
-		if (!tokenId) {
-			return fail(400, {
-				error: 'Token StreamFusion manquant'
-			});
-		}
-
-		const response = await apiFetchWithAuth(locals.token, `/me/streamfusion/tokens/${tokenId}`, {
-			method: 'DELETE'
-		});
-
-		if (!response.ok) {
-			return fail(response.status, {
-				error: await readApiError(response, 'Impossible de révoquer ce lien')
-			});
-		}
-
-		return {
-			revokedId: tokenId
-		};
-	},
-
-	rotate: async ({ locals, request, cookies, url }) => {
-		if (!locals.user || !locals.token) {
-			throw redirect(303, '/login');
-		}
-
-		const formData = await validateCsrf({
-			request,
-			cookies,
-			url,
-			sessionToken: locals.token
-		});
-
-		const tokenId = String(formData.get('token_id') ?? '').trim();
-
-		if (!tokenId) {
-			return fail(400, {
-				error: 'Token StreamFusion manquant'
-			});
-		}
-
-		const response = await apiFetchWithAuth(
-			locals.token,
-			`/me/streamfusion/tokens/${tokenId}/rotate`,
-			{
-				method: 'POST'
-			}
-		);
-
-		if (!response.ok) {
-			return fail(response.status, {
-				error: await readApiError(response, 'Impossible de régénérer ce lien')
-			});
-		}
-
-		const rotated = await response.json();
-
-		return {
-			rotated
 		};
 	}
 };
