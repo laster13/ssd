@@ -1,20 +1,51 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
 PAIRING_CODE=""
 BACKEND_URL=""
 INSTALL_DIR="/opt/ssd-agent"
 AGENT_USER=""
 ALLOW_INSECURE_HTTP="${ALLOW_INSECURE_HTTP:-false}"
+AGENT_VERSION="0.1.0"
+
+REPO_URL="https://github.com/projetssd/ssdv2.git"
 
 usage() {
-  echo "Usage:"
-  echo "  bootstrap.sh --pairing-code XXXX-XXXX --backend-url https://admin.example.com [--agent-user USER] [--install-dir /opt/ssd-agent]"
-  echo
-  echo "By default, insecure HTTP is refused."
-  echo "To override temporarily (not recommended), run with:"
-  echo "  ALLOW_INSECURE_HTTP=true ./bootstrap.sh ..."
+  cat <<'EOF'
+Usage:
+  bootstrap.sh --pairing-code XXXX-XXXX --backend-url https://admin.example.com [--agent-user USER] [--install-dir /opt/ssd-agent]
+
+By default, insecure HTTP is refused.
+To override temporarily (not recommended), run with:
+  ALLOW_INSECURE_HTTP=true ./bootstrap.sh ...
+EOF
   exit 1
+}
+
+log() {
+  echo "[bootstrap] $*"
+}
+
+die() {
+  echo "[bootstrap] $*" >&2
+  exit 1
+}
+
+on_error() {
+  local exit_code="$?"
+  local line_no="${1:-unknown}"
+  echo "[bootstrap] Error on or near line ${line_no} (exit=${exit_code})" >&2
+  exit "${exit_code}"
+}
+
+trap 'on_error $LINENO' ERR
+
+require_arg_value() {
+  local flag="${1:-}"
+  local value="${2:-}"
+  if [[ -z "${value}" || "${value}" == --* ]]; then
+    die "Missing value for ${flag}"
+  fi
 }
 
 detect_agent_user() {
@@ -23,36 +54,33 @@ detect_agent_user() {
   fi
 
   if [[ -n "${SUDO_USER:-}" && "${SUDO_USER}" != "root" ]]; then
-    local sudo_home
-    sudo_home="$(getent passwd "${SUDO_USER}" | cut -d: -f6 || true)"
-    if [[ -n "${sudo_home}" && -d "${sudo_home}/seedbox-compose" ]]; then
+    if id "${SUDO_USER}" >/dev/null 2>&1; then
       AGENT_USER="${SUDO_USER}"
       return 0
     fi
   fi
 
-  mapfile -t compose_dirs < <(find /home /root -maxdepth 2 -type d -name seedbox-compose 2>/dev/null | sort)
+  mapfile -t human_users < <(
+    awk -F: '
+      $3 >= 1000 &&
+      $1 != "nobody" &&
+      $6 ~ "^/home/" &&
+      $7 !~ /(nologin|false)$/ {
+        print $1
+      }
+    ' /etc/passwd
+  )
 
-  if [[ "${#compose_dirs[@]}" -eq 1 ]]; then
-    local detected_dir owner
-    detected_dir="${compose_dirs[0]}"
-    owner="$(stat -c '%U' "${detected_dir}")"
-
-    if [[ -z "${owner}" || "${owner}" == "root" ]]; then
-      echo "[bootstrap] Could not safely infer a non-root agent user from ${detected_dir}"
-      echo "[bootstrap] Re-run with --agent-user <user>"
-      exit 1
-    fi
-
-    AGENT_USER="${owner}"
+  if [[ "${#human_users[@]}" -eq 1 ]]; then
+    AGENT_USER="${human_users[0]}"
     return 0
   fi
 
-  if [[ "${#compose_dirs[@]}" -eq 0 ]]; then
-    echo "[bootstrap] No seedbox-compose directory found under /home or /root."
+  if [[ "${#human_users[@]}" -eq 0 ]]; then
+    echo "[bootstrap] No non-root user found under /home."
   else
-    echo "[bootstrap] Multiple seedbox-compose directories found:"
-    printf ' - %s\n' "${compose_dirs[@]}"
+    echo "[bootstrap] Multiple candidate users found:"
+    printf ' - %s\n' "${human_users[@]}"
   fi
 
   echo "[bootstrap] Unable to determine agent user automatically."
@@ -65,26 +93,29 @@ run_as_agent_user() {
 }
 
 if [[ "${EUID}" -ne 0 ]]; then
-  echo "[bootstrap] This script must run as root."
-  exit 1
+  die "This script must run as root."
 fi
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --pairing-code)
-      PAIRING_CODE="${2:-}"
+      require_arg_value "$1" "${2:-}"
+      PAIRING_CODE="${2}"
       shift 2
       ;;
     --backend-url)
-      BACKEND_URL="${2:-}"
+      require_arg_value "$1" "${2:-}"
+      BACKEND_URL="${2}"
       shift 2
       ;;
     --agent-user)
-      AGENT_USER="${2:-}"
+      require_arg_value "$1" "${2:-}"
+      AGENT_USER="${2}"
       shift 2
       ;;
     --install-dir)
-      INSTALL_DIR="${2:-}"
+      require_arg_value "$1" "${2:-}"
+      INSTALL_DIR="${2}"
       shift 2
       ;;
     *)
@@ -109,33 +140,42 @@ fi
 detect_agent_user
 
 if ! id "${AGENT_USER}" >/dev/null 2>&1; then
-  echo "[bootstrap] User '${AGENT_USER}' does not exist."
-  exit 1
+  die "User '${AGENT_USER}' does not exist."
 fi
 
 AGENT_HOME="$(getent passwd "${AGENT_USER}" | cut -d: -f6)"
 if [[ -z "${AGENT_HOME}" || ! -d "${AGENT_HOME}" ]]; then
-  echo "[bootstrap] Could not resolve home directory for user '${AGENT_USER}'."
-  exit 1
+  die "Could not resolve home directory for user '${AGENT_USER}'."
 fi
 
 COMPOSE_DIR="${AGENT_HOME}/seedbox-compose"
-if [[ ! -d "${COMPOSE_DIR}" ]]; then
-  echo "[bootstrap] Expected compose directory not found: ${COMPOSE_DIR}"
-  echo "[bootstrap] Create it first or use the correct agent user."
-  exit 1
+
+VERIFY_TLS_VALUE="true"
+if [[ "${BACKEND_URL}" == http://* ]]; then
+  VERIFY_TLS_VALUE="false"
 fi
 
-echo "[bootstrap] Agent user resolved to: ${AGENT_USER}"
-echo "[bootstrap] Agent home: ${AGENT_HOME}"
-echo "[bootstrap] Compose dir: ${COMPOSE_DIR}"
+HOSTNAME_VALUE="$(hostname)"
 
-echo "[bootstrap] Installing prerequisites..."
+log "Agent user resolved to: ${AGENT_USER}"
+log "Agent home: ${AGENT_HOME}"
+log "Compose dir: ${COMPOSE_DIR}"
+log "Requested install dir: ${INSTALL_DIR}"
+
+log "Installing prerequisites..."
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
-apt-get install -y python3 python3-venv python3-pip curl ca-certificates
+apt-get install -y python3 python3-venv python3-pip curl ca-certificates git sqlite3
 
-echo "[bootstrap] Creating install directory..."
+INSTALL_DIR="$(python3 - <<'PY' "${INSTALL_DIR}"
+import os, sys
+print(os.path.abspath(sys.argv[1]))
+PY
+)"
+
+log "Normalized install dir: ${INSTALL_DIR}"
+
+log "Creating install directory..."
 mkdir -p "${INSTALL_DIR}/agent"
 mkdir -p "${INSTALL_DIR}/logs"
 mkdir -p "${INSTALL_DIR}/tmp/ansible"
@@ -151,52 +191,77 @@ chmod 750 "${INSTALL_DIR}/agent"
 chmod 750 "${INSTALL_DIR}/logs"
 chmod 750 "${INSTALL_DIR}/tmp"
 chmod 750 "${INSTALL_DIR}/tmp/ansible"
+chmod 700 "${AGENT_HOME}/.ansible"
+chmod 700 "${AGENT_HOME}/.ansible/tmp"
+chmod 700 "${AGENT_HOME}/seedbox"
 
-echo "[bootstrap] Creating virtualenv..."
+if [[ ! -d "${COMPOSE_DIR}" ]]; then
+  log "seedbox-compose not found, cloning repository..."
+  run_as_agent_user git clone "${REPO_URL}" "${COMPOSE_DIR}"
+  chown -R "${AGENT_USER}:${AGENT_USER}" "${COMPOSE_DIR}"
+fi
+
+if [[ ! -d "${COMPOSE_DIR}" ]]; then
+  echo "[bootstrap] Expected compose directory not found after clone: ${COMPOSE_DIR}"
+  echo "[bootstrap] Check repository access or path permissions."
+  exit 1
+fi
+
+if [[ ! -f "${COMPOSE_DIR}/profile.sh" ]]; then
+  echo "[bootstrap] profile.sh not found in ${COMPOSE_DIR}"
+  echo "[bootstrap] Repository clone looks incomplete or invalid."
+  exit 1
+fi
+
+log "Creating virtualenv..."
 rm -rf "${INSTALL_DIR}/.venv"
 run_as_agent_user python3 -m venv "${INSTALL_DIR}/.venv"
 run_as_agent_user "${INSTALL_DIR}/.venv/bin/pip" install --upgrade pip
 run_as_agent_user "${INSTALL_DIR}/.venv/bin/pip" install requests
 
-echo "[bootstrap] Verifying pairing code..."
+log "Verifying pairing code..."
 
 CURL_FLAGS=(-fsSL --connect-timeout 10 --max-time 30)
 if [[ "${BACKEND_URL}" == https://* ]]; then
   CURL_FLAGS+=(--proto '=https' --tlsv1.2)
 fi
 
-VERIFY_RESPONSE="$(curl "${CURL_FLAGS[@]}" -X POST "${BACKEND_URL}/pairing/verify" \
+PAIRING_REQUEST="$(python3 - <<'PY' "${PAIRING_CODE}"
+import json, sys
+print(json.dumps({"pairing_code": sys.argv[1]}))
+PY
+)"
+
+VERIFY_RESPONSE="$(curl "${CURL_FLAGS[@]}" \
+  -X POST "${BACKEND_URL}/pairing/verify" \
   -H "Content-Type: application/json" \
-  -d "{\"pairing_code\":\"${PAIRING_CODE}\"}")"
+  --data "${PAIRING_REQUEST}")"
 
-echo "[bootstrap] Pairing response received."
+log "Pairing response received."
 
-MACHINE_TOKEN="$(python3 - <<'PY' "${VERIFY_RESPONSE}"
+IFS=$'\t' read -r MACHINE_TOKEN MACHINE_ID MACHINE_UUID < <(
+  python3 - <<'PY' "${VERIFY_RESPONSE}"
 import json, sys
+
 data = json.loads(sys.argv[1])
+
 if not data.get("valid"):
-    raise SystemExit("Pairing code invalid")
-print(data["machine_token"])
+    raise SystemExit(data.get("message") or "Pairing code invalid")
+
+print(
+    data["machine_token"],
+    data["machine_id"],
+    data["machine_uuid"],
+    sep="\t",
+)
 PY
-)"
+)
 
-MACHINE_ID="$(python3 - <<'PY' "${VERIFY_RESPONSE}"
-import json, sys
-data = json.loads(sys.argv[1])
-print(data["machine_id"])
-PY
-)"
+if [[ -z "${MACHINE_TOKEN}" || -z "${MACHINE_ID}" || -z "${MACHINE_UUID}" ]]; then
+  die "Pairing response is missing required fields."
+fi
 
-MACHINE_UUID="$(python3 - <<'PY' "${VERIFY_RESPONSE}"
-import json, sys
-data = json.loads(sys.argv[1])
-print(data["machine_uuid"])
-PY
-)"
-
-HOSTNAME_VALUE="$(hostname)"
-
-echo "[bootstrap] Writing agent files..."
+log "Writing agent files..."
 
 cat > "${INSTALL_DIR}/agent/__init__.py" <<'PY'
 PY
@@ -388,6 +453,28 @@ def quote(value: object) -> str:
     return shlex.quote("" if value is None else str(value))
 
 
+def parse_bool(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def compose_runtime_prefix(compose_dir: str = "~/seedbox-compose") -> str:
+    return " && ".join(
+        [
+            f"cd {compose_dir}",
+            "test -f includes/functions.sh",
+            "source includes/functions.sh",
+            "test -f includes/variables.sh",
+            "source includes/variables.sh",
+            'if [ -f venv/bin/activate ]; then source venv/bin/activate; fi',
+            'if [ -f profile.sh ]; then source profile.sh >/dev/null 2>&1 || true; fi',
+        ]
+    )
+
+
 def run_logged_command(
     job_id: str,
     seq: int,
@@ -456,19 +543,34 @@ def run_install_app(job_id: str, payload: dict, seq: int) -> tuple[bool, int, di
     if not auth_type:
         return False, seq, None, "Missing auth_type in payload"
 
+    compose_dir = "~/seedbox-compose"
+    prefix = compose_runtime_prefix(compose_dir)
+
     pre_commands = [
-        f"cd ~/seedbox-compose && source profile.sh && manage_account_yml sub.{quote(app_slug)}.{quote(app_slug)} {quote(subdomain)}",
-        f"cd ~/seedbox-compose && source profile.sh && manage_account_yml sub.{quote(app_slug)}.auth {quote(auth_type)}",
+        (
+            f"{prefix} && manage_account_yml sub.{quote(app_slug)}.{quote(app_slug)} {quote(subdomain)}",
+            f"updating all.yml: sub.{app_slug}.{app_slug}",
+        ),
+        (
+            f"{prefix} && manage_account_yml sub.{quote(app_slug)}.auth {quote(auth_type)}",
+            f"updating all.yml: sub.{app_slug}.auth",
+        ),
     ]
 
-    for command in pre_commands:
-        return_code, seq = run_logged_command(job_id, seq, command)
+    for command, label in pre_commands:
+        return_code, seq = run_logged_command(
+            job_id,
+            seq,
+            command,
+            reveal_command=False,
+            label=label,
+        )
         if return_code != 0:
             send_log(job_id, seq, "error", f"command failed with return code={return_code}")
             seq += 1
             return False, seq, None, f"Preparation command failed with return code {return_code}"
 
-    command = f"cd ~/seedbox-compose && source profile.sh && launch_service {quote(app_slug)}"
+    command = f"{prefix} && launch_service {quote(app_slug)}"
     return_code, seq = run_streaming_command(job_id, seq, command)
 
     if return_code == 0:
@@ -477,6 +579,29 @@ def run_install_app(job_id: str, payload: dict, seq: int) -> tuple[bool, int, di
             "app_slug": app_slug,
             "subdomain": subdomain,
             "auth_type": auth_type,
+            "return_code": return_code,
+        }
+        return True, seq, result, None
+
+    return False, seq, None, f"Command failed with return code {return_code}"
+
+
+def run_uninstall_app(job_id: str, payload: dict, seq: int) -> tuple[bool, int, dict | None, str | None]:
+    app_slug = payload.get("app_slug")
+
+    if not app_slug:
+        return False, seq, None, "Missing app_slug in payload"
+
+    compose_dir = "~/seedbox-compose"
+    prefix = compose_runtime_prefix(compose_dir)
+
+    command = f"{prefix} && suppression_appli {quote(app_slug)}"
+    return_code, seq = run_streaming_command(job_id, seq, command)
+
+    if return_code == 0:
+        result = {
+            "message": "uninstall finished",
+            "app_slug": app_slug,
             "return_code": return_code,
         }
         return True, seq, result, None
@@ -498,7 +623,7 @@ def run_install_ssdv2(job_id: str, payload: dict, seq: int) -> tuple[bool, int, 
     if missing:
         return False, seq, None, f"Missing required payload fields: {', '.join(missing)}"
 
-    oauth_enabled = bool(payload.get("oauth_enabled"))
+    oauth_enabled = parse_bool(payload.get("oauth_enabled"))
 
     if oauth_enabled:
         oauth_missing = [
@@ -510,41 +635,21 @@ def run_install_ssdv2(job_id: str, payload: dict, seq: int) -> tuple[bool, int, 
             return False, seq, None, f"Missing required OAuth payload fields: {', '.join(oauth_missing)}"
 
     compose_dir = "~/seedbox-compose"
-    profile_prefix = f"cd {compose_dir} && source profile.sh"
 
-    pre_commands: list[tuple[str, str]] = [
-        ("updating all.yml: username", f"{profile_prefix} && manage_account_yml username {quote(payload.get('username'))}"),
-        ("updating all.yml: email", f"{profile_prefix} && manage_account_yml email {quote(payload.get('email'))}"),
-        ("updating all.yml: domain", f"{profile_prefix} && manage_account_yml domain {quote(payload.get('domain'))}"),
-        ("updating all.yml: password", f"{profile_prefix} && manage_account_yml password {quote(payload.get('password'))}"),
-        ("updating all.yml: cloudflare_login", f"{profile_prefix} && manage_account_yml cloudflare_login {quote(payload.get('cloudflare_login'))}"),
-        ("updating all.yml: cloudflare_api_key", f"{profile_prefix} && manage_account_yml cloudflare_api_key {quote(payload.get('cloudflare_api_key'))}"),
-        ("updating all.yml: oauth_enabled", f"{profile_prefix} && manage_account_yml oauth_enabled {quote(str(oauth_enabled).lower())}"),
+    env_exports = [
+        f"SSD_USERNAME={quote(payload.get('username'))}",
+        f"SSD_EMAIL={quote(payload.get('email'))}",
+        f"SSD_DOMAIN={quote(payload.get('domain'))}",
+        f"SSD_PASSWORD={quote(payload.get('password'))}",
+        f"SSD_CLOUDFLARE_LOGIN={quote(payload.get('cloudflare_login'))}",
+        f"SSD_CLOUDFLARE_API_KEY={quote(payload.get('cloudflare_api_key'))}",
+        f"SSD_OAUTH_ENABLED={quote(str(oauth_enabled).lower())}",
+        f"SSD_OAUTH_CLIENT={quote(payload.get('oauth_client'))}",
+        f"SSD_OAUTH_SECRET={quote(payload.get('oauth_secret'))}",
+        f"SSD_OAUTH_MAIL={quote(payload.get('oauth_mail'))}",
     ]
 
-    if oauth_enabled:
-        pre_commands.extend(
-            [
-                ("updating all.yml: oauth_client", f"{profile_prefix} && manage_account_yml oauth_client {quote(payload.get('oauth_client'))}"),
-                ("updating all.yml: oauth_secret", f"{profile_prefix} && manage_account_yml oauth_secret {quote(payload.get('oauth_secret'))}"),
-                ("updating all.yml: oauth_mail", f"{profile_prefix} && manage_account_yml oauth_mail {quote(payload.get('oauth_mail'))}"),
-            ]
-        )
-
-    for label, command in pre_commands:
-        return_code, seq = run_logged_command(
-            job_id,
-            seq,
-            command,
-            reveal_command=False,
-            label=label,
-        )
-        if return_code != 0:
-            send_log(job_id, seq, "error", f"command failed with return code={return_code}")
-            seq += 1
-            return False, seq, None, f"Preparation command failed with return code {return_code}"
-
-    command = f"cd {compose_dir} && source profile.sh && bash install.sh"
+    command = f"cd {compose_dir} && " + " ".join(env_exports) + " bash autoinstall.sh"
     return_code, seq = run_streaming_command(job_id, seq, command)
 
     if return_code == 0:
@@ -568,6 +673,8 @@ def run_job(job: dict) -> None:
     try:
         if job_type == "install_app":
             success, seq, result, error_message = run_install_app(job_id, payload, seq)
+        elif job_type == "uninstall_app":
+            success, seq, result, error_message = run_uninstall_app(job_id, payload, seq)
         elif job_type == "install_ssdv2":
             success, seq, result, error_message = run_install_ssdv2(job_id, payload, seq)
         else:
@@ -595,9 +702,9 @@ cat > "${INSTALL_DIR}/.env" <<EOF
 BACKEND_URL=${BACKEND_URL}
 MACHINE_TOKEN=${MACHINE_TOKEN}
 HOSTNAME=${HOSTNAME_VALUE}
-AGENT_VERSION=0.1.0
+AGENT_VERSION=${AGENT_VERSION}
 POLL_INTERVAL=5
-VERIFY_TLS=true
+VERIFY_TLS=${VERIFY_TLS_VALUE}
 MACHINE_ID=${MACHINE_ID}
 MACHINE_UUID=${MACHINE_UUID}
 EOF
@@ -605,7 +712,7 @@ EOF
 chown -R "${AGENT_USER}:${AGENT_USER}" "${INSTALL_DIR}"
 chmod 600 "${INSTALL_DIR}/.env"
 
-echo "[bootstrap] Creating systemd service..."
+log "Creating systemd service..."
 
 cat > /etc/systemd/system/ssd-agent.service <<EOF
 [Unit]
@@ -651,12 +758,11 @@ WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
-systemctl enable ssd-agent
-systemctl restart ssd-agent
+systemctl enable --now ssd-agent
 
-echo "[bootstrap] Done."
-echo "[bootstrap] Agent installed in ${INSTALL_DIR}"
-echo "[bootstrap] Agent user: ${AGENT_USER}"
-echo "[bootstrap] Compose dir: ${COMPOSE_DIR}"
-echo "[bootstrap] Service status:"
+log "Done."
+log "Agent installed in ${INSTALL_DIR}"
+log "Agent user: ${AGENT_USER}"
+log "Compose dir: ${COMPOSE_DIR}"
+log "Service status:"
 systemctl --no-pager --full status ssd-agent || true

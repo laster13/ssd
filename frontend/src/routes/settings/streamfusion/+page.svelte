@@ -46,7 +46,7 @@
 						<span
 							class="mt-1 block bg-[linear-gradient(90deg,#0f172a_0%,#0891b2_18%,#059669_44%,#2563eb_70%,#7c3aed_100%)] bg-clip-text text-transparent dark:bg-[linear-gradient(90deg,#f8fafc_0%,#a7f3d0_18%,#67e8f9_40%,#93c5fd_66%,#d8b4fe_100%)]"
 						>
-							Configurer ton addon StreamFusion
+							Instance Publique StreamFusion
 						</span>
 					</h1>
 
