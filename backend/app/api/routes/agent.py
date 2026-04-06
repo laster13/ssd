@@ -5,6 +5,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from app.catalog.apps import get_catalog_app
+from app.models.application_state import ApplicationState
 
 from app.api.deps import get_current_machine
 from app.core.database import get_db
@@ -31,6 +33,87 @@ from app.schemas.token import RotateMachineTokenResponse
 router = APIRouter(prefix="/agent", tags=["agent"])
 
 MAX_RESULT_BYTES = 64 * 1024
+
+APPLICATION_JOB_TYPES = {"install_app", "uninstall_app"}
+ACTIVE_JOB_STATUSES = {"pending", "claimed", "running"}
+
+
+def get_job_application_identity(job: Job) -> tuple[str | None, str | None]:
+    if job.type not in APPLICATION_JOB_TYPES:
+        return None, None
+
+    payload = job.payload if isinstance(job.payload, dict) else {}
+
+    app_slug = str((payload.get("app_slug") or "")).strip()
+    if not app_slug:
+        return None, None
+
+    app_name = str((payload.get("app_name") or "")).strip()
+    if not app_name:
+        catalog_app = get_catalog_app(app_slug)
+        app_name = str(catalog_app.get("name") or app_slug) if catalog_app else app_slug
+
+    return app_slug, app_name
+
+
+def get_or_create_application_state(
+    db: Session,
+    machine_id: UUID,
+    app_slug: str,
+    app_name: str | None = None,
+) -> ApplicationState:
+    stmt = (
+        select(ApplicationState)
+        .where(ApplicationState.machine_id == machine_id)
+        .where(ApplicationState.app_slug == app_slug)
+        .limit(1)
+    )
+    state = db.execute(stmt).scalar_one_or_none()
+
+    if state is None:
+        state = ApplicationState(
+            machine_id=machine_id,
+            app_slug=app_slug,
+            app_name=app_name,
+        )
+        db.add(state)
+    elif app_name:
+        state.app_name = app_name
+
+    return state
+
+
+def sync_application_state_from_job(db: Session, job: Job) -> None:
+    app_slug, app_name = get_job_application_identity(job)
+    if not app_slug:
+        return
+
+    state = get_or_create_application_state(
+        db=db,
+        machine_id=job.machine_id,
+        app_slug=app_slug,
+        app_name=app_name,
+    )
+
+    state.app_name = app_name
+    state.last_job_id = job.id
+    state.last_job_status = job.status
+    state.last_error = job.error_message
+    state.last_operation = "install" if job.type == "install_app" else "uninstall"
+
+    if job.status in ACTIVE_JOB_STATUSES:
+        state.transition = "installing" if job.type == "install_app" else "uninstalling"
+        return
+
+    state.transition = "idle"
+
+    if job.type == "install_app" and job.status == "completed":
+        state.present = True
+        state.installed_at = job.completed_at
+
+    if job.type == "uninstall_app" and job.status == "completed":
+        state.present = False
+        state.installed_at = None
 
 
 @router.post("/auth", response_model=AgentAuthResponse)
@@ -141,6 +224,8 @@ async def fetch_next_job(
     db.commit()
     db.refresh(job)
 
+    sync_application_state_from_job(db, job)
+
     await job_ws_manager.broadcast(
         job.id,
         {
@@ -219,6 +304,7 @@ async def create_job_log(
     if job.status == "claimed":
         job.status = "running"
         status_changed = True
+        sync_application_state_from_job(db, job)
 
     log = JobLog(
         job_id=job.id,
@@ -304,6 +390,8 @@ async def complete_job(
         job.error_message = None
 
     job.completed_at = now
+
+    sync_application_state_from_job(db, job)
 
     db.commit()
     db.refresh(job)

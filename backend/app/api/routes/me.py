@@ -6,6 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from app.models.application_state import ApplicationState
+from app.schemas.application_state import ApplicationStateResponse
 
 from app.api.deps import get_current_user
 from app.catalog.apps import get_catalog_app
@@ -83,6 +85,74 @@ def build_machine_settings_response(settings: MachineSettings) -> MachineSetting
         created_at=settings.created_at,
         updated_at=settings.updated_at,
     )
+
+def build_application_state_response(state: ApplicationState) -> ApplicationStateResponse:
+    return ApplicationStateResponse(
+        id=state.id,
+        machine_id=state.machine_id,
+        app_slug=state.app_slug,
+        app_name=state.app_name,
+        present=state.present,
+        transition=state.transition,
+        last_operation=state.last_operation,
+        last_job_id=state.last_job_id,
+        last_job_status=state.last_job_status,
+        last_error=state.last_error,
+        installed_at=state.installed_at,
+        created_at=state.created_at,
+        updated_at=state.updated_at,
+    )
+
+
+def get_or_create_application_state(
+    db: Session,
+    machine_id: UUID,
+    app_slug: str,
+    app_name: str | None = None,
+) -> ApplicationState:
+    stmt = (
+        select(ApplicationState)
+        .where(ApplicationState.machine_id == machine_id)
+        .where(ApplicationState.app_slug == app_slug)
+        .limit(1)
+    )
+    state = db.execute(stmt).scalar_one_or_none()
+
+    if state is None:
+        state = ApplicationState(
+            machine_id=machine_id,
+            app_slug=app_slug,
+            app_name=app_name,
+        )
+        db.add(state)
+    elif app_name:
+        state.app_name = app_name
+
+    return state
+
+
+def queue_application_state_for_new_job(
+    db: Session,
+    *,
+    machine_id: UUID,
+    app_slug: str,
+    app_name: str,
+    operation: str,
+    job: Job,
+) -> None:
+    state = get_or_create_application_state(
+        db=db,
+        machine_id=machine_id,
+        app_slug=app_slug,
+        app_name=app_name,
+    )
+
+    state.app_name = app_name
+    state.last_operation = operation
+    state.last_job_id = job.id
+    state.last_job_status = job.status
+    state.last_error = None
+    state.transition = "installing" if operation == "install" else "uninstalling"
 
 
 def redact_job_payload(payload: dict | None) -> dict | None:
@@ -437,9 +507,14 @@ def create_my_installation(
     current_user: User = Depends(get_current_user),
 ):
     machine = get_owned_machine_or_404(db, payload.machine_id, current_user)
+
     app_slug, subdomain, auth_type, install_profile = normalize_and_validate_installation_payload(
         payload
     )
+
+    catalog_app = get_catalog_app(app_slug)
+    app_name = str(catalog_app.get("name") or app_slug) if catalog_app else app_slug
+
     ensure_no_active_installation_for_machine(db, machine)
 
     job = Job(
@@ -448,6 +523,7 @@ def create_my_installation(
         status="pending",
         payload={
             "app_slug": app_slug,
+            "app_name": app_name,
             "install_profile": install_profile,
             "subdomain": subdomain,
             "auth_type": auth_type,
@@ -455,6 +531,17 @@ def create_my_installation(
     )
 
     db.add(job)
+    db.flush()
+
+    queue_application_state_for_new_job(
+        db,
+        machine_id=machine.id,
+        app_slug=app_slug,
+        app_name=app_name,
+        operation="install",
+        job=job,
+    )
+
     db.commit()
     db.refresh(job)
 
@@ -503,6 +590,17 @@ def create_my_uninstallation(
     )
 
     db.add(job)
+    db.flush()
+
+    queue_application_state_for_new_job(
+        db,
+        machine_id=machine.id,
+        app_slug=app_slug,
+        app_name=app_name,
+        operation="uninstall",
+        job=job,
+    )
+
     db.commit()
     db.refresh(job)
 
@@ -526,6 +624,21 @@ def create_my_uninstallation(
         type=job.type,
         payload=redact_job_payload(job.payload),
     )
+
+@router.get("/applications", response_model=list[ApplicationStateResponse])
+def list_my_applications(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    stmt = (
+        select(ApplicationState)
+        .join(Machine, ApplicationState.machine_id == Machine.id)
+        .where(Machine.owner_id == current_user.id)
+        .order_by(ApplicationState.updated_at.desc(), ApplicationState.created_at.desc())
+    )
+
+    states = db.execute(stmt).scalars().all()
+    return [build_application_state_response(state) for state in states]
 
 
 @router.get("/installations", response_model=list[AdminJobListItem])

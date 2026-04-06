@@ -21,6 +21,27 @@ export type Machine = {
 	status?: string;
 };
 
+export type ApplicationTransition = 'idle' | 'installing' | 'uninstalling';
+
+export type ApplicationState = {
+	id: string;
+	machine_id: string;
+	app_slug: string;
+	app_name?: string | null;
+
+	present: boolean;
+	transition: ApplicationTransition;
+
+	last_operation?: 'install' | 'uninstall' | null;
+	last_job_id?: string | null;
+	last_job_status?: string | null;
+	last_error?: string | null;
+
+	installed_at?: string | null;
+	created_at?: string;
+	updated_at?: string;
+};
+
 export type JobStatusVariant = 'applications' | 'history';
 
 export function appName(job: Job) {

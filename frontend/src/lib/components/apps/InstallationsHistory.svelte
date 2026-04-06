@@ -163,12 +163,12 @@
 										type="submit"
 										class="inline-flex items-center justify-center rounded-[14px] border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 transition hover:border-rose-300 hover:bg-rose-100 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-200 dark:hover:border-rose-400/30 dark:hover:bg-rose-500/15"
 										onclick={(event) => {
-											if (!confirm('Supprimer définitivement ce job de l’historique ?')) {
+											if (!confirm('Retirer ce job de l’historique ?')) {
 												event.preventDefault();
 											}
 										}}
 									>
-										Supprimer
+										Supprimer de l’historique
 									</button>
 								</form>
 							{/if}

@@ -1,22 +1,22 @@
 <script lang="ts">
 	import ApplicationInventory from '$lib/components/apps/ApplicationInventory.svelte';
 	import InstallationsHistory from '$lib/components/apps/InstallationsHistory.svelte';
-	import type { HistoryFilter, Job, Machine } from '$lib/utils/jobs';
+	import type { ApplicationState, HistoryFilter, Job, Machine } from '$lib/utils/jobs';
 
 	let { data, form } = $props();
 
+	const applications = $derived((data.applications ?? []) as ApplicationState[]);
 	const jobs = $derived((data.jobs ?? []) as Job[]);
 	const machines = $derived((data.machines ?? []) as Machine[]);
+
 	const activeTab = $derived(
-		(data.initialTab === 'history' ? 'history' : 'applications') as
-			| 'applications'
-			| 'history'
+		(data.initialTab === 'history' ? 'history' : 'applications') as 'applications' | 'history'
 	);
+
 	const historyFilter = $derived((data.initialFilter ?? 'all') as HistoryFilter);
 
 	const deleteError = $derived((form?.deleteError ?? null) as string | null);
 	const deleteSuccess = $derived((form?.deleteSuccess ?? null) as string | null);
-
 	const uninstallError = $derived((form?.uninstallError ?? null) as string | null);
 	const uninstallSuccess = $derived((form?.uninstallSuccess ?? null) as string | null);
 </script>
@@ -32,21 +32,11 @@
 			<div class="pointer-events-none absolute inset-0 rounded-[24px] ring-1 ring-inset ring-white/70 dark:ring-white/10"></div>
 
 			<div class="relative p-5 sm:p-6">
-				<div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-					<div class="max-w-3xl">
-						<div class="mb-3 flex flex-wrap items-center gap-2.5">
-							<div class="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50/90 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-emerald-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] dark:border-white/10 dark:bg-white/[0.06] dark:text-emerald-200">
-								<span class="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400"></span>
-								Applications
-							</div>
-						</div>
-
-						<h1 class="max-w-2xl text-lg font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50 sm:text-xl xl:text-2xl xl:leading-[1.1]">
-							<span class="mt-1 block bg-[linear-gradient(90deg,#0f172a_0%,#0891b2_18%,#059669_44%,#2563eb_70%,#7c3aed_100%)] bg-clip-text text-transparent dark:bg-[linear-gradient(90deg,#f8fafc_0%,#a7f3d0_18%,#67e8f9_40%,#93c5fd_66%,#d8b4fe_100%)]">
-								Pilote tes Applications
-							</span>
+				<div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+					<div>
+						<h1 class="text-3xl font-semibold tracking-[-0.06em] text-zinc-950 dark:text-zinc-50 sm:text-4xl">
+							Pilote tes Applications
 						</h1>
-
 						<p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600 dark:text-zinc-300 sm:text-[15px]">
 							Suivre l’état actuel de tes applications et accéder à l’historique complet des installations.
 						</p>
@@ -86,12 +76,7 @@
 </section>
 
 {#if activeTab === 'applications'}
-	<ApplicationInventory
-		{jobs}
-		{machines}
-		{uninstallError}
-		{uninstallSuccess}
-	/>
+	<ApplicationInventory {applications} {machines} {uninstallError} {uninstallSuccess} />
 {:else}
 	<InstallationsHistory {jobs} filter={historyFilter} {deleteError} {deleteSuccess} />
 {/if}
