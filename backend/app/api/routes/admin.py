@@ -374,6 +374,67 @@ def get_machine(
         updated_at=machine.updated_at,
     )
 
+@router.post("/machines/{machine_id}/delete", response_model=dict)
+def delete_machine_admin(
+    machine_id: UUID,
+    request: Request,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    machine = db.get(Machine, machine_id)
+    if not machine:
+        audit_event(
+            event_type="machine.delete.failed",
+            severity="warning",
+            success=False,
+            status_code=404,
+            actor_type="admin",
+            actor_user_id=admin.id,
+            target_machine_id=machine_id,
+            request=request,
+            description="Delete machine failed: machine not found",
+        )
+        raise HTTPException(status_code=404, detail="Machine not found")
+
+    machine_label = machine.hostname or str(machine.machine_uuid)
+
+    try:
+        db.delete(machine)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        audit_event(
+            event_type="machine.delete.failed",
+            severity="warning",
+            success=False,
+            status_code=409,
+            actor_type="admin",
+            actor_user_id=admin.id,
+            target_machine_id=machine.id,
+            request=request,
+            description="Delete machine failed: machine has related records",
+            details={"machine_label": machine_label},
+        )
+        raise HTTPException(
+            status_code=409,
+            detail="This machine cannot be deleted because related records still exist",
+        )
+
+    audit_event(
+        event_type="machine.delete.success",
+        severity="critical",
+        success=True,
+        status_code=200,
+        actor_type="admin",
+        actor_user_id=admin.id,
+        target_machine_id=machine_id,
+        request=request,
+        description="Machine deleted by admin",
+        details={"machine_label": machine_label},
+    )
+
+    return {"ok": True, "deleted_machine_id": str(machine_id)}
+
 
 @router.post("/machines/{machine_id}/rotate-token", response_model=RotateMachineTokenResponse)
 def rotate_machine_token_admin(

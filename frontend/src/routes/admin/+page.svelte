@@ -1,10 +1,14 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 
-	let { data } = $props();
+	let { data, form } = $props();
 
 	const jobs = data.jobs ?? [];
 	const machines = data.machines ?? [];
+	const csrfToken = data.csrfToken as string;
+
+	const deleteMachineError = $derived((form?.deleteMachineError ?? null) as string | null);
+	const deleteMachineSuccess = $derived((form?.deleteMachineSuccess ?? null) as string | null);
 
 	const RUNNING_JOB_STATUSES = ['running', 'processing', 'pending'];
 	const FAILED_JOB_STATUSES = ['failed', 'error'];
@@ -701,44 +705,94 @@
 						</div>
 					</div>
 
+					{#if deleteMachineSuccess}
+						<div class="mb-4 rounded-[18px] border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-200">
+							{deleteMachineSuccess}
+						</div>
+					{/if}
+
+					{#if deleteMachineError}
+						<div class="mb-4 rounded-[18px] border border-rose-200 bg-rose-50/80 px-4 py-3 text-sm text-rose-700 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-200">
+							{deleteMachineError}
+						</div>
+					{/if}
+
 					<div class="grid gap-3">
 						{#if filteredMachines.length > 0}
 							{#each filteredMachines as machine}
-								<a
-									href={`/admin/machines/${machine.id}`}
-									class="flex items-start justify-between gap-4 rounded-[20px] border border-black/5 bg-black/[0.02] p-4 transition hover:bg-black/[0.03] dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.05]"
-								>
-									<div class="min-w-0">
-										<div class="text-sm font-semibold text-zinc-950 dark:text-white">
-											{machine.hostname ?? `Machine #${machine.id}`}
+								<article class="relative overflow-hidden rounded-[20px] border border-black/5 bg-black/[0.02] transition hover:bg-black/[0.03] dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.05]">
+									<a
+										href={`/admin/machines/${machine.id}`}
+										aria-label={`Ouvrir ${machine.hostname ?? `Machine #${machine.id}`}`}
+										class="absolute inset-0 rounded-[20px]"
+									></a>
+
+									<div class="relative z-10 pointer-events-none flex items-start justify-between gap-4 p-4">
+										<div class="min-w-0">
+											<div class="text-sm font-semibold text-zinc-950 dark:text-white">
+												{machine.hostname ?? `Machine #${machine.id}`}
+											</div>
+
+											<div class="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
+												{normalizeMachineStatus(machine.status)}
+											</div>
+
+											<div class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+												UUID : {machine.machine_uuid}
+											</div>
+
+											<div class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+												Agent : {machine.agent_version ?? '-'}
+											</div>
+
+											<div class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+												Dernier contact : {formatDateLabel(machine.last_seen_at)}
+											</div>
 										</div>
 
-										<div class="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-											{normalizeMachineStatus(machine.status)}
-										</div>
+										<div class="flex shrink-0 flex-col items-end gap-3">
+											<span
+												class={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${machineStatusClass(machine.status)}`}
+											>
+												{normalizeMachineStatus(machine.status)}
+											</span>
 
-										<div class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-											UUID : {machine.machine_uuid}
-										</div>
-
-										<div class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-											Agent : {machine.agent_version ?? '-'}
-										</div>
-
-										<div class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-											Dernier contact : {formatDateLabel(machine.last_seen_at)}
+											<form
+												method="POST"
+												action="?/deleteMachine"
+												class="pointer-events-auto relative z-20"
+												onsubmit={(event) => {
+													const label = machine.hostname ?? `Machine #${machine.id}`;
+													if (
+														!confirm(
+															`Supprimer définitivement ${label} ?\n\nCette action supprime la machine, ses jobs et leurs logs associés.\nElle ne retire pas simplement la carte de la liste.`
+														)
+													) {
+														event.preventDefault();
+													}
+												}}
+											>
+												<input type="hidden" name="_csrf" value={csrfToken} />
+												<input type="hidden" name="machine_id" value={machine.id} />
+												<button
+													type="submit"
+													class="inline-flex items-center justify-center rounded-[12px] border border-rose-300 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 shadow-sm transition hover:border-rose-400 hover:bg-rose-100 dark:border-rose-400/25 dark:bg-rose-500/10 dark:text-rose-200 dark:hover:border-rose-400/40 dark:hover:bg-rose-500/15"
+												>
+													Supprimer
+												</button>
+											</form>
 										</div>
 									</div>
 
-									<div class="flex shrink-0 items-center gap-3">
-										<span
-											class={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${machineStatusClass(machine.status)}`}
-										>
-											{normalizeMachineStatus(machine.status)}
-										</span>
-										<span class="text-sm font-medium text-sky-600 dark:text-sky-300">Voir</span>
+									<div class="relative z-10 border-t border-rose-200/70 bg-rose-50/70 px-4 py-3 dark:border-rose-400/15 dark:bg-rose-500/[0.06]">
+										<p class="text-[11px] font-semibold uppercase tracking-[0.14em] text-rose-700 dark:text-rose-300">
+											Portée : machine complète
+										</p>
+										<p class="mt-1 text-xs leading-6 text-rose-700/90 dark:text-rose-200/90">
+											Supprime définitivement la machine, ses jobs et leurs logs. Ce n’est pas un simple retrait visuel de la liste.
+										</p>
 									</div>
-								</a>
+								</article>
 							{/each}
 						{:else}
 							<div
