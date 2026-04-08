@@ -8,6 +8,8 @@
 		tagline?: string;
 		category?: string;
 		status?: string;
+		docs_url?: string | null;
+		docs_status?: string | null;
 	};
 
 	let { app, compact = false } = $props<{
@@ -21,15 +23,15 @@
 	const slug = $derived(app.slug ?? '');
 	const description = $derived(app.description ?? '');
 	const tagline = $derived(app.tagline ?? app.description ?? '');
-	const href = $derived(`/installations/new?app=${encodeURIComponent(slug)}`);
-
+	const installHref = $derived(`/installations/new?app=${encodeURIComponent(slug)}`);
+	const docsUrl = $derived(app.docs_url ?? '');
+	const hasDocs = $derived(Boolean(docsUrl));
 	const badge = $derived(app.name ?? 'Application');
 </script>
 
 {#if compact}
-	<a
-		href={href}
-		class="group relative block min-h-[214px] overflow-hidden rounded-[32px] border border-black/5 bg-[rgba(255,255,255,0.72)] p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)] ring-1 ring-inset ring-black/[0.03] transform-gpu transition-[transform,border-color,box-shadow] duration-500 hover:-translate-y-2 hover:scale-[1.015] hover:border-black/10 hover:shadow-[0_30px_90px_rgba(15,23,42,0.14)] focus:outline-none focus-visible:border-black/15 focus-visible:ring-2 focus-visible:ring-black/10 dark:border-white/10 dark:bg-[rgba(10,10,14,0.72)] dark:ring-white/[0.04] dark:shadow-[0_20px_60px_rgba(0,0,0,0.42)] dark:hover:border-white/20 dark:hover:shadow-[0_30px_90px_rgba(0,0,0,0.58)] dark:focus-visible:border-white/25 dark:focus-visible:ring-white/15"
+	<article
+		class="group relative min-h-[214px] overflow-hidden rounded-[32px] border border-black/5 bg-[rgba(255,255,255,0.72)] p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)] ring-1 ring-inset ring-black/[0.03] transform-gpu transition-[transform,border-color,box-shadow] duration-500 hover:-translate-y-2 hover:scale-[1.015] hover:border-black/10 hover:shadow-[0_30px_90px_rgba(15,23,42,0.14)] dark:border-white/10 dark:bg-[rgba(10,10,14,0.72)] dark:ring-white/[0.04] dark:shadow-[0_20px_60px_rgba(0,0,0,0.42)] dark:hover:border-white/20 dark:hover:shadow-[0_30px_90px_rgba(0,0,0,0.58)]"
 		style="will-change: transform;"
 	>
 		<div class="pointer-events-none absolute inset-0">
@@ -39,13 +41,6 @@
 			<div class="absolute inset-x-0 top-0 h-px bg-black/5 dark:bg-white/10"></div>
 			<div class="absolute -left-20 top-0 h-36 w-36 rounded-full opacity-0 blur-2xl transition-opacity duration-500 dark:bg-fuchsia-400/[0.08] dark:opacity-100 group-hover:opacity-100"></div>
 			<div class="absolute -right-20 bottom-0 h-36 w-36 rounded-full opacity-0 blur-2xl transition-opacity duration-500 dark:bg-sky-400/[0.08] dark:opacity-100 group-hover:opacity-100"></div>
-
-			<div class="absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100">
-				<div
-					class="absolute inset-y-0 -left-1/2 w-1/2 rotate-12 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.45),transparent)] blur-lg transform-gpu transition-transform duration-700 group-hover:translate-x-[240%] dark:bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.07),transparent)]"
-					style="will-change: transform;"
-				></div>
-			</div>
 		</div>
 
 		<div class="relative flex h-full flex-col">
@@ -79,16 +74,29 @@
 				{description || tagline}
 			</p>
 
-			<div class="mt-auto flex items-center justify-end pt-6">
-				<span
+			<div class="mt-auto flex items-center justify-end gap-3 pt-6">
+				{#if hasDocs}
+					<a
+						href={docsUrl}
+						target="_blank"
+						rel="noreferrer"
+						class="inline-flex items-center gap-2 rounded-[14px] border border-black/8 bg-black/[0.02] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-zinc-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] transition-[transform,border-color,background-color,box-shadow] duration-300 hover:border-black/12 hover:bg-black/[0.06] hover:text-zinc-950 hover:shadow-[0_10px_24px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-200 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:hover:border-white/20 dark:hover:bg-white/[0.10] dark:hover:text-white dark:hover:shadow-[0_10px_24px_rgba(255,255,255,0.06)]"
+					>
+						<span>Documentation</span>
+						<span>↗</span>
+					</a>
+				{/if}
+
+				<a
+					href={installHref}
 					class="inline-flex items-center gap-2 rounded-[14px] border border-black/8 bg-black/[0.04] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] transition-[transform,border-color,background-color,box-shadow] duration-300 hover:border-black/12 hover:bg-black/[0.08] hover:shadow-[0_10px_24px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/[0.08] dark:text-white dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:hover:border-white/20 dark:hover:bg-white/[0.14] dark:hover:shadow-[0_10px_24px_rgba(255,255,255,0.06)]"
 				>
 					<span>Installer</span>
 					<span class="transform-gpu transition-transform duration-300 group-hover:translate-x-0.5">→</span>
-				</span>
+				</a>
 			</div>
 		</div>
-	</a>
+	</article>
 {:else}
 	<article
 		class="group relative min-h-[214px] overflow-hidden rounded-[32px] border border-black/5 bg-[rgba(255,255,255,0.74)] p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)] ring-1 ring-inset ring-black/[0.03] transform-gpu transition-[transform,border-color,box-shadow] duration-500 hover:-translate-y-2 hover:scale-[1.015] hover:border-black/10 hover:shadow-[0_30px_90px_rgba(15,23,42,0.14)] dark:border-white/10 dark:bg-[rgba(10,10,14,0.74)] dark:ring-white/[0.04] dark:shadow-[0_20px_60px_rgba(0,0,0,0.42)] dark:hover:border-white/20 dark:hover:shadow-[0_30px_90px_rgba(0,0,0,0.58)]"
@@ -141,9 +149,23 @@
 				{description || tagline}
 			</p>
 
-			<div class="mt-auto flex items-center justify-end pt-6">
+			<div class="mt-auto flex items-center justify-end gap-3 pt-6">
+				{#if hasDocs}
+					<a
+						href={docsUrl}
+						target="_blank"
+						rel="noreferrer"
+						class="inline-flex items-center gap-2 rounded-[14px] border border-black/8 bg-black/[0.02] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-zinc-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] transition-[transform,border-color,background-color,box-shadow] duration-300 hover:border-black/12 hover:bg-black/[0.06] hover:text-zinc-950 hover:shadow-[0_10px_24px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-200 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:hover:border-white/20 dark:hover:bg-white/[0.10] dark:hover:text-white dark:hover:shadow-[0_10px_24px_rgba(255,255,255,0.06)]"
+					>
+						<span>Documentation</span>
+						<span>↗</span>
+					</a>
+				{:else}
+					<span class="text-xs text-zinc-500 dark:text-zinc-400">Documentation non disponible</span>
+				{/if}
+
 				<a
-					href={href}
+					href={installHref}
 					class="inline-flex items-center gap-2 rounded-[14px] border border-black/8 bg-black/[0.04] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] transition-[transform,border-color,background-color,box-shadow] duration-300 hover:border-black/12 hover:bg-black/[0.08] hover:shadow-[0_10px_24px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/[0.08] dark:text-white dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:hover:border-white/20 dark:hover:bg-white/[0.14] dark:hover:shadow-[0_10px_24px_rgba(255,255,255,0.06)]"
 				>
 					<span>Installer</span>

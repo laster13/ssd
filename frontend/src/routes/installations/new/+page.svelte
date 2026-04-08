@@ -3,7 +3,12 @@
 
 	const app = data.app;
 	const machines = data.machines ?? [];
-	const authOptions = ['aucune', 'basique', 'oauth', 'authelia', 'oauth2-proxy'];
+	const authOptions =
+		app.allowed_auth_types?.length > 0
+			? app.allowed_auth_types
+			: ['aucune', 'basique', 'oauth', 'authelia', 'oauth2-proxy'];
+	const docsUrl = app.docs_url ?? '';
+	const hasDocs = Boolean(docsUrl);
 </script>
 
 <svelte:head>
@@ -21,15 +26,30 @@
 	</div>
 
 	<div class="mb-6">
-                <h1 class="max-w-2xl text-lg font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50 sm:text-xl xl:text-2xl xl:leading-[1.1]">
-                        <span class="mt-1 block bg-[linear-gradient(90deg,#0f172a_0%,#0891b2_18%,#059669_44%,#2563eb_70%,#7c3aed_100%)] bg-clip-text text-transparent dark:bg-[linear-gradient(90deg,#f8fafc_0%,#a7f3d0_18%,#67e8f9_40%,#93c5fd_66%,#d8b4fe_100%)]">
-                               Installer {app.name}
-                        </span>
-               </h1>
+		<h1 class="max-w-2xl text-lg font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50 sm:text-xl xl:text-2xl xl:leading-[1.1]">
+			<span class="mt-1 block bg-[linear-gradient(90deg,#0f172a_0%,#0891b2_18%,#059669_44%,#2563eb_70%,#7c3aed_100%)] bg-clip-text text-transparent dark:bg-[linear-gradient(90deg,#f8fafc_0%,#a7f3d0_18%,#67e8f9_40%,#93c5fd_66%,#d8b4fe_100%)]">
+				Installer {app.name}
+			</span>
+		</h1>
 
 		<p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-400 sm:text-base">
 			{app.tagline}
 		</p>
+
+		<div class="mt-4 flex flex-wrap items-center gap-3">
+			{#if hasDocs}
+				<a
+					href={docsUrl}
+					target="_blank"
+					rel="noreferrer"
+					class="inline-flex items-center justify-center rounded-[16px] border border-black/8 bg-black/[0.04] px-4 py-3 text-sm font-medium text-zinc-700 transition-all duration-200 hover:border-black/12 hover:bg-black/[0.06] hover:text-zinc-950 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-300 dark:hover:border-white/20 dark:hover:bg-white/[0.07] dark:hover:text-white"
+				>
+					Voir la documentation ↗
+				</a>
+			{:else}
+				<span class="text-sm text-zinc-500 dark:text-zinc-400">Documentation non disponible</span>
+			{/if}
+		</div>
 	</div>
 
 	{#if form?.error}
@@ -87,7 +107,7 @@
 					>
 						<option value="">Sélectionne un serveur</option>
 						{#each machines as machine}
-							<option value={machine.id} selected={form?.machine_id === machine.id}>
+							<option value={machine.id} selected={String(form?.machine_id ?? '') === String(machine.id)}>
 								{machine.hostname || machine.machine_uuid} — {machine.status}
 							</option>
 						{/each}

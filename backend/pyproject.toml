@@ -2,22 +2,23 @@
 name = "backend"
 version = "0.1.0"
 description = ""
-authors = ["You <you@example.com>"]
+authors = ["You "]
 package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.12"
 fastapi = "^0.115.0"
-uvicorn = {extras = ["standard"], version = "^0.30.0"}
+uvicorn = { extras = ["standard"], version = "^0.30.0" }
 sqlalchemy = "^2.0.0"
 alembic = "^1.13.0"
-psycopg = {extras = ["binary"], version = "^3.2.0"}
+psycopg = { extras = ["binary"], version = "^3.2.0" }
 pydantic-settings = "^2.4.0"
 pyjwt = "^2.12.1"
 argon2-cffi = "^25.1.0"
 email-validator = "^2.3.0"
 pyotp = "^2.9.0"
 cryptography = "^46.0.6"
+pyyaml = "^6.0.2"
 
 [build-system]
 requires = ["poetry-core"]

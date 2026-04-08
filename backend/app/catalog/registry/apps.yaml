@@ -1,0 +1,1095 @@
+version: 1
+sources:
+  catalog_repo: https://github.com/laster13/ssd
+  catalog_file: backend/app/catalog/apps.py
+  docs_repo: https://github.com/projetssd/ssdv2_docs
+  docs_root: docs/fr/applications
+defaults:
+  status: active
+  enabled: true
+  install_profile: seedbox_standard
+  allowed_auth_types:
+  - aucune
+  - basique
+  - oauth
+  - authelia
+  - oauth2-proxy
+apps:
+- slug: actualbudget
+  title: actualbudget
+  category: infrastructure
+  tagline: App for managing your finances
+  docs:
+    path: docs/fr/applications/infrastructure/actualbudget.md
+- slug: aiostreams
+  title: aiostreams
+  category: media
+  tagline: Adonn Stremio
+  docs:
+    missing: true
+- slug: airdcpp
+  title: airdcpp
+  category: telechargement
+  tagline: Client AirDC++
+  docs:
+    path: docs/fr/applications/telechargement/airdcpp.md
+- slug: alfred
+  title: alfred
+  category: infrastructure
+  tagline: Symlink Manager
+  docs:
+    missing: true
+- slug: authelia
+  title: authelia
+  category: securite
+  tagline: Authentification applications Web
+  docs:
+    path: docs/fr/applications/securite/authelia.md
+- slug: autoindex
+  title: autoindex
+  category: infrastructure
+  tagline: Générateur de liste de répertoires
+  docs:
+    path: docs/fr/applications/infrastructure/autoindex.md
+- slug: baserow
+  title: baserow
+  category: infrastructure
+  tagline: Outil no-code pour BDD modulable
+  docs:
+    path: docs/fr/applications/infrastructure/baserow.md
+- slug: baikal
+  title: baikal
+  category: infrastructure
+  tagline: logiciel de calendrier simple
+  docs:
+    path: docs/fr/applications/infrastructure/baikal.md
+- slug: bazarr
+  title: bazarr
+  category: media
+  tagline: Gestion de sous-titres Sonarr/Radarr
+  docs:
+    path: docs/fr/applications/media/bazarr.md
+- slug: benphelps
+  title: benphelps
+  category: infrastructure
+  tagline: Intégrations Docker et API de service
+  docs:
+    missing: true
+- slug: bitwarden
+  title: bitwarden
+  category: securite
+  tagline: Gestionnaire de mots de passeL
+  docs:
+    path: docs/fr/applications/securite/bitwarden.md
+- slug: bookstack
+  title: bookstack
+  category: infrastructure
+  tagline: Wiki gratuit et open source
+  docs:
+    path: docs/fr/applications/infrastructure/bookstack.md
+- slug: boxarr
+  title: boxarr
+  category: media
+  tagline: Box Office dans Radarr
+  docs:
+    path: docs/fr/applications/media/boxarr.md
+- slug: cadvisor
+  title: cadvisor
+  category: monitoring
+  tagline: Gestion des ressources docker
+  docs:
+    path: docs/fr/applications/monitoring/cadvisor.md
+- slug: calibre
+  title: calibre
+  category: media
+  tagline: Gestionnaire de livres électroniques
+  docs:
+    path: docs/fr/applications/media/calibre.md
+- slug: calibreweb
+  title: calibreweb
+  category: media
+  tagline: Gestionnaire de livres électroniques
+  docs:
+    ref: calibre
+- slug: changedetection
+  title: changedetection
+  category: monitoring
+  tagline: Detection changement sites web
+  docs:
+    path: docs/fr/applications/monitoring/changedetection.md
+- slug: chevereto
+  title: chevereto
+  category: infrastructure
+  tagline: Auto-hébergement photos en ligne
+  docs:
+    path: docs/fr/applications/infrastructure/chevereto.md
+- slug: cloudcmd
+  title: cloudcmd
+  category: infrastructure
+  tagline: Gestionnaire de fichiers pour le web
+  docs:
+    path: docs/fr/applications/infrastructure/cloudcmd.md
+- slug: codif
+  title: codif
+  category: infrastructure
+  tagline: VS Code exécuté sur un serveur distant
+  docs:
+    missing: true
+- slug: coolify
+  title: coolify
+  category: infrastructure
+  tagline: manage servers, applications, databases
+  docs:
+    path: docs/fr/applications/infrastructure/coolify.md
+- slug: crowdsec
+  title: crowdsec
+  category: securite
+  tagline: Detection et blocage des attaques
+  docs:
+    path: docs/fr/applications/securite/crowdsec.md
+- slug: cypht
+  title: cypht
+  category: infrastructure
+  tagline: Centraliser plusieurs comptes mails
+  docs:
+    path: docs/fr/applications/infrastructure/cypht.md
+- slug: decypharr
+  title: decypharr
+  category: telechargement
+  tagline: QbitTorrent with a Multiple Debrid
+  docs:
+    path: docs/fr/applications/telechargement/decypharr.md
+- slug: dashdot
+  title: dashdot
+  category: monitoring
+  tagline: System Health intégrable avec Homarr
+  docs:
+    path: docs/fr/applications/monitoring/dashdot.md
+- slug: davos
+  title: davos
+  category: infrastructure
+  tagline: Outils de programmation
+  docs:
+    path: docs/fr/applications/infrastructure/davos.md
+- slug: decypharrseed
+  title: decypharrseed
+  category: telechargement
+  tagline: decypharr Seed
+  docs:
+    path: docs/fr/applications/telechargement/decypharrseed.md
+- slug: deemixrr
+  title: deemixrr
+  category: telechargement
+  tagline: Streamer de la musique depuis deezer
+  docs:
+    path: docs/fr/applications/telechargement/deemixrr.md
+- slug: deluge
+  title: deluge
+  category: telechargement
+  tagline: Gestionnaire de torrent
+  docs:
+    path: docs/fr/applications/telechargement/deluge.md
+- slug: digikam
+  title: digikam
+  category: media
+  tagline: Gestion de photos numériques
+  docs:
+    path: docs/fr/applications/media/digikam.md
+- slug: dockhand
+  title: dockhand
+  category: infrastructure
+  tagline: Modern Docker management
+  docs:
+    path: docs/fr/applications/infrastructure/dockhand.md
+- slug: dozzle
+  title: dozzle
+  category: monitoring
+  tagline: Affichage des logs de conteneurs
+  aliases:
+  - doozle
+  docs:
+    path: docs/fr/applications/monitoring/doozle.md
+- slug: duplicati
+  title: duplicati
+  category: infrastructure
+  tagline: Application de sauvegarde
+  docs:
+    path: docs/fr/applications/infrastructure/duplicati.md
+- slug: espocrm
+  title: espocrm
+  category: infrastructure
+  tagline: Customer Relationship Management
+  docs:
+    path: docs/fr/applications/infrastructure/espocrm.md
+- slug: emby
+  title: emby
+  category: media
+  tagline: Serveur multimédia
+  docs:
+    path: docs/fr/applications/media/emby.md
+- slug: fenrus
+  title: fenrus
+  category: infrastructure
+  tagline: Passerelle vers le monde des sorciers
+  docs:
+    path: docs/fr/applications/infrastructure/fenrus.md
+- slug: filebot
+  title: filebot
+  category: media
+  tagline: Organiser vos films, séries et anime
+  docs:
+    path: docs/fr/applications/media/filebot.md
+- slug: filebrowser
+  title: filebrowser
+  category: infrastructure
+  tagline: Gestion fichiers via une interface
+  docs:
+    path: docs/fr/applications/infrastructure/filebrowser.md
+- slug: firefox
+  title: firefox
+  category: media
+  tagline: Un navigateur dans votre navigateur
+  docs:
+    path: docs/fr/applications/media/firefox.md
+- slug: firefoxsyncserver
+  title: firefoxsyncserver
+  category: infrastructure
+  tagline: Navigateur Firefox
+  docs:
+    path: docs/fr/applications/infrastructure/firefoxsyncserver.md
+- slug: flixor
+  title: flixor
+  category: media
+  tagline: interface modern plex
+  docs:
+    path: docs/fr/applications/media/flixor.md
+- slug: foptimum
+  title: foptimum
+  category: monitoring
+  tagline: Performances serveur
+  docs:
+    path: docs/fr/applications/monitoring/foptimum.md
+- slug: freshrss
+  title: freshrss
+  category: infrastructure
+  tagline: Agrégateur de flux open source
+  docs:
+    path: docs/fr/applications/infrastructure/freshrss.md
+- slug: frenchio
+  title: frenchio
+  category: media
+  tagline: Stremio orienté contenu francophone
+  docs:
+    path: docs/fr/applications/media/frenchio.md
+- slug: gethomepage
+  title: gethomepage
+  category: infrastructure
+  tagline: dashboard Applications
+  docs:
+    path: docs/fr/applications/infrastructure/gethomepage.md
+- slug: gitea
+  title: gitea
+  category: infrastructure
+  tagline: Hébergement de développement logiciel
+  docs:
+    path: docs/fr/applications/infrastructure/gitea.md
+- slug: gitlab
+  title: gitlab
+  category: infrastructure
+  tagline: Hébergement de développement logiciel
+  docs:
+    path: docs/fr/applications/infrastructure/gitlab.md
+- slug: glftpd
+  title: glftpd
+  category: infrastructure
+  tagline: Serveur FTP
+  docs:
+    missing: true
+- slug: goaccess
+  title: goaccess
+  category: monitoring
+  tagline: Visual Web Log Analyzer
+  docs:
+    path: docs/fr/applications/monitoring/goaccess.md
+- slug: gotify
+  title: gotify
+  category: infrastructure
+  tagline: Envoyer et recevoir des messages
+  docs:
+    path: docs/fr/applications/infrastructure/gotify.md
+- slug: grist
+  title: grist
+  category: infrastructure
+  tagline: organise, analyse, partage de data
+  docs:
+    path: docs/fr/applications/infrastructure/grist.md
+- slug: grocy
+  title: grocy
+  category: infrastructure
+  tagline: Gestion de recettes
+  docs:
+    path: docs/fr/applications/infrastructure/grocy.md
+- slug: guacamole
+  title: guacamole
+  category: securite
+  tagline: Accès à distance via portail Web
+  docs:
+    path: docs/fr/applications/securite/guacamole.md
+- slug: handbrake
+  title: handbrake
+  category: media
+  tagline: Transcoder une source vidéo
+  docs:
+    path: docs/fr/applications/media/handbrake.md
+- slug: heimdall
+  title: heimdall
+  category: infrastructure
+  tagline: Organiser vos applications Web
+  docs:
+    path: docs/fr/applications/infrastructure/heimdall.md
+- slug: homarr
+  title: homarr
+  category: infrastructure
+  tagline: A simple powerful dashboard
+  docs:
+    path: docs/fr/applications/infrastructure/homarr.md
+- slug: huntarr
+  title: huntarr
+  category: telechargement
+  tagline: Chasseur médias automatisé
+  docs:
+    path: docs/fr/applications/telechargement/huntarr.md
+- slug: imagmaid
+  title: imagmaid
+  category: media
+  tagline: Plex Image Cleanup
+  docs:
+    path: docs/fr/applications/media/imagmaid.md
+- slug: immich
+  title: immich
+  category: media
+  tagline: self-hosted photo video management
+  docs:
+    path: docs/fr/applications/media/immich.md
+- slug: jackett
+  title: jackett
+  category: telechargement
+  tagline: Indexeur de scraping
+  docs:
+    path: docs/fr/applications/telechargement/jackett.md
+- slug: jackettstremio
+  title: jackettstremio
+  category: telechargement
+  tagline: Indexeur de scraping
+  docs:
+    ref: jackett
+- slug: jackettvpn
+  title: jackettvpn
+  category: telechargement
+  tagline: Indexeur de scraping
+  docs:
+    ref: jackett
+- slug: jdownloader
+  title: jdownloader
+  category: telechargement
+  tagline: Gestionnaire de téléchargements
+  docs:
+    path: docs/fr/applications/telechargement/jdownloader.md
+- slug: jellyseerr
+  title: jellyseerr
+  category: media
+  tagline: Gestion de contenu Plex/Emby
+  docs:
+    ref: seerr
+- slug: jellyfin
+  title: jellyfin
+  category: media
+  tagline: Serveur multimédia
+  docs:
+    path: docs/fr/applications/media/jellyfin.md
+- slug: jfago
+  title: jfago
+  category: monitoring
+  tagline: Gestion des utilisateurs Jellyfin
+  docs:
+    path: docs/fr/applications/monitoring/jfago.md
+- slug: jitsi
+  title: jitsi
+  category: infrastructure
+  tagline: Plateformes de visioconférence
+  docs:
+    path: docs/fr/applications/infrastructure/jitsi.md
+- slug: kasm
+  title: kasm
+  category: securite
+  tagline: Streaming de conteneurs Docker
+  docs:
+    path: docs/fr/applications/securite/kasm.md
+- slug: kavita
+  title: kavita
+  category: media
+  tagline: application de gestion PDF, eBook
+  docs:
+    path: docs/fr/applications/media/kavita.md
+- slug: kitana
+  title: kitana
+  category: media
+  tagline: Plugin Plex
+  docs:
+    path: docs/fr/applications/media/kitana.md
+- slug: komga
+  title: komga
+  category: media
+  tagline: Gestion de bandes dessinées/mangas
+  docs:
+    path: docs/fr/applications/media/komga.md
+- slug: kresus
+  title: kresus
+  category: infrastructure
+  tagline: Gestionnaire de données personnelles
+  docs:
+    path: docs/fr/applications/infrastructure/kresus.md
+- slug: kuma
+  title: kuma
+  category: monitoring
+  tagline: Outil de surveillancer
+  docs:
+    path: docs/fr/applications/monitoring/kuma.md
+- slug: librespeed
+  title: librespeed
+  category: monitoring
+  tagline: Speedtest auto-hébergé pour HTML5
+  docs:
+    path: docs/fr/applications/monitoring/librespeed.md
+- slug: lidarr
+  title: lidarr
+  category: media
+  tagline: Gestionnaire de musiques
+  docs:
+    path: docs/fr/applications/media/lidarr.md
+- slug: linkding
+  title: linkding
+  category: infrastructure
+  tagline: Gestionnaire de favoris
+  docs:
+    path: docs/fr/applications/infrastructure/linkding.md
+- slug: logarr
+  title: logarr
+  category: monitoring
+  tagline: Gestion des logs
+  docs:
+    path: docs/fr/applications/monitoring/logarr.md
+- slug: mango
+  title: mango
+  category: infrastructure
+  tagline: Serveur de mangas auto-hébergé
+  docs:
+    path: docs/fr/applications/infrastructure/mango.md
+- slug: Mattermost
+  title: Mattermost
+  category: infrastructure
+  tagline: Plateforme de collaboration
+  aliases:
+  - mattermost
+  docs:
+    path: docs/fr/applications/infrastructure/mattermost.md
+- slug: mealie
+  title: mealie
+  category: infrastructure
+  tagline: Gestion de vos recettes
+  docs:
+    path: docs/fr/applications/infrastructure/mealie.md
+- slug: mediawiki
+  title: mediawiki
+  category: infrastructure
+  tagline: plateforme pour Wikipédia
+  docs:
+    path: docs/fr/applications/infrastructure/mediawiki.md
+- slug: mediaflowproxy
+  title: mediaflowproxy
+  category: monitoring
+  tagline: Proxy pour Stremio
+  docs:
+    path: docs/fr/applications/monitoring/mediaflowproxy.md
+- slug: medusa
+  title: medusa
+  category: monitoring
+  tagline: Gestionnaire de séries, animes
+  docs:
+    path: docs/fr/applications/monitoring/medusa.md
+- slug: mellow
+  title: mellow
+  category: monitoring
+  tagline: client proxy
+  docs:
+    path: docs/fr/applications/monitoring/mellow.md
+- slug: metube
+  title: metube
+  category: telechargement
+  tagline: Téléchargement YouTube auto-hébergé
+  docs:
+    path: docs/fr/applications/telechargement/metube.md
+- slug: microbin
+  title: microbin
+  category: infrastructure
+  tagline: Application Web paste bin
+  docs:
+    path: docs/fr/applications/infrastructure/microbin.md
+- slug: minecraft
+  title: minecraft
+  category: infrastructure
+  tagline: Jeu d'aventure immersif
+  docs:
+    missing: true
+- slug: mkvtoolnix
+  title: mkvtoolnix
+  category: media
+  tagline: Gestion de fichiers MKV
+  docs:
+    path: docs/fr/applications/media/mkvtoolnix.md
+- slug: monicaHQ
+  title: monicaHQ
+  category: infrastructure
+  tagline: CRM pour votre vie personnelle
+  aliases:
+  - monicahq
+  docs:
+    path: docs/fr/applications/infrastructure/monicahq.md
+- slug: monitorr
+  title: monitorr
+  category: monitoring
+  tagline: Gérer votre système et réseau
+  docs:
+    path: docs/fr/applications/monitoring/monitorr.md
+- slug: n8nio
+  title: n8nio
+  category: infrastructure
+  tagline: Outil de Workflow open-source
+  docs:
+    path: docs/fr/applications/infrastructure/n8nio.md
+- slug: navidrome
+  title: navidrome
+  category: media
+  tagline: Serveur de streaming musical
+  docs:
+    path: docs/fr/applications/media/navidrome.md
+- slug: neko
+  title: neko
+  category: media
+  tagline: navigateur virtuel auto-hébergé
+  docs:
+    path: docs/fr/applications/media/neko.md
+- slug: netdata
+  title: netdata
+  category: monitoring
+  tagline: Serveur de surveillance systeme
+  docs:
+    path: docs/fr/applications/monitoring/netdata.md
+- slug: nextcloud
+  title: nextcloud
+  category: infrastructure
+  tagline: Stockage et partage de fichiers
+  docs:
+    path: docs/fr/applications/infrastructure/nextcloud.md
+- slug: nocodb
+  title: nocodb
+  category: infrastructure
+  tagline: Plateforme NoCode open source
+  docs:
+    path: docs/fr/applications/infrastructure/nocodb.md
+- slug: nowshowing
+  title: nowshowing
+  category: media
+  tagline: Addon Plex
+  docs:
+    path: docs/fr/applications/media/nowshowing.md
+- slug: ntopng
+  title: ntopng
+  category: monitoring
+  tagline: Surveiller réseau informatique
+  docs:
+    path: docs/fr/applications/monitoring/ntopng.md
+- slug: nZBHydra
+  title: nZBHydra
+  category: telechargement
+  tagline: Indexeurs newznab
+  aliases:
+  - nzbhydra
+  docs:
+    path: docs/fr/applications/telechargement/nzbhydra.md
+- slug: nzbdav
+  title: nzbdav
+  category: telechargement
+  tagline: WebDAV Server Usenet
+  docs:
+    path: docs/fr/applications/telechargement/nzbdav.md
+- slug: ombi
+  title: ombi
+  category: infrastructure
+  tagline: Gestion de contenu Plex/Emby
+  docs:
+    path: docs/fr/applications/infrastructure/ombi.md
+- slug: organizr
+  title: organizr
+  category: infrastructure
+  tagline: Gestion des applications
+  docs:
+    path: docs/fr/applications/infrastructure/organizr.md
+- slug: pastebin
+  title: pastebin
+  category: infrastructure
+  tagline: Mettre en ligne du texte
+  docs:
+    path: docs/fr/applications/infrastructure/pastebin.md
+- slug: paperless
+  title: paperless
+  category: infrastructure
+  tagline: Document management system
+  docs:
+    path: docs/fr/applications/infrastructure/paperless.md
+- slug: pingvin
+  title: pingvin
+  category: infrastructure
+  tagline: Partage de fichiers auto-hébergée
+  docs:
+    path: docs/fr/applications/infrastructure/pingvin.md
+- slug: piwigo
+  title: piwigo
+  category: infrastructure
+  tagline: Gestion d'albums photo
+  docs:
+    path: docs/fr/applications/infrastructure/piwigo.md
+- slug: plausible
+  title: plausible
+  category: monitoring
+  tagline: Alternative à Google Analytics
+  docs:
+    path: docs/fr/applications/monitoring/plausible.md
+- slug: plexautolanguages
+  title: plexautolanguages
+  category: media
+  tagline: Addon plex sous titres
+  docs:
+    path: docs/fr/applications/media/plexautolanguages.md
+- slug: plex
+  title: plex
+  category: media
+  tagline: Serveur multimédia
+  docs:
+    path: docs/fr/applications/media/plex.md
+- slug: portainer
+  title: portainer
+  category: infrastructure
+  tagline: Gestion docker
+  docs:
+    path: docs/fr/applications/infrastructure/portainer.md
+- slug: prowlarr
+  title: prowlarr
+  category: media
+  tagline: Indexeur de scraping
+  docs:
+    path: docs/fr/applications/media/prowlarr.md
+- slug: pterodactyl
+  title: pterodactyl
+  category: infrastructure
+  tagline: game server management panel
+  docs:
+    path: docs/fr/applications/infrastructure/pterodactyl.md
+- slug: pureftpd
+  title: pureftpd
+  category: infrastructure
+  tagline: Serveur FTP
+  docs:
+    path: docs/fr/applications/infrastructure/pureftpd.md
+- slug: pyload
+  title: pyload
+  category: telechargement
+  tagline: Gestionnaire de téléchargement
+  docs:
+    path: docs/fr/applications/telechargement/pyload.md
+- slug: qbittorrent
+  title: qbittorrent
+  category: telechargement
+  tagline: Gestionnaire de torrent
+  docs:
+    path: docs/fr/applications/telechargement/qbittorrent.md
+- slug: qbitorrentvpn
+  title: qbitorrentvpn
+  category: telechargement
+  tagline: Gestionnaire de torrent
+  aliases:
+  - qbittorrentvpn
+  docs:
+    ref: qbittorrent
+- slug: qflood
+  title: qflood
+  category: telechargement
+  tagline: Gestionnaire de torrent
+  docs:
+    path: docs/fr/applications/telechargement/qflood.md
+- slug: radarr4k
+  title: radarr4k
+  category: media
+  tagline: Gestion Films-4K Usenet-BitTorrent
+  docs:
+    ref: radarr
+- slug: radarr
+  title: radarr
+  category: media
+  tagline: Gestion Films Usenet-BitTorrent
+  docs:
+    path: docs/fr/applications/media/radarr.md
+- slug: rdtclient
+  title: rdtclient
+  category: telechargement
+  tagline: Clients Real debrid
+  docs:
+    path: docs/fr/applications/telechargement/rdtclient.md
+- slug: readarr
+  title: readarr
+  category: media
+  tagline: Gestion ebook Usenet-BitTorrent
+  docs:
+    path: docs/fr/applications/media/readarr.md
+- slug: recyclarr
+  title: recyclarr
+  category: media
+  tagline: Trash Guide Customs Formats
+  docs:
+    missing: true
+- slug: rflood
+  title: rflood
+  category: telechargement
+  tagline: Un gestionnaire de torrent
+  docs:
+    path: docs/fr/applications/telechargement/rflood.md
+- slug: rtorrentvpn
+  title: rtorrentvpn
+  category: telechargement
+  tagline: Gestionnaire de torrent VPN
+  docs:
+    ref: rutorrent
+- slug: rutorrent_2
+  title: rutorrent 2
+  category: telechargement
+  tagline: Un gestionnaire de torrent
+  docs:
+    ref: rutorrent
+- slug: rutorrent
+  title: rutorrent
+  category: telechargement
+  tagline: Un gestionnaire de torrent
+  docs:
+    path: docs/fr/applications/telechargement/rutorrent.md
+- slug: sabnzbd
+  title: sabnzbd
+  category: telechargement
+  tagline: Téléchargement de newsgroups
+  docs:
+    path: docs/fr/applications/telechargement/sabnzbd.md
+- slug: scrutiny
+  title: scrutiny
+  category: monitoring
+  tagline: Solution de monitoring
+  docs:
+    path: docs/fr/applications/monitoring/scrutiny.md
+- slug: seafile
+  title: seafile
+  category: infrastructure
+  tagline: Stockage cloud open source
+  docs:
+    path: docs/fr/applications/infrastructure/seafile.md
+- slug: seerr
+  title: seerr
+  category: media
+  tagline: Gestion de contenu Plex/Emby
+  docs:
+    path: docs/fr/applications/media/seerr.md
+- slug: seerrcatalog
+  title: seerrcatalog
+  category: media
+  tagline: Passerelle entre Jellyseerr et Stremio
+  docs:
+    path: docs/fr/applications/media/seerrcatalog.md
+- slug: shaarli
+  title: shaarli
+  category: infrastructure
+  tagline: Bookmarking personnel
+  docs:
+    path: docs/fr/applications/infrastructure/shaarli.md
+- slug: sickchill
+  title: sickchill
+  category: infrastructure
+  tagline: Gestion Films/Séries
+  docs:
+    path: docs/fr/applications/infrastructure/sickchill.md
+- slug: sickgear
+  title: sickgear
+  category: infrastructure
+  tagline: Gestionnaire Films/Séries
+  docs:
+    path: docs/fr/applications/infrastructure/sickgear.md
+- slug: sismicsreader
+  title: sismicsreader
+  category: infrastructure
+  tagline: Agrégateur flux Web
+  docs:
+    path: docs/fr/applications/infrastructure/sismicsreader.md
+- slug: sonarr4k
+  title: sonarr4k
+  category: media
+  tagline: Gestion Séries 4K
+  docs:
+    ref: sonarr
+- slug: sonarr
+  title: sonarr
+  category: media
+  tagline: Gestion Séries Usenet et BitTorren
+  docs:
+    path: docs/fr/applications/media/sonarr.md
+- slug: speedtest
+  title: speedtest
+  category: monitoring
+  tagline: Teste vitesse Internet
+  docs:
+    path: docs/fr/applications/monitoring/speedtest.md
+- slug: speedtesttracker
+  title: speedtesttracker
+  category: monitoring
+  tagline: Teste vitesse Internet
+  docs:
+    path: docs/fr/applications/monitoring/speedtesttracker.md
+- slug: statping
+  title: statping
+  category: monitoring
+  tagline: Surveillance de vos sites Web
+  docs:
+    path: docs/fr/applications/monitoring/statping.md
+- slug: stirlingpdf
+  title: stirlingpdf
+  category: infrastructure
+  tagline: Boite à outils PDF
+  docs:
+    path: docs/fr/applications/infrastructure/stirlingpdf.md
+- slug: streamfusion
+  title: streamfusion
+  category: media
+  tagline: addon for Stremio streaming
+  docs:
+    path: docs/fr/applications/media/streamfusion.md
+- slug: stremiocatalogs
+  title: stremiocatalogs
+  category: media
+  tagline: addon for Stremio that provides catalogs
+  docs:
+    missing: true
+- slug: stremiotrakt
+  title: stremiotrakt
+  category: media
+  tagline: addon for Stremio that provides trakt lists
+  docs:
+    missing: true
+- slug: stremiosaga
+  title: stremiosaga
+  category: media
+  tagline: addon for Stremio that provides saga infos
+  docs:
+    missing: true
+- slug: stremiotmdbdice
+  title: stremiotmdbdice
+  category: media
+  tagline: addon for Stremio that provides shuffle movies suggestions
+  docs:
+    missing: true
+- slug: stremiomanager
+  title: stremiomanager
+  category: media
+  tagline: App for re-organizing your Stremio addons
+  docs:
+    missing: true
+- slug: stremthru
+  title: stremthru
+  category: media
+  tagline: Proxy pour Stremio
+  docs:
+    path: docs/fr/applications/media/stremthru.md
+- slug: subsonic
+  title: subsonic
+  category: media
+  tagline: Serveur multimédia
+  docs:
+    path: docs/fr/applications/media/subsonic.md
+- slug: synclounge
+  title: synclounge
+  category: media
+  tagline: Adon Plex
+  docs:
+    path: docs/fr/applications/media/synclounge.md
+- slug: syncthing
+  title: syncthing
+  category: infrastructure
+  tagline: Synchronisation de fichiers
+  docs:
+    path: docs/fr/applications/infrastructure/syncthing.md
+- slug: tautulli
+  title: tautulli
+  category: media
+  tagline: Monitoring de Plex
+  docs:
+    path: docs/fr/applications/media/tautulli.md
+- slug: thelounge
+  title: thelounge
+  category: infrastructure
+  tagline: Web IRC client always connected
+  docs:
+    path: docs/fr/applications/infrastructure/thelounge.md
+- slug: transmission
+  title: transmission
+  category: telechargement
+  tagline: Gestionnaire de torrent
+  docs:
+    path: docs/fr/applications/telechargement/transmission.md
+- slug: transmissionvpn
+  title: transmissionvpn
+  category: telechargement
+  tagline: Gestionnaire de torrent VPN
+  docs:
+    ref: transmission
+- slug: ttrss
+  title: ttrss
+  category: infrastructure
+  tagline: Agrégateur de flux d'actualités
+  docs:
+    path: docs/fr/applications/infrastructure/ttrss.md
+- slug: ubooquity
+  title: ubooquity
+  category: media
+  tagline: Gestion ebooks
+  docs:
+    path: docs/fr/applications/media/ubooquity.md
+- slug: usenet
+  title: usenet
+  category: telechargement
+  tagline: Un gestionnaire de nzb
+  docs:
+    missing: true
+- slug: vaultwarden
+  title: vaultwarden
+  category: securite
+  tagline: Serveur compatible Bitwarden
+  docs:
+    path: docs/fr/applications/securite/vaultwarden.md
+- slug: vikunja
+  title: vikunja
+  category: infrastructure
+  tagline: Application de liste de tâches
+  docs:
+    path: docs/fr/applications/infrastructure/vikunja.md
+- slug: wallos
+  title: wallos
+  category: infrastructure
+  tagline: Gestion des abonnements
+  docs:
+    path: docs/fr/applications/infrastructure/wallos.md
+- slug: warp
+  title: warp
+  category: securite
+  tagline: VPN/proxy développé par Cloudflare
+  docs:
+    path: docs/fr/applications/securite/warp.md
+- slug: watchtower
+  title: watchtower
+  category: monitoring
+  tagline: Mises à jour automatiques Docker
+  docs:
+    path: docs/fr/applications/monitoring/watchtower.md
+- slug: webdav
+  title: webdav
+  category: infrastructure
+  tagline: Service d'hébergement de fichiers
+  docs:
+    missing: true
+- slug: webtop
+  title: webtop
+  category: infrastructure
+  tagline: Gestion d'environnements
+  docs:
+    path: docs/fr/applications/infrastructure/webtop.md
+- slug: weddingshare
+  title: weddingshare
+  category: infrastructure
+  tagline: Partage Moments Ensembles
+  docs:
+    path: docs/fr/applications/infrastructure/weddingshare.md
+- slug: wetty
+  title: wetty
+  category: infrastructure
+  tagline: Terminal sur HTTP et https
+  docs:
+    missing: true
+- slug: wgeasy
+  title: wgeasy
+  category: infrastructure
+  tagline: Gestion WireGuard
+  docs:
+    path: docs/fr/applications/infrastructure/wgeasy.md
+- slug: whisparr
+  title: whisparr
+  category: media
+  tagline: Gestionnaire de films pour adultes
+  docs:
+    path: docs/fr/applications/media/whisparr.md
+- slug: wikijs
+  title: wikijs
+  category: infrastructure
+  tagline: Une application wiki moderne
+  docs:
+    path: docs/fr/applications/infrastructure/wikijs.md
+- slug: wireguardui
+  title: wireguardui
+  category: securite
+  tagline: Interface Web gestion/WireGuard
+  docs:
+    ref: wireguard
+- slug: wireguard
+  title: wireguard
+  category: securite
+  tagline: Protocole de communication (VPN).
+  docs:
+    path: docs/fr/applications/securite/wireguard.md
+- slug: wizarr
+  title: wizarr
+  category: media
+  tagline: Invitation utilisateurs Plex et Jellyfin
+  docs:
+    path: docs/fr/applications/media/wizarr.md
+- slug: wordpress
+  title: wordpress
+  category: infrastructure
+  tagline: Gestion de contenu (CMS)
+  docs:
+    path: docs/fr/applications/infrastructure/wordpress.md
+- slug: yacht
+  title: yacht
+  category: infrastructure
+  tagline: Gestion des conteneurs Docker
+  docs:
+    path: docs/fr/applications/infrastructure/yacht.md
+- slug: ygege
+  title: ygege
+  category: infrastructure
+  tagline: Indexeur pour YggTorrent
+  docs:
+    path: docs/fr/applications/infrastructure/ygege.md
+- slug: yourls
+  title: yourls
+  category: infrastructure
+  tagline: Gestion de liens
+  docs:
+    path: docs/fr/applications/infrastructure/yourls.md
+- slug: zilean
+  title: zilean
+  category: telechargement
+  tagline: DMM hashlist scrapper
+  docs:
+    missing: true
