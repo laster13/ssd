@@ -10,6 +10,7 @@
 		machineName: string;
 		machineStatus?: string;
 		displayStatus: string;
+		public_url?: string | null;
 	};
 
 	type ServerItem = {
@@ -58,6 +59,13 @@
 		return item.last_operation === 'uninstall'
 			? `/uninstallations/${item.last_job_id}`
 			: `/installations/${item.last_job_id}`;
+	}
+
+	function appHref(item: InventoryItem) {
+		if (!item.present) return null;
+		if (item.transition !== 'idle') return null;
+		if (!item.public_url) return null;
+		return item.public_url;
 	}
 
 	function subtitle(item: InventoryItem) {
@@ -125,15 +133,15 @@
 			});
 	});
 
-	const installedItems = $derived(
+	const installedItems = $derived.by(() =>
 		items.filter((item) => item.present && item.transition === 'idle' && item.last_job_status !== 'failed')
 	);
 
-	const runningItems = $derived(
+	const runningItems = $derived.by(() =>
 		items.filter((item) => item.transition === 'installing' || item.transition === 'uninstalling')
 	);
 
-	const failedItems = $derived(items.filter((item) => item.last_job_status === 'failed'));
+	const failedItems = $derived.by(() => items.filter((item) => item.last_job_status === 'failed'));
 
 	const serverItems = $derived.by(() => {
 		const grouped = new Map<string, ServerItem>();
@@ -197,13 +205,17 @@
 <section class="bg-zinc-50 pb-8 dark:bg-[#07111f]">
 	<div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 		{#if uninstallSuccess}
-			<div class="mb-4 rounded-[18px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-200">
+			<div
+				class="mb-4 rounded-[18px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-200"
+			>
 				{uninstallSuccess}
 			</div>
 		{/if}
 
 		{#if uninstallError}
-			<div class="mb-4 rounded-[18px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-200">
+			<div
+				class="mb-4 rounded-[18px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-200"
+			>
 				{uninstallError}
 			</div>
 		{/if}
@@ -246,13 +258,19 @@
 			</button>
 		</div>
 
-		<div class="mt-6 rounded-[24px] border border-black/5 bg-white/80 p-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.045] dark:shadow-[0_18px_50px_rgba(0,0,0,0.30)]">
+		<div
+			class="mt-6 rounded-[24px] border border-black/5 bg-white/80 p-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.045] dark:shadow-[0_18px_50px_rgba(0,0,0,0.30)]"
+		>
 			<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 				<div>
-					<p class="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
+					<p
+						class="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400"
+					>
 						Inventaire
 					</p>
-					<h2 class="mt-2 text-2xl font-semibold tracking-[-0.05em] text-zinc-950 dark:text-zinc-50">
+					<h2
+						class="mt-2 text-2xl font-semibold tracking-[-0.05em] text-zinc-950 dark:text-zinc-50"
+					>
 						{sectionTitle()}
 					</h2>
 					<p class="mt-2 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
@@ -286,10 +304,14 @@
 				{#if serverItems.length > 0}
 					<div class="mt-6 grid gap-4 md:grid-cols-2">
 						{#each serverItems as server}
-							<article class="rounded-[20px] border border-black/5 bg-white/70 p-5 shadow-[0_12px_30px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-white/[0.03]">
+							<article
+								class="rounded-[20px] border border-black/5 bg-white/70 p-5 shadow-[0_12px_30px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-white/[0.03]"
+							>
 								<div class="flex items-start justify-between gap-4">
 									<div>
-										<h3 class="text-lg font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50">
+										<h3
+											class="text-lg font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50"
+										>
 											{server.machineName}
 										</h3>
 										<p class="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
@@ -311,9 +333,13 @@
 						{/each}
 					</div>
 				{:else}
-					<div class="mt-6 rounded-[20px] border border-black/5 bg-white/70 p-8 text-center dark:border-white/10 dark:bg-white/[0.03]">
+					<div
+						class="mt-6 rounded-[20px] border border-black/5 bg-white/70 p-8 text-center dark:border-white/10 dark:bg-white/[0.03]"
+					>
 						<div class="text-2xl">✦</div>
-						<h3 class="mt-3 text-xl font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50">
+						<h3
+							class="mt-3 text-xl font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50"
+						>
 							Aucun serveur trouvé
 						</h3>
 						<p class="mt-2 text-sm leading-7 text-zinc-600 dark:text-zinc-400">
@@ -324,14 +350,39 @@
 			{:else if visibleItems.length > 0}
 				<div class="mt-6 grid gap-4">
 					{#each visibleItems as item}
-						<article class="rounded-[20px] border border-black/5 bg-white/70 p-5 shadow-[0_12px_30px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-white/[0.03]">
+						<article
+							class="rounded-[20px] border border-black/5 bg-white/70 p-5 shadow-[0_12px_30px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-white/[0.03]"
+						>
 							<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
 								<div class="min-w-0 flex-1">
 									<div class="flex flex-wrap items-center gap-3">
-										<h3 class="truncate text-lg font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50">
-											{item.appTitle}
-										</h3>
-										<JobStatusBadge status={item.displayStatus} variant="applications" className="shrink-0" />
+										{#if appHref(item)}
+											<h3
+												class="truncate text-lg font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50"
+											>
+												<a
+													href={appHref(item) ?? '#'}
+													target="_blank"
+													rel="noreferrer"
+													class="inline-flex items-center gap-2 underline-offset-4 transition hover:text-sky-600 hover:underline dark:hover:text-sky-300"
+												>
+													<span class="truncate">{item.appTitle}</span>
+													<span class="shrink-0">↗</span>
+												</a>
+											</h3>
+										{:else}
+											<h3
+												class="truncate text-lg font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50"
+											>
+												{item.appTitle}
+											</h3>
+										{/if}
+
+										<JobStatusBadge
+											status={item.displayStatus}
+											variant="applications"
+											className="shrink-0"
+										/>
 									</div>
 
 									<div class="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-zinc-500 dark:text-zinc-400">
@@ -384,9 +435,13 @@
 					{/each}
 				</div>
 			{:else}
-				<div class="mt-6 rounded-[20px] border border-black/5 bg-white/70 p-8 text-center dark:border-white/10 dark:bg-white/[0.03]">
+				<div
+					class="mt-6 rounded-[20px] border border-black/5 bg-white/70 p-8 text-center dark:border-white/10 dark:bg-white/[0.03]"
+				>
 					<div class="text-2xl">✦</div>
-					<h3 class="mt-3 text-xl font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50">
+					<h3
+						class="mt-3 text-xl font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50"
+					>
 						Aucun contenu pour ce filtre
 					</h3>
 					<p class="mt-2 text-sm leading-7 text-zinc-600 dark:text-zinc-400">

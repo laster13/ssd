@@ -21,3 +21,6 @@ class ApplicationStateResponse(BaseModel):
     installed_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
+
+    # nouveau champ calculé à la volée
+    public_url: str | None = None

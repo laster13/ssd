@@ -28,18 +28,16 @@ export type ApplicationState = {
 	machine_id: string;
 	app_slug: string;
 	app_name?: string | null;
-
 	present: boolean;
 	transition: ApplicationTransition;
-
 	last_operation?: 'install' | 'uninstall' | null;
 	last_job_id?: string | null;
 	last_job_status?: string | null;
 	last_error?: string | null;
-
 	installed_at?: string | null;
 	created_at?: string;
 	updated_at?: string;
+	public_url?: string | null;
 };
 
 export type JobStatusVariant = 'applications' | 'history';
@@ -122,7 +120,6 @@ export function jobStatusDotClass(status: string) {
 
 export function formatFrenchDate(value?: string | null) {
 	if (!value) return '-';
-
 	const date = new Date(value);
 	if (Number.isNaN(date.getTime())) return value;
 
@@ -135,7 +132,6 @@ export function formatFrenchDate(value?: string | null) {
 
 export function formatFrenchDateTime(value?: string | null) {
 	if (!value) return '—';
-
 	const date = new Date(value);
 	if (Number.isNaN(date.getTime())) return value;
 

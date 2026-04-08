@@ -1,4 +1,5 @@
 import re
+from urllib.parse import urlparse
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -15,7 +16,6 @@ from app.models.job import Job
 from app.models.job_log import JobLog
 from app.models.machine import Machine
 from app.models.user import User
-from app.schemas.application_state import ApplicationStateResponse
 from app.schemas.job import (
     AdminJobListItem,
     AdminJobResponse,
@@ -29,6 +29,19 @@ router = APIRouter(prefix="/me", tags=["me"])
 INSTALL_JOB_TYPES = ["install_app", "install_ssdv2", "uninstall_app"]
 
 SUBDOMAIN_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])?$")
+PUBLIC_URL_RE = re.compile(r"https?://[^\s\"'<>]+", re.IGNORECASE)
+
+# hostname nu avec au moins un point, ex: sonarr.lastharo.eu
+HOSTNAME_RE = re.compile(
+    r"\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}\b",
+    re.IGNORECASE,
+)
+
+IGNORED_HOSTS = {
+    "localhost",
+    "127.0.0.1",
+    "0.0.0.0",
+}
 
 
 class CreateMyUninstallationRequest(BaseModel):
@@ -36,22 +49,129 @@ class CreateMyUninstallationRequest(BaseModel):
     app_slug: str
 
 
-def build_application_state_response(state: ApplicationState) -> ApplicationStateResponse:
-    return ApplicationStateResponse(
-        id=state.id,
-        machine_id=state.machine_id,
-        app_slug=state.app_slug,
-        app_name=state.app_name,
-        present=state.present,
-        transition=state.transition,
-        last_operation=state.last_operation,
-        last_job_id=state.last_job_id,
-        last_job_status=state.last_job_status,
-        last_error=state.last_error,
-        installed_at=state.installed_at,
-        created_at=state.created_at,
-        updated_at=state.updated_at,
+def _clean_public_url(value: str) -> str:
+    return value.rstrip(").,;\"'")
+
+
+def _clean_hostname(value: str) -> str:
+    return value.rstrip(").,;\"'").lower()
+
+
+def _looks_like_public_host(hostname: str) -> bool:
+    if not hostname:
+        return False
+    if hostname in IGNORED_HOSTS:
+        return False
+    if "." not in hostname:
+        return False
+    return True
+
+
+def _extract_public_url_from_messages(
+    messages: list[str],
+    preferred_subdomain: str | None = None,
+) -> str | None:
+    fallback_url: str | None = None
+    fallback_host: str | None = None
+    preferred_prefix = f"{preferred_subdomain.lower()}." if preferred_subdomain else None
+
+    for message in messages:
+        if not message:
+            continue
+
+        # 1) URL complète
+        for raw_url in PUBLIC_URL_RE.findall(message):
+            url = _clean_public_url(raw_url)
+            parsed = urlparse(url)
+            hostname = (parsed.hostname or "").lower()
+
+            if not _looks_like_public_host(hostname):
+                continue
+
+            if preferred_prefix and hostname.startswith(preferred_prefix):
+                return url
+
+            if fallback_url is None:
+                fallback_url = url
+
+        # 2) hostname nu
+        for raw_host in HOSTNAME_RE.findall(message):
+            hostname = _clean_hostname(raw_host)
+
+            if not _looks_like_public_host(hostname):
+                continue
+
+            rebuilt_url = f"https://{hostname}"
+
+            if preferred_prefix and hostname.startswith(preferred_prefix):
+                return rebuilt_url
+
+            if fallback_host is None:
+                fallback_host = rebuilt_url
+
+    return fallback_url or fallback_host
+
+
+def _find_latest_install_job_for_app(db: Session, state: ApplicationState) -> Job | None:
+    stmt = (
+        select(Job)
+        .where(Job.machine_id == state.machine_id)
+        .where(Job.type == "install_app")
+        .order_by(Job.created_at.desc())
     )
+    jobs = db.execute(stmt).scalars().all()
+
+    wanted_slug = (state.app_slug or "").strip().lower()
+
+    for job in jobs:
+        payload = job.payload or {}
+        payload_slug = str(payload.get("app_slug") or "").strip().lower()
+        if payload_slug == wanted_slug:
+            return job
+
+    return None
+
+
+def resolve_application_public_url(db: Session, state: ApplicationState) -> str | None:
+    if not state.present:
+        return None
+    if state.transition != "idle":
+        return None
+
+    job = _find_latest_install_job_for_app(db, state)
+    if job is None:
+        return None
+
+    payload = job.payload or {}
+    preferred_subdomain = str(payload.get("subdomain") or "").strip().lower() or None
+
+    stmt = (
+        select(JobLog.message)
+        .where(JobLog.job_id == job.id)
+        .order_by(JobLog.seq.desc(), JobLog.created_at.desc())
+    )
+    messages = db.execute(stmt).scalars().all()
+
+    return _extract_public_url_from_messages(messages, preferred_subdomain)
+
+
+def build_application_state_response(db: Session, state: ApplicationState) -> dict:
+    return {
+        "id": state.id,
+        "machine_id": state.machine_id,
+        "app_slug": state.app_slug,
+        "app_name": state.app_name,
+        "present": state.present,
+        "transition": state.transition,
+        "last_operation": state.last_operation,
+        "last_job_id": state.last_job_id,
+        "last_job_status": state.last_job_status,
+        "last_error": state.last_error,
+        "installed_at": state.installed_at,
+        "created_at": state.created_at,
+        "updated_at": state.updated_at,
+        "public_url": resolve_application_public_url(db, state),
+    }
 
 
 def get_or_create_application_state(
@@ -439,7 +559,7 @@ def create_my_uninstallation(
     )
 
 
-@router.get("/applications", response_model=list[ApplicationStateResponse])
+@router.get("/applications")
 def list_my_applications(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -452,7 +572,7 @@ def list_my_applications(
     )
 
     states = db.execute(stmt).scalars().all()
-    return [build_application_state_response(state) for state in states]
+    return [build_application_state_response(db, state) for state in states]
 
 
 @router.get("/installations", response_model=list[AdminJobListItem])
