@@ -11,5 +11,5 @@ export const POST: RequestHandler = async ({ request, cookies, locals, url }) =>
 	});
 
 	clearSessionCookies(cookies);
-	throw redirect(303, '/login');
+	throw redirect(303, '/');
 };

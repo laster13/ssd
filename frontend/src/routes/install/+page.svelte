@@ -7,7 +7,10 @@
 
 	const backendUrl = (PUBLIC_BACKEND_URL_HTTPS || '').replace(/\/$/, '');
 	const installScriptUrl = backendUrl ? `${backendUrl}/install-ssd-local.sh` : '';
-	const installCommand = installScriptUrl ? `curl -fsSL ${installScriptUrl} | sudo bash` : '';
+
+        const installCommand = installScriptUrl
+	? `curl -fsSL ${installScriptUrl} -o /tmp/install-ssd-local.sh && sudo TARGET_USER="$USER" bash /tmp/install-ssd-local.sh`
+	: '';
 
 	async function copyInstallCommand() {
 		if (!installCommand) return;

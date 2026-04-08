@@ -91,7 +91,7 @@
 			</button>
 
 			<a
-				href="/app-store"
+				href="/"
 				class="group inline-flex shrink-0 items-center gap-3 rounded-[20px] border border-black/6 bg-white/85 px-3.5 py-2.5 shadow-[0_14px_34px_rgba(15,23,42,0.08),inset_0_1px_0_rgba(255,255,255,0.95)] transition-all duration-300 hover:-translate-y-0.5 hover:border-black/10 hover:bg-white hover:shadow-[0_18px_40px_rgba(15,23,42,0.12),inset_0_1px_0_rgba(255,255,255,1)] dark:border-white/10 dark:bg-white/[0.04] dark:shadow-[0_14px_34px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.05)] dark:hover:border-white/20 dark:hover:bg-white/[0.07] dark:hover:shadow-[0_18px_40px_rgba(0,0,0,0.30),inset_0_1px_0_rgba(255,255,255,0.07)]"
 			>
 				<div class="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-[18px] border border-black/6 bg-[linear-gradient(135deg,rgba(34,211,238,0.28),rgba(168,85,247,0.28))] shadow-[0_14px_30px_rgba(15,23,42,0.12),inset_0_1px_0_rgba(255,255,255,0.65)] dark:border-white/10 dark:shadow-[0_14px_30px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.06)]">
