@@ -1,7 +1,7 @@
 """remove machine settings
 
 Revision ID: b8f4a0c7f5b1
-Revises: c2e8b10c9a4f
+Revises: a8ddebd50292
 Create Date: 2026-04-07 11:30:00.000000
 """
 
@@ -13,7 +13,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = "b8f4a0c7f5b1"
-down_revision: Union[str, Sequence[str], None] = "c2e8b10c9a4f"
+down_revision: Union[str, Sequence[str], None] = "a8ddebd50292"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

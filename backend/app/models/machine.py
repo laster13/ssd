@@ -34,9 +34,3 @@ class Machine(Base):
     )
 
     owner = relationship("User")
-    settings = relationship(
-        "MachineSettings",
-        back_populates="machine",
-        uselist=False,
-        cascade="all, delete-orphan",
-    )

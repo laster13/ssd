@@ -1,6 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
-
 import type { Actions, PageServerLoad } from './$types';
+
 import { apiFetchWithAuth } from '$lib/server/api';
 import { validateCsrf } from '$lib/server/security';
 
@@ -34,8 +34,8 @@ export const actions: Actions = {
 				return fail(response.status, {
 					error:
 						response.status === 429
-							? 'Trop de codes générés récemment. Réessaie plus tard.'
-							: 'Impossible de générer un code de connexion'
+							? "Trop de codes d'appairage générés récemment. Réessaie plus tard."
+							: "Impossible de générer un code d'appairage"
 				});
 			}
 
@@ -49,7 +49,7 @@ export const actions: Actions = {
 			console.error('generate pairing failed', err);
 
 			return fail(500, {
-				error: 'Erreur interne pendant la génération du code'
+				error: "Erreur interne pendant la génération du code d'appairage"
 			});
 		}
 	}

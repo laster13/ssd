@@ -1,23 +1,21 @@
 import re
-from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from app.models.application_state import ApplicationState
-from app.schemas.application_state import ApplicationStateResponse
 
 from app.api.deps import get_current_user
 from app.catalog.apps import get_catalog_app
 from app.core.audit import audit_event
 from app.core.database import get_db
+from app.models.application_state import ApplicationState
 from app.models.job import Job
 from app.models.job_log import JobLog
 from app.models.machine import Machine
-from app.models.machine_settings import MachineSettings
 from app.models.user import User
+from app.schemas.application_state import ApplicationStateResponse
 from app.schemas.job import (
     AdminJobListItem,
     AdminJobResponse,
@@ -25,10 +23,6 @@ from app.schemas.job import (
     CreateMyInstallationRequest,
 )
 from app.schemas.job_log import AdminJobLogItem
-from app.schemas.machine_settings import (
-    MachineSettingsResponse,
-    UpdateMachineSettingsRequest,
-)
 
 router = APIRouter(prefix="/me", tags=["me"])
 
@@ -36,55 +30,11 @@ INSTALL_JOB_TYPES = ["install_app", "install_ssdv2", "uninstall_app"]
 
 SUBDOMAIN_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])?$")
 
-SENSITIVE_JOB_PAYLOAD_KEYS = {
-    "password",
-    "cloudflare_login",
-    "cloudflare_api_key",
-    "oauth_client",
-    "oauth_secret",
-}
-
 
 class CreateMyUninstallationRequest(BaseModel):
     machine_id: UUID
     app_slug: str
 
-
-def has_non_empty(value: Any) -> bool:
-    return isinstance(value, str) and bool(value.strip())
-
-
-def normalize_optional_string(value: Any) -> str | None:
-    if value is None:
-        return None
-    if isinstance(value, str):
-        value = value.strip()
-        return value or None
-    return str(value)
-
-
-def dump_model_updates(model: BaseModel) -> dict[str, Any]:
-    if hasattr(model, "model_dump"):
-        return model.model_dump(exclude_unset=True)
-    return model.dict(exclude_unset=True)
-
-
-def build_machine_settings_response(settings: MachineSettings) -> MachineSettingsResponse:
-    return MachineSettingsResponse(
-        machine_id=settings.machine_id,
-        username=settings.username,
-        email=settings.email,
-        domain=settings.domain,
-        oauth_enabled=settings.oauth_enabled,
-        oauth_mail=settings.oauth_mail,
-        password_configured=has_non_empty(settings.password),
-        cloudflare_login_configured=has_non_empty(settings.cloudflare_login),
-        cloudflare_api_key_configured=has_non_empty(settings.cloudflare_api_key),
-        oauth_client_configured=has_non_empty(settings.oauth_client),
-        oauth_secret_configured=has_non_empty(settings.oauth_secret),
-        created_at=settings.created_at,
-        updated_at=settings.updated_at,
-    )
 
 def build_application_state_response(state: ApplicationState) -> ApplicationStateResponse:
     return ApplicationStateResponse(
@@ -155,20 +105,6 @@ def queue_application_state_for_new_job(
     state.transition = "installing" if operation == "install" else "uninstalling"
 
 
-def redact_job_payload(payload: dict | None) -> dict | None:
-    if not isinstance(payload, dict):
-        return payload
-
-    redacted = dict(payload)
-
-    for key in SENSITIVE_JOB_PAYLOAD_KEYS:
-        if key in redacted:
-            redacted.pop(key, None)
-            redacted[f"{key}_configured"] = True
-
-    return redacted
-
-
 def get_owned_machine_or_404(db: Session, machine_id: UUID, current_user: User) -> Machine:
     stmt = (
         select(Machine)
@@ -183,117 +119,6 @@ def get_owned_machine_or_404(db: Session, machine_id: UUID, current_user: User) 
         raise HTTPException(status_code=404, detail="Machine not found")
 
     return machine
-
-
-def get_machine_settings_or_400(db: Session, machine_id: UUID) -> MachineSettings:
-    stmt = (
-        select(MachineSettings)
-        .where(MachineSettings.machine_id == machine_id)
-        .limit(1)
-    )
-    settings = db.execute(stmt).scalar_one_or_none()
-
-    if not settings:
-        raise HTTPException(status_code=400, detail="Machine settings not found")
-
-    return settings
-
-
-def validate_machine_settings_for_install(settings: MachineSettings) -> None:
-    required_fields = {
-        "username": settings.username,
-        "email": settings.email,
-        "domain": settings.domain,
-        "password": settings.password,
-        "cloudflare_login": settings.cloudflare_login,
-        "cloudflare_api_key": settings.cloudflare_api_key,
-    }
-
-    missing = [key for key, value in required_fields.items() if not str(value or "").strip()]
-    if missing:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Missing required machine settings: {', '.join(missing)}",
-        )
-
-    if settings.oauth_enabled:
-        oauth_required = {
-            "oauth_client": settings.oauth_client,
-            "oauth_secret": settings.oauth_secret,
-            "oauth_mail": settings.oauth_mail,
-        }
-        oauth_missing = [key for key, value in oauth_required.items() if not str(value or "").strip()]
-        if oauth_missing:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Missing required OAuth settings: {', '.join(oauth_missing)}",
-            )
-
-
-@router.get("/machines/{machine_id}/settings", response_model=MachineSettingsResponse)
-def get_machine_settings(
-    machine_id: UUID,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    machine = get_owned_machine_or_404(db, machine_id, current_user)
-
-    stmt = select(MachineSettings).where(MachineSettings.machine_id == machine.id)
-    settings = db.execute(stmt).scalar_one_or_none()
-
-    if settings is None:
-        settings = MachineSettings(
-            machine_id=machine.id,
-            oauth_enabled=False,
-        )
-        db.add(settings)
-        db.commit()
-        db.refresh(settings)
-
-    return build_machine_settings_response(settings)
-
-
-@router.patch("/machines/{machine_id}/settings", response_model=MachineSettingsResponse)
-def update_machine_settings(
-    machine_id: UUID,
-    payload: UpdateMachineSettingsRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    machine = get_owned_machine_or_404(db, machine_id, current_user)
-
-    stmt = select(MachineSettings).where(MachineSettings.machine_id == machine.id)
-    settings = db.execute(stmt).scalar_one_or_none()
-
-    if settings is None:
-        settings = MachineSettings(machine_id=machine.id, oauth_enabled=False)
-        db.add(settings)
-
-    updates = dump_model_updates(payload)
-
-    string_fields = {
-        "username",
-        "email",
-        "domain",
-        "password",
-        "cloudflare_login",
-        "cloudflare_api_key",
-        "oauth_client",
-        "oauth_secret",
-        "oauth_mail",
-    }
-
-    for field in string_fields:
-        if field in updates:
-            setattr(settings, field, normalize_optional_string(updates[field]))
-
-    if "oauth_enabled" in updates:
-        settings.oauth_enabled = bool(updates["oauth_enabled"])
-
-    db.commit()
-    db.refresh(settings)
-
-    return build_machine_settings_response(settings)
 
 
 def get_owned_installation_or_404(db: Session, job_id: UUID, current_user: User) -> Job:
@@ -447,23 +272,11 @@ def create_ssdv2_installation(
     current_user: User = Depends(get_current_user),
 ):
     machine = get_owned_machine_or_404(db, machine_id, current_user)
-    settings = get_machine_settings_or_400(db, machine.id)
-    validate_machine_settings_for_install(settings)
     ensure_no_active_installation_for_machine(db, machine)
 
     payload = {
         "machine_id": str(machine.id),
         "hostname": machine.hostname,
-        "username": settings.username,
-        "email": settings.email,
-        "domain": settings.domain,
-        "password": settings.password,
-        "cloudflare_login": settings.cloudflare_login,
-        "cloudflare_api_key": settings.cloudflare_api_key,
-        "oauth_enabled": settings.oauth_enabled,
-        "oauth_client": settings.oauth_client,
-        "oauth_secret": settings.oauth_secret,
-        "oauth_mail": settings.oauth_mail,
     }
 
     job = Job(
@@ -495,7 +308,7 @@ def create_ssdv2_installation(
         machine_id=job.machine_id,
         status=job.status,
         type=job.type,
-        payload=redact_job_payload(job.payload),
+        payload=job.payload,
     )
 
 
@@ -563,7 +376,7 @@ def create_my_installation(
         machine_id=job.machine_id,
         status=job.status,
         type=job.type,
-        payload=redact_job_payload(job.payload),
+        payload=job.payload,
     )
 
 
@@ -622,8 +435,9 @@ def create_my_uninstallation(
         machine_id=job.machine_id,
         status=job.status,
         type=job.type,
-        payload=redact_job_payload(job.payload),
+        payload=job.payload,
     )
+
 
 @router.get("/applications", response_model=list[ApplicationStateResponse])
 def list_my_applications(
@@ -661,7 +475,7 @@ def list_my_installations(
             machine_id=job.machine_id,
             type=job.type,
             status=job.status,
-            payload=redact_job_payload(job.payload),
+            payload=job.payload,
             created_at=job.created_at,
             updated_at=job.updated_at,
         )
@@ -728,7 +542,7 @@ def get_my_installation(
         machine_id=job.machine_id,
         type=job.type,
         status=job.status,
-        payload=redact_job_payload(job.payload),
+        payload=job.payload,
         result=job.result,
         error_message=job.error_message,
         claimed_at=job.claimed_at,
