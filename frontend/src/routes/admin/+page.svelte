@@ -1,11 +1,30 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
 
 	let { data, form } = $props();
 
-	const jobs = data.jobs ?? [];
-	const machines = data.machines ?? [];
+	type AdminMachine = {
+		id: string;
+		machine_uuid: string;
+		status: string;
+		connection_status?: string | null;
+		hostname?: string | null;
+		agent_version?: string | null;
+		last_seen_at?: string | null;
+		created_at?: string | null;
+		updated_at?: string | null;
+	};
+
+	type AdminJob = {
+		id: string;
+		type: string;
+		status: string;
+		machine_id: string;
+		created_at?: string | null;
+	};
+
 	const csrfToken = data.csrfToken as string;
+	const machineSocketUrl = (data.machineSocketUrl ?? '') as string;
 
 	const deleteMachineError = $derived((form?.deleteMachineError ?? null) as string | null);
 	const deleteMachineSuccess = $derived((form?.deleteMachineSuccess ?? null) as string | null);
@@ -16,9 +35,15 @@
 
 	let machineFilter = $state<'all' | 'active' | 'offline' | 'error' | 'revoked'>('all');
 	let jobFilter = $state<'all' | 'running' | 'failed' | 'success'>('all');
-
+	let machines = $state(normalizeMachineList(data.machines ?? []));
+	let jobs = $state(Array.isArray(data.jobs) ? (data.jobs as AdminJob[]) : []);
 	let machinesSection = $state<HTMLElement | null>(null);
 	let jobsSection = $state<HTMLElement | null>(null);
+
+	$effect(() => {
+		machines = normalizeMachineList(data.machines ?? []);
+		jobs = Array.isArray(data.jobs) ? (data.jobs as AdminJob[]) : [];
+	});
 
 	function toTimestamp(value: unknown): number | null {
 		if (!value) return null;
@@ -30,28 +55,19 @@
 	function formatAbsoluteDate(value: unknown) {
 		const ts = toTimestamp(value);
 		if (!ts) return '-';
-
-		return new Intl.DateTimeFormat('fr-FR', {
-			dateStyle: 'short',
-			timeStyle: 'short'
-		}).format(new Date(ts));
+		return new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(ts));
 	}
 
 	function formatRelativeDate(value: unknown) {
 		const ts = toTimestamp(value);
 		if (!ts) return '-';
-
 		const diffMs = ts - Date.now();
 		const diffMin = Math.round(diffMs / 60000);
-
 		const rtf = new Intl.RelativeTimeFormat('fr', { numeric: 'auto' });
-
 		if (Math.abs(diffMin) < 1) return 'à l’instant';
 		if (Math.abs(diffMin) < 60) return rtf.format(diffMin, 'minute');
-
 		const diffHours = Math.round(diffMin / 60);
 		if (Math.abs(diffHours) < 24) return rtf.format(diffHours, 'hour');
-
 		const diffDays = Math.round(diffHours / 24);
 		return rtf.format(diffDays, 'day');
 	}
@@ -59,9 +75,33 @@
 	function formatDateLabel(value: unknown) {
 		const absolute = formatAbsoluteDate(value);
 		const relative = formatRelativeDate(value);
-
 		if (absolute === '-') return '-';
 		return `${relative} · ${absolute}`;
+	}
+
+	function resolveMachineStatus(status: unknown, connectionStatus?: unknown) {
+		const normalizedStatus = String(status ?? '').trim().toLowerCase();
+		const normalizedConnection = String(connectionStatus ?? '').trim().toLowerCase();
+		if (normalizedStatus === 'revoked') return 'revoked';
+		if (normalizedStatus === 'error' || normalizedStatus === 'failed') return 'error';
+		if (normalizedConnection === 'online') return 'online';
+		if (normalizedStatus === 'online' || normalizedStatus === 'connected' || normalizedStatus === 'active') return 'online';
+		if (normalizedStatus === 'offline' || normalizedStatus === 'disconnected' || normalizedStatus === 'inactive') return 'offline';
+		if (normalizedStatus === 'paired') return normalizedConnection === 'online' ? 'online' : 'offline';
+		return normalizedStatus || 'unknown';
+	}
+
+	function normalizeMachine(machine: any): AdminMachine {
+		const normalizedConnection = String(machine?.connection_status ?? '').trim().toLowerCase();
+		return {
+			...machine,
+			status: resolveMachineStatus(machine?.status, machine?.connection_status),
+			connection_status: normalizedConnection || null
+		};
+	}
+
+	function normalizeMachineList(items: unknown): AdminMachine[] {
+		return Array.isArray(items) ? items.map((item) => normalizeMachine(item)) : [];
 	}
 
 	function machineCategory(status: string) {
@@ -71,19 +111,15 @@
 			case 'connected':
 			case 'active':
 				return 'active';
-
 			case 'offline':
 			case 'disconnected':
 			case 'inactive':
 				return 'offline';
-
 			case 'error':
 			case 'failed':
 				return 'error';
-
 			case 'revoked':
 				return 'revoked';
-
 			default:
 				return 'unknown';
 		}
@@ -159,115 +195,80 @@
 	function isMachineActive(status: string) {
 		return machineCategory(status) === 'active';
 	}
-
 	function isMachineOffline(status: string) {
 		return machineCategory(status) === 'offline';
 	}
-
 	function isMachineError(status: string) {
 		return machineCategory(status) === 'error';
 	}
-
 	function isMachineRevoked(status: string) {
 		return machineCategory(status) === 'revoked';
 	}
-
 	function isJobRunning(status: string) {
 		return RUNNING_JOB_STATUSES.includes(status?.toLowerCase());
 	}
-
 	function isJobFailed(status: string) {
 		return FAILED_JOB_STATUSES.includes(status?.toLowerCase());
 	}
-
 	function isJobSuccess(status: string) {
 		return SUCCESS_JOB_STATUSES.includes(status?.toLowerCase());
 	}
 
-	const activeMachinesCount = machines.filter((m) => isMachineActive(m.status)).length;
-	const offlineMachinesCount = machines.filter((m) => isMachineOffline(m.status)).length;
-	const errorMachinesCount = machines.filter((m) => isMachineError(m.status)).length;
-	const revokedMachinesCount = machines.filter((m) => isMachineRevoked(m.status)).length;
+	const activeMachinesCount = $derived(machines.filter((m) => isMachineActive(m.status)).length);
+	const offlineMachinesCount = $derived(machines.filter((m) => isMachineOffline(m.status)).length);
+	const errorMachinesCount = $derived(machines.filter((m) => isMachineError(m.status)).length);
+	const revokedMachinesCount = $derived(machines.filter((m) => isMachineRevoked(m.status)).length);
+	const runningJobsCount = $derived(jobs.filter((j) => isJobRunning(j.status)).length);
+	const failedJobsCount = $derived(jobs.filter((j) => isJobFailed(j.status)).length);
+	const successJobsCount = $derived(jobs.filter((j) => isJobSuccess(j.status)).length);
 
-	const runningJobsCount = jobs.filter((j) => isJobRunning(j.status)).length;
-	const failedJobsCount = jobs.filter((j) => isJobFailed(j.status)).length;
-	const successJobsCount = jobs.filter((j) => isJobSuccess(j.status)).length;
-
-	const machineItems = machines.map((machine) => {
+	const machineItems = $derived(machines.map((machine) => {
 		let priority = 4;
-
 		if (isMachineError(machine.status)) priority = 0;
 		else if (isMachineOffline(machine.status)) priority = 1;
 		else if (isMachineRevoked(machine.status)) priority = 2;
 		else if (isMachineActive(machine.status)) priority = 3;
+		return { ...machine, priority, lastSeenTs: toTimestamp(machine.last_seen_at), createdTs: toTimestamp(machine.created_at) };
+	}));
 
-		return {
-			...machine,
-			priority,
-			lastSeenTs: toTimestamp(machine.last_seen_at),
-			createdTs: toTimestamp(machine.created_at)
-		};
-	});
-
-	const jobItems = jobs.map((job) => {
+	const jobItems = $derived(jobs.map((job) => {
 		let priority = 3;
-
 		if (isJobFailed(job.status)) priority = 0;
 		else if (isJobRunning(job.status)) priority = 1;
 		else if (isJobSuccess(job.status)) priority = 2;
+		return { ...job, priority, createdTs: toTimestamp(job.created_at) };
+	}));
 
-		return {
-			...job,
-			priority,
-			createdTs: toTimestamp(job.created_at)
-		};
-	});
-
-	const sortedMachines = [...machineItems].sort((a, b) => {
+	const sortedMachines = $derived([...machineItems].sort((a, b) => {
 		if (a.priority !== b.priority) return a.priority - b.priority;
 		return (b.lastSeenTs ?? 0) - (a.lastSeenTs ?? 0);
-	});
-
-	const sortedJobs = [...jobItems].sort((a, b) => {
+	}));
+	const sortedJobs = $derived([...jobItems].sort((a, b) => {
 		if (a.priority !== b.priority) return a.priority - b.priority;
 		return (b.createdTs ?? 0) - (a.createdTs ?? 0);
-	});
+	}));
 
-	const filteredMachines = $derived(
-		sortedMachines.filter((machine) => {
-			if (machineFilter === 'active') return isMachineActive(machine.status);
-			if (machineFilter === 'offline') return isMachineOffline(machine.status);
-			if (machineFilter === 'error') return isMachineError(machine.status);
-			if (machineFilter === 'revoked') return isMachineRevoked(machine.status);
-			return true;
-		})
-	);
-
-	const filteredJobs = $derived(
-		sortedJobs.filter((job) => {
-			if (jobFilter === 'running') return isJobRunning(job.status);
-			if (jobFilter === 'failed') return isJobFailed(job.status);
-			if (jobFilter === 'success') return isJobSuccess(job.status);
-			return true;
-		})
-	);
-
-	const attentionMachines = sortedMachines
-		.filter((machine) => isMachineError(machine.status) || isMachineOffline(machine.status))
-		.slice(0, 4);
-
-	const attentionJobs = sortedJobs.filter((job) => isJobFailed(job.status)).slice(0, 4);
+	const filteredMachines = $derived(sortedMachines.filter((machine) => {
+		if (machineFilter === 'active') return isMachineActive(machine.status);
+		if (machineFilter === 'offline') return isMachineOffline(machine.status);
+		if (machineFilter === 'error') return isMachineError(machine.status);
+		if (machineFilter === 'revoked') return isMachineRevoked(machine.status);
+		return true;
+	}));
+	const filteredJobs = $derived(sortedJobs.filter((job) => {
+		if (jobFilter === 'running') return isJobRunning(job.status);
+		if (jobFilter === 'failed') return isJobFailed(job.status);
+		if (jobFilter === 'success') return isJobSuccess(job.status);
+		return true;
+	}));
+	const attentionMachines = $derived(sortedMachines.filter((machine) => isMachineError(machine.status) || isMachineOffline(machine.status)).slice(0, 4));
+	const attentionJobs = $derived(sortedJobs.filter((job) => isJobFailed(job.status)).slice(0, 4));
 
 	function cardClass(active: boolean) {
-		return active
-			? 'ring-2 ring-sky-400/70 border-sky-200 dark:border-sky-400/20'
-			: 'border-black/5 dark:border-white/10';
+		return active ? 'ring-2 ring-sky-400/70 border-sky-200 dark:border-sky-400/20' : 'border-black/5 dark:border-white/10';
 	}
-
 	function filterButtonClass(active: boolean) {
-		return active
-			? 'border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-300'
-			: 'border-black/8 bg-black/[0.03] text-zinc-700 hover:bg-black/[0.05] dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-200 dark:hover:bg-white/[0.06]';
+		return active ? 'border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-300' : 'border-black/8 bg-black/[0.03] text-zinc-700 hover:bg-black/[0.05] dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-200 dark:hover:bg-white/[0.06]';
 	}
 
 	async function showMachines(filter: 'all' | 'active' | 'offline' | 'error' | 'revoked') {
@@ -275,69 +276,106 @@
 		await tick();
 		machinesSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 	}
-
 	async function showJobs(filter: 'all' | 'running' | 'failed' | 'success') {
 		jobFilter = filter;
 		await tick();
 		jobsSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 	}
-
 	function machineSectionTitle() {
 		switch (machineFilter) {
-			case 'active':
-				return 'Machines en ligne';
-			case 'offline':
-				return 'Machines hors ligne';
-			case 'error':
-				return 'Machines en erreur';
-			case 'revoked':
-				return 'Machines révoquées';
-			default:
-				return 'Toutes les machines';
+			case 'active': return 'Machines en ligne';
+			case 'offline': return 'Machines hors ligne';
+			case 'error': return 'Machines en erreur';
+			case 'revoked': return 'Machines révoquées';
+			default: return 'Toutes les machines';
 		}
 	}
-
 	function machineSectionDescription() {
 		switch (machineFilter) {
-			case 'active':
-				return 'Machines actuellement disponibles côté plateforme.';
-			case 'offline':
-				return 'Machines déconnectées ou inactives à vérifier.';
-			case 'error':
-				return 'Machines nécessitant une attention prioritaire.';
-			case 'revoked':
-				return 'Machines explicitement coupées du backend.';
-			default:
-				return 'Inventaire complet, trié par priorité opérationnelle.';
+			case 'active': return 'Machines actuellement disponibles côté plateforme.';
+			case 'offline': return 'Machines déconnectées ou inactives à vérifier.';
+			case 'error': return 'Machines nécessitant une attention prioritaire.';
+			case 'revoked': return 'Machines explicitement coupées du backend.';
+			default: return 'Inventaire complet, trié par priorité opérationnelle.';
 		}
 	}
-
 	function jobSectionTitle() {
 		switch (jobFilter) {
-			case 'running':
-				return 'Jobs en cours';
-			case 'failed':
-				return 'Jobs en échec';
-			case 'success':
-				return 'Jobs terminés';
-			default:
-				return 'Tous les jobs';
+			case 'running': return 'Jobs en cours';
+			case 'failed': return 'Jobs en échec';
+			case 'success': return 'Jobs terminés';
+			default: return 'Tous les jobs';
+		}
+	}
+	function jobSectionDescription() {
+		switch (jobFilter) {
+			case 'running': return 'Tâches actuellement en attente ou d’exécution.';
+			case 'failed': return 'Tâches à investiguer en priorité.';
+			case 'success': return 'Tâches finalisées avec succès.';
+			default: return 'Historique trié par criticité puis récence.';
 		}
 	}
 
-	function jobSectionDescription() {
-		switch (jobFilter) {
-			case 'running':
-				return 'Tâches actuellement en attente ou d’exécution.';
-			case 'failed':
-				return 'Tâches à investiguer en priorité.';
-			case 'success':
-				return 'Tâches finalisées avec succès.';
-			default:
-				return 'Historique trié par criticité puis récence.';
+	function applyMachineSocketPayload(payload: any) {
+		if (!payload || typeof payload !== 'object') return;
+		if (payload.type === 'machine_snapshot' && Array.isArray(payload.machines)) {
+			machines = normalizeMachineList(payload.machines);
+			return;
+		}
+		if (payload.type === 'machine_presence' && payload.machine) {
+			const incoming = normalizeMachine(payload.machine);
+			const index = machines.findIndex((item) => item.id === incoming.id);
+			if (index === -1) {
+				machines = [incoming, ...machines];
+				return;
+			}
+			machines = machines.map((item) => item.id === incoming.id ? { ...item, ...incoming } : item);
+			return;
+		}
+		if (payload.type === 'machine_removed' && payload.machine_id) {
+			machines = machines.filter((item) => item.id !== payload.machine_id);
 		}
 	}
+
+	onMount(() => {
+		if (!machineSocketUrl) return;
+		let socket: WebSocket | null = null;
+		let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+		let disposed = false;
+		function scheduleReconnect() {
+			if (disposed || reconnectTimer) return;
+			reconnectTimer = setTimeout(() => {
+				reconnectTimer = null;
+				connectMachineSocket();
+			}, 2000);
+		}
+		function connectMachineSocket() {
+			if (disposed) return;
+			socket = new WebSocket(machineSocketUrl);
+			socket.onmessage = (event) => {
+				try {
+					applyMachineSocketPayload(JSON.parse(event.data));
+				} catch {
+					// noop
+				}
+			};
+			socket.onclose = () => {
+				socket = null;
+				scheduleReconnect();
+			};
+			socket.onerror = () => {
+				socket?.close();
+			};
+		}
+		connectMachineSocket();
+		return () => {
+			disposed = true;
+			if (reconnectTimer) clearTimeout(reconnectTimer);
+			socket?.close();
+		};
+	});
 </script>
+
 
 <svelte:head>
 	<title>Admin</title>

@@ -1,16 +1,18 @@
+import asyncio
 from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_admin
-from sqlalchemy.exc import IntegrityError
 from app.catalog.apps import get_catalog_app
 from app.core.audit import audit_event
 from app.core.database import get_db
 from app.core.security import generate_machine_token, hash_machine_token
+from app.core.ws import machine_presence_manager
 from app.models.job import Job
 from app.models.job_log import JobLog
 from app.models.machine import Machine
@@ -29,6 +31,58 @@ from app.schemas.security_audit_log import SecurityAuditLogItem
 from app.schemas.token import RevokeMachineTokenResponse, RotateMachineTokenResponse
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+def resolve_machine_connection_status(machine: Machine) -> str:
+    if machine.status == "revoked":
+        return "offline"
+    return "online" if machine_presence_manager.is_machine_online(machine.id) else "offline"
+
+
+def ensure_machine_online_for_jobs(machine: Machine) -> None:
+    if machine.status != "paired":
+        raise HTTPException(status_code=409, detail="Machine is not paired")
+
+    if not machine_presence_manager.is_machine_online(machine.id):
+        raise HTTPException(
+            status_code=409,
+            detail="La Machine est offline. Reconnecter l'agent avant de poursuivre.",
+        )
+
+
+def build_machine_presence_payload(machine: Machine) -> dict:
+    return {
+        "type": "machine_presence",
+        "machine": {
+            "id": str(machine.id),
+            "machine_uuid": str(machine.machine_uuid),
+            "status": machine.status,
+            "connection_status": resolve_machine_connection_status(machine),
+            "hostname": machine.hostname,
+            "agent_version": machine.agent_version,
+            "last_seen_at": machine.last_seen_at.isoformat() if machine.last_seen_at else None,
+            "created_at": machine.created_at.isoformat() if machine.created_at else None,
+            "updated_at": machine.updated_at.isoformat() if machine.updated_at else None,
+        },
+    }
+
+
+def build_machine_removed_payload(machine_id: UUID | str) -> dict:
+    return {"type": "machine_removed", "machine_id": str(machine_id)}
+
+
+def broadcast_machine_presence_to_admins(machine: Machine) -> None:
+    asyncio.run(machine_presence_manager.broadcast_to_admins(build_machine_presence_payload(machine)))
+
+
+def broadcast_machine_removed_to_admins(machine_id: UUID | str) -> None:
+    asyncio.run(machine_presence_manager.broadcast_to_admins(build_machine_removed_payload(machine_id)))
+
+
+def broadcast_machine_removed_to_owner(owner_id: UUID | str | None, machine_id: UUID | str) -> None:
+    if not owner_id:
+        return
+    asyncio.run(machine_presence_manager.broadcast_to_user(owner_id, build_machine_removed_payload(machine_id)))
 
 
 @router.get("/users", response_model=list[UserResponse])
@@ -129,6 +183,7 @@ def grant_admin(
         created_at=user.created_at,
         updated_at=user.updated_at,
     )
+
 
 @router.post("/users/{user_id}/revoke-admin", response_model=UserResponse)
 def revoke_admin(
@@ -329,6 +384,7 @@ def delete_user_admin(
 
     return {"ok": True, "deleted_user_id": str(user_id)}
 
+
 @router.get("/machines", response_model=list[AdminMachineListItem])
 def list_machines(
     db: Session = Depends(get_db),
@@ -342,6 +398,7 @@ def list_machines(
             id=machine.id,
             machine_uuid=machine.machine_uuid,
             status=machine.status,
+            connection_status=resolve_machine_connection_status(machine),
             hostname=machine.hostname,
             agent_version=machine.agent_version,
             last_seen_at=machine.last_seen_at,
@@ -366,6 +423,7 @@ def get_machine(
         id=machine.id,
         machine_uuid=machine.machine_uuid,
         status=machine.status,
+        connection_status=resolve_machine_connection_status(machine),
         hostname=machine.hostname,
         agent_version=machine.agent_version,
         auth_token_created_at=machine.auth_token_created_at,
@@ -373,6 +431,7 @@ def get_machine(
         created_at=machine.created_at,
         updated_at=machine.updated_at,
     )
+
 
 @router.post("/machines/{machine_id}/delete", response_model=dict)
 def delete_machine_admin(
@@ -399,6 +458,7 @@ def delete_machine_admin(
     machine_label = machine.hostname or str(machine.machine_uuid)
 
     try:
+        asyncio.run(machine_presence_manager.close_agent_connections(machine.id, code=1000))
         db.delete(machine)
         db.commit()
     except IntegrityError:
@@ -419,6 +479,9 @@ def delete_machine_admin(
             status_code=409,
             detail="This machine cannot be deleted because related records still exist",
         )
+
+    broadcast_machine_removed_to_owner(machine.owner_id, machine_id)
+    broadcast_machine_removed_to_admins(machine_id)
 
     audit_event(
         event_type="machine.delete.success",
@@ -530,6 +593,10 @@ def revoke_machine_token_admin(
     db.commit()
     db.refresh(machine)
 
+    asyncio.run(machine_presence_manager.close_agent_connections(machine.id, code=1000))
+    broadcast_machine_removed_to_owner(machine.owner_id, machine.id)
+    broadcast_machine_presence_to_admins(machine)
+
     audit_event(
         event_type="machine.revoke.success",
         severity="critical",
@@ -632,6 +699,8 @@ def create_job(
             description="Admin job create failed: machine not found",
         )
         raise HTTPException(status_code=404, detail="Machine not found")
+
+    ensure_machine_online_for_jobs(machine)
 
     job = Job(
         machine_id=machine.id,

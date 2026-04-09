@@ -14,11 +14,20 @@ export type Job = {
 	};
 };
 
+export type MachineConnectionStatus = 'online' | 'offline';
+
 export type Machine = {
 	id: string;
 	hostname?: string;
 	machine_uuid?: string;
 	status?: string;
+	connection_status?: MachineConnectionStatus | string;
+	agent_version?: string | null;
+	ssdv2_installed?: boolean;
+	ssdv2_checked_at?: string | null;
+	last_seen_at?: string | null;
+	created_at?: string;
+	updated_at?: string;
 };
 
 export type ApplicationTransition = 'idle' | 'installing' | 'uninstalling';
@@ -122,27 +131,32 @@ export function formatFrenchDate(value?: string | null) {
 	if (!value) return '-';
 	const date = new Date(value);
 	if (Number.isNaN(date.getTime())) return value;
-
-	return new Intl.DateTimeFormat('fr-FR', {
-		day: '2-digit',
-		month: 'long',
-		year: 'numeric'
-	}).format(date);
+	return new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }).format(date);
 }
 
 export function formatFrenchDateTime(value?: string | null) {
 	if (!value) return '—';
 	const date = new Date(value);
 	if (Number.isNaN(date.getTime())) return value;
+	return new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+}
 
-	return new Intl.DateTimeFormat('fr-FR', {
-		dateStyle: 'medium',
-		timeStyle: 'short'
-	}).format(date);
+export function resolveMachineConnectionStatus(machine?: Pick<Machine, 'connection_status' | 'status'> | null): MachineConnectionStatus {
+	const explicitStatus = String(machine?.connection_status ?? '').trim().toLowerCase();
+	if (explicitStatus === 'online' || explicitStatus === 'offline') {
+		return explicitStatus;
+	}
+
+	const fallbackStatus = String(machine?.status ?? '').trim().toLowerCase();
+	if (fallbackStatus === 'online' || fallbackStatus === 'offline') {
+		return fallbackStatus;
+	}
+
+	return 'offline';
 }
 
 export function machineStatusLabel(status?: string) {
-	switch (status) {
+	switch (String(status ?? '').trim().toLowerCase()) {
 		case 'online':
 			return 'En ligne';
 		case 'offline':
@@ -157,7 +171,7 @@ export function machineStatusLabel(status?: string) {
 }
 
 export function machinePillClass(status?: string) {
-	switch (status) {
+	switch (String(status ?? '').trim().toLowerCase()) {
 		case 'online':
 			return 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/15 dark:bg-emerald-500/8 dark:text-emerald-300';
 		case 'offline':

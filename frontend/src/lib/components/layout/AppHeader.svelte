@@ -22,7 +22,7 @@
 	let userMenuOpen = $state(false);
 
 	const navItems = [
-		{ label: 'App Store', href: '/app-store' },
+		{ label: 'App Store', href: '/app-store/library' },
 		{ label: 'Serveurs', href: '/servers' },
 		{ label: 'Applications', href: '/applications' },
 		{ label: 'Stream-Fusion', href: '/settings/streamfusion' }

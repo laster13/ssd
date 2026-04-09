@@ -11,7 +11,7 @@ from app.models.application_state import ApplicationState
 from app.api.deps import get_current_machine
 from app.core.database import get_db
 from app.core.security import generate_machine_token, hash_machine_token
-from app.core.ws import job_ws_manager
+from app.core.ws import job_ws_manager, machine_presence_manager
 from app.models.job import Job
 from app.models.job_log import JobLog
 from app.models.machine import Machine
@@ -182,6 +182,26 @@ def sync_application_state_from_job(db: Session, job: Job) -> None:
         state.installed_at = None
 
 
+def build_machine_presence_event(machine: Machine) -> dict:
+    connection_status = "online" if machine_presence_manager.is_machine_online(machine.id) else "offline"
+    return {
+        "type": "machine_presence",
+        "machine": {
+            "id": str(machine.id),
+            "machine_uuid": str(machine.machine_uuid),
+            "status": machine.status,
+            "connection_status": connection_status,
+            "hostname": machine.hostname,
+            "agent_version": machine.agent_version,
+            "ssdv2_installed": machine.ssdv2_installed,
+            "ssdv2_checked_at": machine.ssdv2_checked_at.isoformat() if machine.ssdv2_checked_at else None,
+            "last_seen_at": machine.last_seen_at.isoformat() if machine.last_seen_at else None,
+            "created_at": machine.created_at.isoformat() if machine.created_at else None,
+            "updated_at": machine.updated_at.isoformat() if machine.updated_at else None,
+        },
+    }
+
+
 @router.post("/auth", response_model=AgentAuthResponse)
 async def authenticate_agent(
     machine: Machine = Depends(get_current_machine),
@@ -190,6 +210,12 @@ async def authenticate_agent(
     machine.last_seen_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(machine)
+
+    if machine.owner_id:
+        await machine_presence_manager.broadcast_to_user(
+            machine.owner_id,
+            build_machine_presence_event(machine),
+        )
 
     return AgentAuthResponse(
         authenticated=True,
@@ -239,6 +265,12 @@ async def heartbeat(
 
     db.commit()
     db.refresh(machine)
+
+    if machine.owner_id:
+        await machine_presence_manager.broadcast_to_user(
+            machine.owner_id,
+            build_machine_presence_event(machine),
+        )
 
     return AgentHeartbeatResponse(
         ok=True,

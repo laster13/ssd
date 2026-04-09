@@ -8,6 +8,7 @@ class AdminMachineListItem(BaseModel):
     id: UUID
     machine_uuid: UUID
     status: str
+    connection_status: str | None = None
     hostname: str | None = None
     agent_version: str | None = None
     last_seen_at: datetime | None = None
@@ -19,6 +20,7 @@ class AdminMachineResponse(BaseModel):
     id: UUID
     machine_uuid: UUID
     status: str
+    connection_status: str | None = None
     hostname: str | None = None
     agent_version: str | None = None
     auth_token_created_at: datetime | None = None

@@ -1,6 +1,5 @@
-import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
-import { apiFetchWithAuth } from '$lib/server/api';
+import { apiFetch } from '$lib/server/api';
 
 function hashString(value: string): number {
 	let hash = 0;
@@ -18,33 +17,22 @@ function accentFor(slug: string): string {
 		'linear-gradient(135deg, rgba(249,115,22,0.95), rgba(168,85,247,0.9))',
 		'linear-gradient(135deg, rgba(244,63,94,0.95), rgba(251,146,60,0.9))'
 	];
-
 	return gradients[hashString(slug) % gradients.length];
 }
 
 function iconFor(name: string): string {
 	const initial = (name?.trim()?.[0] ?? '?').toUpperCase();
-
 	const svg = `
-		<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64">
-			<rect width="64" height="64" rx="16" fill="#0f172a"/>
-			<text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle"
-				font-family="Arial, sans-serif" font-size="28" fill="#e2e8f0">${initial}</text>
+		<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+			<rect width="96" height="96" rx="24" fill="rgba(255,255,255,0.18)"/>
+			<text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="42" font-weight="700" fill="white">${initial}</text>
 		</svg>
 	`;
-
 	return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 
 export const load: LayoutServerLoad = async ({ locals }) => {
-	if (!locals.user || !locals.token) {
-		throw redirect(303, '/login');
-	}
-
-	const response = await apiFetchWithAuth(locals.token, '/catalog/apps', {
-		method: 'GET'
-	});
-
+	const response = await apiFetch('/catalog/apps', { method: 'GET' });
 	const rawApps = response.ok ? await response.json() : [];
 
 	const apps = rawApps.map((app: any) => ({
@@ -54,6 +42,7 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 	}));
 
 	return {
-		apps
+		apps,
+		user: locals.user ?? null
 	};
 };

@@ -10,6 +10,8 @@
 	const initialCategory = $derived(page.url.searchParams.get('category') ?? 'Tous');
 	let activeCategory = $state('Tous');
 
+	const isAuthenticated = $derived(Boolean(data.user));
+
 	$effect(() => {
 		activeCategory = initialCategory;
 	});
@@ -88,23 +90,22 @@
 								Library
 							</div>
 
-                                                        <h1 class="max-w-2xl text-lg font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50 sm:text-xl xl:text-2xl xl:leading-[1.1]">
-	                                                        <span class="mt-1 block bg-[linear-gradient(90deg,#0f172a_0%,#0891b2_18%,#059669_44%,#2563eb_70%,#7c3aed_100%)] bg-clip-text text-transparent dark:bg-[linear-gradient(90deg,#f8fafc_0%,#a7f3d0_18%,#67e8f9_40%,#93c5fd_66%,#d8b4fe_100%)]">
-		                                                        Bibliothèque complète
-	                                                        </span>
-                                                        </h1>
+							<h1 class="max-w-2xl text-lg font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50 sm:text-xl xl:text-2xl xl:leading-[1.1]">
+								<span class="mt-1 block bg-[linear-gradient(90deg,#0f172a_0%,#0891b2_18%,#059669_44%,#2563eb_70%,#7c3aed_100%)] bg-clip-text text-transparent dark:bg-[linear-gradient(90deg,#f8fafc_0%,#a7f3d0_18%,#67e8f9_40%,#93c5fd_66%,#d8b4fe_100%)]">
+									Bibliothèque complète
+								</span>
+							</h1>
 
 							<p class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-400">
 								Accède à tout le catalogue avec recherche, tri et filtres.
 							</p>
 						</div>
 
-						<a
-							href="/app-store"
-							class="inline-flex items-center rounded-[18px] border border-black/8 bg-black/[0.05] px-4 py-3 text-sm font-semibold text-zinc-900 transition-all duration-200 hover:border-black/12 hover:bg-black/[0.08] dark:border-white/10 dark:bg-white/[0.05] dark:text-white dark:hover:border-white/20 dark:hover:bg-white/[0.1]"
-						>
-							Retour au store
-						</a>
+						{#if !isAuthenticated}
+							<div class="rounded-full border border-amber-300/40 bg-amber-100/70 px-4 py-2 text-xs font-semibold text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-200">
+								Mode visiteur · installation désactivée
+							</div>
+						{/if}
 					</div>
 
 					<div class="mt-5 flex flex-col gap-3 lg:flex-row lg:items-center">
@@ -189,7 +190,7 @@
 		<section>
 			<div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
 				{#each filteredApps as app}
-					<AppCard {app} compact />
+					<AppCard {app} compact installEnabled={isAuthenticated} />
 				{/each}
 			</div>
 		</section>

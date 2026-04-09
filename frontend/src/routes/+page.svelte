@@ -106,15 +106,17 @@
 					</div>
 
 					<div class="mt-6 max-w-4xl">
-						<h1
-							class="text-2xl font-semibold tracking-[-0.04em] text-zinc-950 dark:text-white sm:text-3xl lg:text-[2.35rem] lg:leading-[1.08]"
-						>
-							<span
-								class="bg-[linear-gradient(90deg,#0ea5e9_0%,#2563eb_26%,#8b5cf6_62%,#10b981_100%)] bg-clip-text text-transparent"
-							>
-								Déploie tes applications Docker avec Traefik et CrowdSec depuis une interface claire et moderne
-							</span>
-						</h1>
+
+
+                                                <h1
+	                                                class="text-xl font-semibold tracking-[-0.03em] text-zinc-950 dark:text-white sm:text-2xl lg:text-[2rem] lg:leading-[1.12]"
+                                                >
+	                                                         Déploie tes applications Docker avec
+	                                                <span class="bg-[linear-gradient(90deg,#0ea5e9_0%,#2563eb_26%,#8b5cf6_62%,#10b981_100%)] bg-clip-text text-transparent">
+		                                                 Traefik (serveur Web) et CrowdSec (sécurité)
+	                                                </span>
+	                                                         depuis une interface claire et moderne.
+                                               </h1>
 
 						<p class="mt-6 max-w-2xl text-base leading-8 text-zinc-600 dark:text-zinc-400">
 							SSD t’aide à installer, suivre et gérer tes services sur un ou plusieurs serveurs,
@@ -126,7 +128,7 @@
 					<div class="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
 						{#if data.user}
 							<a
-								href="/app-store"
+								href="/app-store/library"
 								class="inline-flex items-center justify-center rounded-[18px] border border-cyan-200 bg-[linear-gradient(90deg,#06b6d4,#2563eb)] px-5 py-3 text-sm font-semibold text-white shadow-[0_14px_34px_rgba(37,99,235,0.24)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(37,99,235,0.30)] dark:border-white/10"
 							>
 								Explorer le catalogue
@@ -147,7 +149,7 @@
 							</a>
 
 							<a
-								href="/app-store"
+								href="/app-store/library"
 								class="inline-flex items-center justify-center rounded-[18px] border border-zinc-200 bg-white px-5 py-3 text-sm font-semibold text-zinc-900 shadow-[0_12px_24px_rgba(15,23,42,0.06)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_32px_rgba(15,23,42,0.10)] dark:border-white/10 dark:bg-white/[0.05] dark:text-white dark:shadow-[0_10px_24px_rgba(0,0,0,0.18)]"
 							>
 								Voir les applications
@@ -386,17 +388,17 @@
 								<h2
 									class="mt-2 max-w-2xl text-2xl font-semibold tracking-[-0.04em] text-zinc-950 dark:text-white sm:text-3xl"
 								>
-									Une plateforme gratuite pour déployer vite et garder le contrôle
+									Un outil gratuit pour déployer vite et garder le contrôle
 								</h2>
 								<p class="mt-3 max-w-2xl text-sm leading-8 text-zinc-600 dark:text-zinc-400">
-									Que tu veuilles héberger quelques services ou structurer une plateforme plus
+									Que tu veuilles héberger quelques services ou structurer une stack plus
 									complète, SSD te donne une base claire, moderne et efficace.
 								</p>
 							</div>
 
 							<div class="flex flex-col gap-3 sm:flex-row lg:flex-col lg:items-stretch">
 								<a
-									href="/app-store"
+									href="/app-store/library"
 									class="inline-flex items-center justify-center rounded-[18px] border border-cyan-200 bg-[linear-gradient(90deg,#06b6d4,#2563eb)] px-5 py-3 text-sm font-semibold text-white shadow-[0_14px_34px_rgba(37,99,235,0.24)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(37,99,235,0.30)] dark:border-white/10"
 								>
 									Découvrir le catalogue

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import ApplicationInventory from '$lib/components/apps/ApplicationInventory.svelte';
 	import InstallationsHistory from '$lib/components/apps/InstallationsHistory.svelte';
 	import type { ApplicationState, HistoryFilter, Job, Machine } from '$lib/utils/jobs';
@@ -7,7 +8,8 @@
 
 	const applications = $derived((data.applications ?? []) as ApplicationState[]);
 	const jobs = $derived((data.jobs ?? []) as Job[]);
-	const machines = $derived((data.machines ?? []) as Machine[]);
+	let machines = $state((data.machines ?? []) as Machine[]);
+	const machineSocketUrl = $derived((data.machineSocketUrl ?? '') as string);
 
 	const activeTab = $derived(
 		(data.initialTab === 'history' ? 'history' : 'applications') as 'applications' | 'history'
@@ -19,6 +21,75 @@
 	const deleteSuccess = $derived((form?.deleteSuccess ?? null) as string | null);
 	const uninstallError = $derived((form?.uninstallError ?? null) as string | null);
 	const uninstallSuccess = $derived((form?.uninstallSuccess ?? null) as string | null);
+
+	function applyMachineSocketPayload(payload: any) {
+		if (!payload || typeof payload !== 'object') return;
+
+		if (payload.type === 'machine_snapshot' && Array.isArray(payload.machines)) {
+			machines = payload.machines as Machine[];
+			return;
+		}
+
+		if (payload.type === 'machine_presence' && payload.machine) {
+			const incoming = payload.machine as Machine;
+			const index = machines.findIndex((item) => item.id === incoming.id);
+			if (index === -1) {
+				machines = [incoming, ...machines];
+				return;
+			}
+			machines = machines.map((item) => (item.id === incoming.id ? { ...item, ...incoming } : item));
+			return;
+		}
+
+		if (payload.type === 'machine_removed' && payload.machine_id) {
+			machines = machines.filter((item) => item.id !== payload.machine_id);
+		}
+	}
+
+	onMount(() => {
+		if (activeTab !== 'applications' || !machineSocketUrl) {
+			return;
+		}
+
+		let socket: WebSocket | null = null;
+		let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+		let disposed = false;
+
+		function scheduleReconnect() {
+			if (disposed || reconnectTimer) return;
+			reconnectTimer = setTimeout(() => {
+				reconnectTimer = null;
+				connectMachineSocket();
+			}, 2000);
+		}
+
+		function connectMachineSocket() {
+			if (disposed) return;
+			socket = new WebSocket(machineSocketUrl);
+			socket.onmessage = (event) => {
+				try {
+					applyMachineSocketPayload(JSON.parse(event.data));
+				} catch {
+					// noop
+				}
+			};
+			socket.onclose = () => {
+				socket = null;
+				scheduleReconnect();
+			};
+			socket.onerror = () => {
+				socket?.close();
+			};
+		}
+
+		connectMachineSocket();
+
+		return () => {
+			disposed = true;
+			if (reconnectTimer) clearTimeout(reconnectTimer);
+			socket?.close();
+		};
+	});
 </script>
 
 <svelte:head>

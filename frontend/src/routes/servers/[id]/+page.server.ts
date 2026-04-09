@@ -1,6 +1,7 @@
 import { error, redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { apiFetchWithAuth } from '$lib/server/api';
+import { getServerBackendWsUrl } from '$lib/server/backend';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
 	if (!locals.user || !locals.token) {
@@ -23,7 +24,10 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		throw error(404, 'Serveur introuvable');
 	}
 
+	const machineSocketUrl = `${getServerBackendWsUrl()}/ws/machines?token=${encodeURIComponent(locals.token)}`;
+
 	return {
-		machine
+		machine,
+		machineSocketUrl
 	};
 };

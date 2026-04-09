@@ -1,11 +1,55 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
+
 	let { data, form } = $props();
 
-	const machine = data.machine;
-	const jobs = data.jobs ?? [];
-	const authOptions = ['basique', 'oauth', 'authelia', 'aucune', 'oauth2-proxy'];
+	type AdminMachine = {
+		id: string;
+		machine_uuid: string;
+		status: string;
+		connection_status?: string | null;
+		hostname?: string | null;
+		agent_version?: string | null;
+		auth_token_created_at?: string | null;
+		last_seen_at?: string | null;
+		created_at?: string | null;
+		updated_at?: string | null;
+	};
 
-	const effectiveStatus = form?.revoked ? 'revoked' : machine.status;
+	let machine = $state(normalizeMachine(data.machine));
+	let jobs = $state(Array.isArray(data.jobs) ? data.jobs : []);
+	const authOptions = ['basique', 'oauth', 'authelia', 'aucune', 'oauth2-proxy'];
+	const machineSocketUrl = (data.machineSocketUrl ?? '') as string;
+	let machineDeleted = $state(false);
+
+	$effect(() => {
+		machine = normalizeMachine(data.machine);
+		jobs = Array.isArray(data.jobs) ? data.jobs : [];
+		machineDeleted = false;
+	});
+
+	function resolveMachineStatus(status: unknown, connectionStatus?: unknown) {
+		const normalizedStatus = String(status ?? '').trim().toLowerCase();
+		const normalizedConnection = String(connectionStatus ?? '').trim().toLowerCase();
+		if (normalizedStatus === 'revoked') return 'revoked';
+		if (normalizedStatus === 'error' || normalizedStatus === 'failed') return 'error';
+		if (normalizedConnection === 'online') return 'online';
+		if (normalizedStatus === 'online' || normalizedStatus === 'connected' || normalizedStatus === 'active') return 'online';
+		if (normalizedStatus === 'offline' || normalizedStatus === 'disconnected' || normalizedStatus === 'inactive') return 'offline';
+		if (normalizedStatus === 'paired') return normalizedConnection === 'online' ? 'online' : 'offline';
+		return normalizedStatus || 'unknown';
+	}
+
+	function normalizeMachine(value: any): AdminMachine {
+		const normalizedConnection = String(value?.connection_status ?? '').trim().toLowerCase();
+		return {
+			...value,
+			status: resolveMachineStatus(value?.status, value?.connection_status),
+			connection_status: normalizedConnection || null
+		};
+	}
+
+	const effectiveStatus = $derived(form?.revoked ? 'revoked' : machine.status);
 
 	function machineStatusClass(status: string) {
 		switch (status?.toLowerCase()) {
@@ -44,7 +88,66 @@
 				return 'border-zinc-200 bg-zinc-100 text-zinc-700 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300';
 		}
 	}
+
+	function applyMachineSocketPayload(payload: any) {
+		if (!payload || typeof payload !== 'object') return;
+		if (payload.type === 'machine_snapshot' && Array.isArray(payload.machines)) {
+			const match = payload.machines.find((item: any) => item?.id === machine.id);
+			if (match) {
+				machine = { ...machine, ...normalizeMachine(match) };
+				machineDeleted = false;
+			}
+			return;
+		}
+		if (payload.type === 'machine_presence' && payload.machine?.id === machine.id) {
+			machine = { ...machine, ...normalizeMachine(payload.machine) };
+			machineDeleted = false;
+			return;
+		}
+		if (payload.type === 'machine_removed' && payload.machine_id === machine.id) {
+			machineDeleted = true;
+		}
+	}
+
+	onMount(() => {
+		if (!machineSocketUrl) return;
+		let socket: WebSocket | null = null;
+		let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+		let disposed = false;
+		function scheduleReconnect() {
+			if (disposed || reconnectTimer) return;
+			reconnectTimer = setTimeout(() => {
+				reconnectTimer = null;
+				connectMachineSocket();
+			}, 2000);
+		}
+		function connectMachineSocket() {
+			if (disposed) return;
+			socket = new WebSocket(machineSocketUrl);
+			socket.onmessage = (event) => {
+				try {
+					applyMachineSocketPayload(JSON.parse(event.data));
+				} catch {
+					// noop
+				}
+			};
+			socket.onclose = () => {
+				socket = null;
+				scheduleReconnect();
+			};
+			socket.onerror = () => {
+				socket?.close();
+			};
+		}
+		connectMachineSocket();
+		return () => {
+			disposed = true;
+			if (reconnectTimer) clearTimeout(reconnectTimer);
+			socket?.close();
+		};
+	});
 </script>
+
 
 <svelte:head>
 	<title>Détail machine</title>
@@ -89,6 +192,14 @@
 		>
 			La machine a été révoquée. Elle ne pourra plus communiquer avec le backend tant qu’elle
 			n’est pas re-pairée.
+		</div>
+	{/if}
+
+	{#if machineDeleted}
+		<div
+			class="mb-4 rounded-[20px] border border-red-200 bg-red-50 px-4 py-4 text-sm leading-6 text-red-800 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300"
+		>
+			Cette machine a été supprimée du backend. Recharge la page ou retourne au tableau de bord admin.
 		</div>
 	{/if}
 

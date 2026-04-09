@@ -1,9 +1,15 @@
 import { redirect, error, fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { apiFetchWithAuth } from '$lib/server/api';
-import { validateCsrf } from '$lib/server/security';
+import { ensureCsrfCookie, validateCsrf } from '$lib/server/security';
 
-export const load: PageServerLoad = async ({ locals, params }) => {
+function getPublicWebSocketOrigin(origin: string): string {
+	const url = new URL(origin);
+	url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+	return url.origin;
+}
+
+export const load: PageServerLoad = async ({ locals, params, cookies, url }) => {
 	if (!locals.user || !locals.token) {
 		throw redirect(303, '/login');
 	}
@@ -12,13 +18,11 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		throw redirect(303, '/');
 	}
 
+	const csrfToken = ensureCsrfCookie(cookies, locals.token);
+
 	const [machineResponse, jobsResponse] = await Promise.all([
-		apiFetchWithAuth(locals.token, `/admin/machines/${params.id}`, {
-			method: 'GET'
-		}),
-		apiFetchWithAuth(locals.token, `/admin/machines/${params.id}/jobs`, {
-			method: 'GET'
-		})
+		apiFetchWithAuth(locals.token, `/admin/machines/${params.id}`, { method: 'GET' }),
+		apiFetchWithAuth(locals.token, `/admin/machines/${params.id}/jobs`, { method: 'GET' })
 	]);
 
 	if (!machineResponse.ok) {
@@ -27,8 +31,9 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 
 	const machine = await machineResponse.json();
 	const jobs = jobsResponse.ok ? await jobsResponse.json() : [];
+	const machineSocketUrl = `${getPublicWebSocketOrigin(url.origin)}/ws/machines?token=${encodeURIComponent(locals.token)}`;
 
-	return { user: locals.user, machine, jobs };
+	return { user: locals.user, machine, jobs, csrfToken, machineSocketUrl };
 };
 
 export const actions: Actions = {
@@ -41,38 +46,22 @@ export const actions: Actions = {
 			return fail(403, { error: 'Accès admin requis' });
 		}
 
-		const formData = await validateCsrf({
-			request,
-			cookies,
-			url,
-			sessionToken: locals.token
-		});
-
+		const formData = await validateCsrf({ request, cookies, url, sessionToken: locals.token });
 		const app_slug = String(formData.get('app_slug') ?? '').trim();
 		const subdomain = String(formData.get('subdomain') ?? '').trim();
 		const auth_type = String(formData.get('auth_type') ?? '').trim();
 
 		if (!app_slug || !subdomain || !auth_type) {
-			return fail(400, {
-				error: 'Tous les champs sont requis',
-				app_slug,
-				subdomain,
-				auth_type
-			});
+			return fail(400, { error: 'Tous les champs sont requis', app_slug, subdomain, auth_type });
 		}
 
 		const response = await apiFetchWithAuth(locals.token, `/admin/machines/${params.id}/jobs`, {
 			method: 'POST',
-			body: JSON.stringify({
-				app_slug,
-				subdomain,
-				auth_type
-			})
+			body: JSON.stringify({ app_slug, subdomain, auth_type })
 		});
 
 		if (!response.ok) {
 			let message = 'Impossible de créer le job';
-
 			try {
 				const data = await response.json();
 				if (typeof data?.detail === 'string') {
@@ -81,13 +70,7 @@ export const actions: Actions = {
 			} catch {
 				// ignore
 			}
-
-			return fail(response.status, {
-				error: message,
-				app_slug,
-				subdomain,
-				auth_type
-			});
+			return fail(response.status, { error: message, app_slug, subdomain, auth_type });
 		}
 
 		const data = await response.json();
@@ -109,12 +92,7 @@ export const actions: Actions = {
 			return fail(403, { error: 'Accès admin requis' });
 		}
 
-		await validateCsrf({
-			request,
-			cookies,
-			url,
-			sessionToken: locals.token
-		});
+		await validateCsrf({ request, cookies, url, sessionToken: locals.token });
 
 		const response = await apiFetchWithAuth(locals.token, `/admin/machines/${params.id}/rotate-token`, {
 			method: 'POST'
@@ -122,7 +100,6 @@ export const actions: Actions = {
 
 		if (!response.ok) {
 			let message = 'Impossible de rotater le token machine';
-
 			try {
 				const data = await response.json();
 				if (typeof data?.detail === 'string') {
@@ -131,16 +108,11 @@ export const actions: Actions = {
 			} catch {
 				// ignore
 			}
-
 			return fail(response.status, { error: message });
 		}
 
 		const data = await response.json();
-
-		return {
-			rotated: true,
-			rotatedToken: data.machine_token
-		};
+		return { rotated: true, rotatedToken: data.machine_token };
 	},
 
 	revokeMachine: async ({ locals, params, request, cookies, url }) => {
@@ -152,12 +124,7 @@ export const actions: Actions = {
 			return fail(403, { error: 'Accès admin requis' });
 		}
 
-		await validateCsrf({
-			request,
-			cookies,
-			url,
-			sessionToken: locals.token
-		});
+		await validateCsrf({ request, cookies, url, sessionToken: locals.token });
 
 		const response = await apiFetchWithAuth(locals.token, `/admin/machines/${params.id}/revoke-token`, {
 			method: 'POST'
@@ -165,7 +132,6 @@ export const actions: Actions = {
 
 		if (!response.ok) {
 			let message = 'Impossible de révoquer la machine';
-
 			try {
 				const data = await response.json();
 				if (typeof data?.detail === 'string') {
@@ -174,12 +140,9 @@ export const actions: Actions = {
 			} catch {
 				// ignore
 			}
-
 			return fail(response.status, { error: message });
 		}
 
-		return {
-			revoked: true
-		};
+		return { revoked: true };
 	}
 };

@@ -8,8 +8,6 @@ AGENT_USER=""
 ALLOW_INSECURE_HTTP="${ALLOW_INSECURE_HTTP:-false}"
 AGENT_VERSION="0.1.0"
 
-REPO_URL="https://github.com/projetssd/ssdv2.git"
-
 usage() {
   cat <<'EOF'
 Usage:
@@ -177,7 +175,7 @@ log "Requested install dir: ${INSTALL_DIR}"
 log "Installing prerequisites..."
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
-apt-get install -y python3 python3-venv python3-pip curl ca-certificates git sqlite3
+apt-get install -y python3 python3-venv python3-pip curl ca-certificates
 
 INSTALL_DIR="$(python3 - <<'PY' "${INSTALL_DIR}"
 import os, sys
@@ -187,16 +185,26 @@ PY
 
 log "Normalized install dir: ${INSTALL_DIR}"
 
+if [[ ! -d "${COMPOSE_DIR}" ]]; then
+  die "${COMPOSE_DIR} not found. Install seedbox-compose first before bootstrapping the agent."
+fi
+
+if [[ ! -f "${COMPOSE_DIR}/includes/functions.sh" ]]; then
+  die "${COMPOSE_DIR}/includes/functions.sh not found."
+fi
+
+if [[ ! -f "${COMPOSE_DIR}/includes/variables.sh" ]]; then
+  die "${COMPOSE_DIR}/includes/variables.sh not found."
+fi
+
 log "Creating install directory..."
 mkdir -p "${INSTALL_DIR}/agent"
 mkdir -p "${INSTALL_DIR}/logs"
 mkdir -p "${INSTALL_DIR}/tmp/ansible"
 mkdir -p "${AGENT_HOME}/.ansible/tmp"
-mkdir -p "${AGENT_HOME}/seedbox"
 
 chown -R "${AGENT_USER}:${AGENT_USER}" "${INSTALL_DIR}"
 chown -R "${AGENT_USER}:${AGENT_USER}" "${AGENT_HOME}/.ansible"
-chown -R "${AGENT_USER}:${AGENT_USER}" "${AGENT_HOME}/seedbox"
 
 chmod 750 "${INSTALL_DIR}"
 chmod 750 "${INSTALL_DIR}/agent"
@@ -205,31 +213,19 @@ chmod 750 "${INSTALL_DIR}/tmp"
 chmod 750 "${INSTALL_DIR}/tmp/ansible"
 chmod 700 "${AGENT_HOME}/.ansible"
 chmod 700 "${AGENT_HOME}/.ansible/tmp"
-chmod 700 "${AGENT_HOME}/seedbox"
-
-if [[ ! -d "${COMPOSE_DIR}" ]]; then
-  log "seedbox-compose not found, cloning repository..."
-  run_as_agent_user git clone "${REPO_URL}" "${COMPOSE_DIR}"
-  chown -R "${AGENT_USER}:${AGENT_USER}" "${COMPOSE_DIR}"
-fi
-
-if [[ ! -d "${COMPOSE_DIR}" ]]; then
-  echo "[bootstrap] Expected compose directory not found after clone: ${COMPOSE_DIR}"
-  echo "[bootstrap] Check repository access or path permissions."
-  exit 1
-fi
-
-if [[ ! -f "${COMPOSE_DIR}/profile.sh" ]]; then
-  echo "[bootstrap] profile.sh not found in ${COMPOSE_DIR}"
-  echo "[bootstrap] Repository clone looks incomplete or invalid."
-  exit 1
-fi
 
 log "Creating virtualenv..."
 rm -rf "${INSTALL_DIR}/.venv"
 run_as_agent_user python3 -m venv "${INSTALL_DIR}/.venv"
 run_as_agent_user "${INSTALL_DIR}/.venv/bin/pip" install --upgrade pip
-run_as_agent_user "${INSTALL_DIR}/.venv/bin/pip" install requests
+run_as_agent_user "${INSTALL_DIR}/.venv/bin/pip" install requests websockets
+run_as_agent_user "${INSTALL_DIR}/.venv/bin/python" - <<'PY'
+import importlib.util
+missing = [name for name in ("requests", "websockets") if importlib.util.find_spec(name) is None]
+if missing:
+    raise SystemExit(f"Missing Python packages after install: {', '.join(missing)}")
+print("Python dependencies verified: requests, websockets")
+PY
 
 log "Verifying pairing code..."
 
@@ -622,6 +618,60 @@ def discover_installed_apps() -> list[dict[str, str | None]]:
     return [results[slug] for slug in sorted(results)]
 PY
 
+cat > "${INSTALL_DIR}/agent/presence.py" <<'PY'
+import asyncio
+import threading
+from urllib.parse import quote
+
+import websockets
+
+from agent.config import BACKEND_URL, MACHINE_TOKEN, VERIFY_TLS
+
+
+def _build_ws_url(machine_id: str) -> str:
+    if BACKEND_URL.startswith("https://"):
+        base = "wss://" + BACKEND_URL[len("https://"):]
+    elif BACKEND_URL.startswith("http://"):
+        base = "ws://" + BACKEND_URL[len("http://"):]
+    else:
+        raise RuntimeError("Unsupported BACKEND_URL for websocket presence")
+
+    token = quote(MACHINE_TOKEN, safe="")
+    return f"{base}/ws/machines/{machine_id}/agent?token={token}"
+
+
+async def _presence_loop(machine_id: str, log) -> None:
+    url = _build_ws_url(machine_id)
+
+    while True:
+        try:
+            async with websockets.connect(
+                url,
+                open_timeout=10,
+                close_timeout=5,
+                ping_interval=20,
+                ping_timeout=20,
+                user_agent_header="ssd-agent-presence/0.1",
+                ssl=VERIFY_TLS if url.startswith("wss://") else None,
+            ) as websocket:
+                log(f"presence websocket connected: machine_id={machine_id}")
+                while True:
+                    await websocket.send("ping")
+                    await asyncio.sleep(10)
+        except Exception as exc:
+            log(f"presence websocket disconnected: {exc}")
+            await asyncio.sleep(2)
+
+
+def start_presence_thread(machine_id: str, log) -> threading.Thread:
+    def runner() -> None:
+        asyncio.run(_presence_loop(machine_id, log))
+
+    thread = threading.Thread(target=runner, name="ssd-agent-presence", daemon=True)
+    thread.start()
+    return thread
+PY
+
 cat > "${INSTALL_DIR}/agent/main.py" <<'PY'
 import time
 from datetime import datetime, timezone
@@ -630,6 +680,7 @@ from pathlib import Path
 from agent.api import authenticate, fetch_job, heartbeat
 from agent.config import AGENT_VERSION, HOSTNAME, POLL_INTERVAL
 from agent.discovery import discover_installed_apps
+from agent.presence import start_presence_thread
 from agent.runner import run_job
 
 
@@ -644,7 +695,10 @@ def is_ssdv2_installed() -> bool:
 
 def main() -> None:
     auth_data = authenticate()
-    log(f"authenticated: machine_id={auth_data['machine_id']} status={auth_data['status']}")
+    machine_id = str(auth_data["machine_id"])
+    log(f"authenticated: machine_id={machine_id} status={auth_data['status']}")
+
+    start_presence_thread(machine_id, log)
 
     while True:
         try:
@@ -877,8 +931,6 @@ def run_job(job: dict) -> None:
             success, seq, result, error_message = run_install_app(job_id, payload, seq)
         elif job_type == "uninstall_app":
             success, seq, result, error_message = run_uninstall_app(job_id, payload, seq)
-        elif job_type == "install_ssdv2":
-            success, seq, result, error_message = run_install_ssdv2(job_id, payload, seq)
         else:
             send_log(job_id, seq, "error", f"unsupported job type={job_type}")
             complete_job(job_id, error_message=f"Unsupported job type: {job_type}")

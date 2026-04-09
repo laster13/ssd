@@ -3,7 +3,13 @@ import type { Actions, PageServerLoad } from './$types';
 import { apiFetchWithAuth } from '$lib/server/api';
 import { ensureCsrfCookie, validateCsrf } from '$lib/server/security';
 
-export const load: PageServerLoad = async ({ locals, cookies }) => {
+function getPublicWebSocketOrigin(origin: string): string {
+	const url = new URL(origin);
+	url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+	return url.origin;
+}
+
+export const load: PageServerLoad = async ({ locals, cookies, url }) => {
 	if (!locals.user || !locals.token) {
 		throw redirect(303, '/login');
 	}
@@ -20,7 +26,9 @@ export const load: PageServerLoad = async ({ locals, cookies }) => {
 	const machines = machinesResponse.ok ? await machinesResponse.json() : [];
 	const users = usersResponse.ok ? await usersResponse.json() : [];
 
-	return { user: locals.user, jobs, machines, users, csrfToken };
+	const machineSocketUrl = `${getPublicWebSocketOrigin(url.origin)}/ws/admin/machines?token=${encodeURIComponent(locals.token)}`;
+
+	return { user: locals.user, jobs, machines, users, csrfToken, machineSocketUrl };
 };
 
 export const actions: Actions = {

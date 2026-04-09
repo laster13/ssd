@@ -2,6 +2,12 @@ import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { apiFetchWithAuth } from '$lib/server/api';
 
+function getPublicWebSocketOrigin(origin: string): string {
+	const url = new URL(origin);
+	url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+	return url.origin;
+}
+
 export const load: PageServerLoad = async ({ locals, url }) => {
 	if (!locals.user || !locals.token) {
 		throw redirect(303, '/login');
@@ -27,7 +33,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			? rawFilter
 			: 'all';
 
-	return { applications, jobs, machines, initialTab, initialFilter };
+	const machineSocketUrl = `${getPublicWebSocketOrigin(url.origin)}/ws/machines?token=${encodeURIComponent(locals.token)}`;
+
+	return { applications, jobs, machines, initialTab, initialFilter, machineSocketUrl };
 };
 
 export const actions: Actions = {

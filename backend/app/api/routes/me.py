@@ -11,6 +11,7 @@ from app.api.deps import get_current_user
 from app.catalog.apps import get_catalog_app
 from app.core.audit import audit_event
 from app.core.database import get_db
+from app.core.ws import machine_presence_manager
 from app.models.application_state import ApplicationState
 from app.models.job import Job
 from app.models.job_log import JobLog
@@ -303,6 +304,37 @@ def ensure_no_active_installation_for_machine(db: Session, machine: Machine) -> 
         )
 
 
+def ensure_machine_online_for_jobs(machine: Machine) -> None:
+    if machine.status != "paired":
+        raise HTTPException(status_code=409, detail="Machine is not paired")
+
+    if not machine_presence_manager.is_machine_online(machine.id):
+        raise HTTPException(
+            status_code=409,
+            detail="La Machine est offline. Reconnecter l'agent avant de poursuivre.",
+        )
+
+
+def machine_connection_status(machine: Machine) -> str:
+    return "online" if machine_presence_manager.is_machine_online(machine.id) else "offline"
+
+
+def build_machine_response(machine: Machine) -> dict:
+    return {
+        "id": machine.id,
+        "machine_uuid": machine.machine_uuid,
+        "status": machine.status,
+        "connection_status": machine_connection_status(machine),
+        "hostname": machine.hostname,
+        "agent_version": machine.agent_version,
+        "ssdv2_installed": machine.ssdv2_installed,
+        "ssdv2_checked_at": machine.ssdv2_checked_at,
+        "last_seen_at": machine.last_seen_at,
+        "created_at": machine.created_at,
+        "updated_at": machine.updated_at,
+    }
+
+
 @router.get("/machines")
 def get_my_machines(
     db: Session = Depends(get_db),
@@ -316,25 +348,11 @@ def get_my_machines(
     )
     machines = db.execute(stmt).scalars().all()
 
-    return [
-        {
-            "id": machine.id,
-            "machine_uuid": machine.machine_uuid,
-            "status": machine.status,
-            "hostname": machine.hostname,
-            "agent_version": machine.agent_version,
-            "ssdv2_installed": machine.ssdv2_installed,
-            "ssdv2_checked_at": machine.ssdv2_checked_at,
-            "last_seen_at": machine.last_seen_at,
-            "created_at": machine.created_at,
-            "updated_at": machine.updated_at,
-        }
-        for machine in machines
-    ]
+    return [build_machine_response(machine) for machine in machines]
 
 
 @router.delete("/machines/{machine_id}")
-def delete_my_machine(
+async def delete_my_machine(
     machine_id: UUID,
     request: Request,
     db: Session = Depends(get_db),
@@ -362,6 +380,16 @@ def delete_my_machine(
         details={"machine_uuid": str(machine.machine_uuid)},
     )
 
+    await machine_presence_manager.close_agent_connections(machine.id, code=1008)
+
+    await machine_presence_manager.broadcast_to_user(
+        current_user.id,
+        {
+            "type": "machine_removed",
+            "machine_id": str(machine.id),
+        },
+    )
+
     return {
         "ok": True,
         "machine_id": str(machine.id),
@@ -377,6 +405,7 @@ def create_ssdv2_installation(
     current_user: User = Depends(get_current_user),
 ):
     machine = get_owned_machine_or_404(db, machine_id, current_user)
+    ensure_machine_online_for_jobs(machine)
     ensure_no_active_installation_for_machine(db, machine)
 
     payload = {
@@ -423,6 +452,7 @@ def create_my_installation(
     current_user: User = Depends(get_current_user),
 ):
     machine = get_owned_machine_or_404(db, payload.machine_id, current_user)
+    ensure_machine_online_for_jobs(machine)
     app_slug, subdomain, auth_type, install_profile = normalize_and_validate_installation_payload(payload)
 
     catalog_app = get_catalog_app(app_slug)
@@ -487,6 +517,7 @@ def create_my_uninstallation(
     current_user: User = Depends(get_current_user),
 ):
     machine = get_owned_machine_or_404(db, payload.machine_id, current_user)
+    ensure_machine_online_for_jobs(machine)
     ensure_no_active_installation_for_machine(db, machine)
 
     app_slug, app_name = normalize_uninstall_app_slug(payload.app_slug)
@@ -546,6 +577,7 @@ def list_my_applications(
         select(ApplicationState)
         .join(Machine, ApplicationState.machine_id == Machine.id)
         .where(Machine.owner_id == current_user.id)
+        .where(Machine.status == "paired")
         .order_by(ApplicationState.updated_at.desc(), ApplicationState.created_at.desc())
     )
     states = db.execute(stmt).scalars().all()

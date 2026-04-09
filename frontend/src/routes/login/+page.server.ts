@@ -1,13 +1,12 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-
 import { getServerBackendUrl } from '$lib/server/backend';
 import { setSessionCookie, validateCsrf } from '$lib/server/security';
 
 function normalizeNext(rawNext: string | null): string {
-	if (!rawNext) return '/app-store';
-	if (!rawNext.startsWith('/')) return '/app-store';
-	if (rawNext.startsWith('//')) return '/app-store';
+	if (!rawNext) return '/app-store/library';
+	if (!rawNext.startsWith('/')) return '/app-store/library';
+	if (rawNext.startsWith('//')) return '/app-store/library';
 	return rawNext;
 }
 
@@ -31,7 +30,7 @@ export const actions: Actions = {
 		});
 
 		const email = String(formData.get('email') ?? '').trim();
-		const password = String(formData.get('password') ?? '').trim();
+		const password = String(formData.get('password') ?? '');
 		const otp_code = String(formData.get('otp_code') ?? '').trim();
 
 		if (!email || !password) {
@@ -42,7 +41,10 @@ export const actions: Actions = {
 			});
 		}
 
-		const payload: Record<string, string> = { email, password };
+		const payload: Record<string, string> = {
+			email,
+			password
+		};
 
 		if (otp_code) {
 			payload.otp_code = otp_code;
@@ -66,11 +68,11 @@ export const actions: Actions = {
 					message = 'Code 2FA requis';
 				} else if (errorData?.detail === 'Invalid OTP code') {
 					message = 'Code 2FA invalide';
-				} else if (typeof errorData?.detail === 'string') {
+				} else if (typeof errorData?.detail === 'string' && errorData.detail.trim()) {
 					message = errorData.detail;
 				}
 			} catch {
-				// réponse non JSON ou vide
+				// no-op
 			}
 
 			return fail(response.status, {
