@@ -38,6 +38,71 @@ APPLICATION_JOB_TYPES = {"install_app", "uninstall_app"}
 ACTIVE_JOB_STATUSES = {"pending", "claimed", "running"}
 
 
+def normalize_discovered_app_slug(value: str | None) -> str | None:
+    normalized = str(value or "").strip().lower()
+    return normalized or None
+
+
+def sync_local_application_inventory(db: Session, machine_id: UUID, installed_apps) -> None:
+    if installed_apps is None:
+        return
+
+    seen_slugs: set[str] = set()
+
+    for installed_app in installed_apps:
+        app_slug = normalize_discovered_app_slug(getattr(installed_app, "app_slug", None))
+        if not app_slug:
+            continue
+
+        seen_slugs.add(app_slug)
+
+        raw_name = str(getattr(installed_app, "app_name", "") or "").strip()
+        app_name = raw_name or app_slug
+        public_url = str(getattr(installed_app, "public_url", "") or "").strip() or None
+
+        state = get_or_create_application_state(
+            db=db,
+            machine_id=machine_id,
+            app_slug=app_slug,
+            app_name=app_name,
+        )
+
+        if state.transition != "idle":
+            continue
+
+        state.app_name = app_name
+        state.present = True
+        state.public_url = public_url
+
+        # Toute app remontée par l'inventaire local est considérée locale.
+        state.source = "local"
+
+        # On nettoie les métadonnées de job si elle n'est pas réellement pilotée par SSD.
+        if state.last_job_id is None:
+            state.last_operation = None
+            state.last_job_status = None
+            state.last_error = None
+            state.installed_at = None
+
+    stmt = (
+        select(ApplicationState)
+        .where(ApplicationState.machine_id == machine_id)
+        .where(ApplicationState.source == "local")
+    )
+    local_states = db.execute(stmt).scalars().all()
+
+    for state in local_states:
+        if state.app_slug in seen_slugs:
+            continue
+
+        if state.transition != "idle":
+            continue
+
+        state.present = False
+        state.public_url = None
+        state.installed_at = None
+
+
 def get_job_application_identity(job: Job) -> tuple[str | None, str | None]:
     if job.type not in APPLICATION_JOB_TYPES:
         return None, None
@@ -96,6 +161,7 @@ def sync_application_state_from_job(db: Session, job: Job) -> None:
     )
 
     state.app_name = app_name
+    state.source = "ssd"
     state.last_job_id = job.id
     state.last_job_status = job.status
     state.last_error = job.error_message
@@ -165,6 +231,9 @@ async def heartbeat(
     if payload.ssdv2_installed is not None:
         machine.ssdv2_installed = payload.ssdv2_installed
         machine.ssdv2_checked_at = now
+
+    if payload.installed_apps is not None:
+        sync_local_application_inventory(db, machine.id, payload.installed_apps)
 
     machine.last_seen_at = now
 

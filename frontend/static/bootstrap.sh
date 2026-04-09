@@ -149,6 +149,7 @@ if [[ -z "${AGENT_HOME}" || ! -d "${AGENT_HOME}" ]]; then
 fi
 
 COMPOSE_DIR="${AGENT_HOME}/seedbox-compose"
+DOCKER_BIN="/usr/bin/docker"
 
 VERIFY_TLS_VALUE="true"
 if [[ "${BACKEND_URL}" == http://* ]]; then
@@ -156,6 +157,17 @@ if [[ "${BACKEND_URL}" == http://* ]]; then
 fi
 
 HOSTNAME_VALUE="$(hostname)"
+
+SUPPLEMENTARY_GROUPS_LINE=""
+if getent group docker >/dev/null 2>&1; then
+  if id -nG "${AGENT_USER}" | tr ' ' '\n' | grep -qx docker; then
+    SUPPLEMENTARY_GROUPS_LINE="SupplementaryGroups=docker"
+  else
+    log "User ${AGENT_USER} is not in docker group. Adding it now..."
+    usermod -aG docker "${AGENT_USER}"
+    SUPPLEMENTARY_GROUPS_LINE="SupplementaryGroups=docker"
+  fi
+fi
 
 log "Agent user resolved to: ${AGENT_USER}"
 log "Agent home: ${AGENT_HOME}"
@@ -297,6 +309,7 @@ HOSTNAME = os.environ.get("HOSTNAME", "unknown-host")
 AGENT_VERSION = os.environ.get("AGENT_VERSION", "0.1.0")
 POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", "5"))
 VERIFY_TLS = os.environ.get("VERIFY_TLS", "true").lower() == "true"
+DOCKER_BIN = os.environ.get("DOCKER_BIN", "/usr/bin/docker")
 PY
 
 cat > "${INSTALL_DIR}/agent/api.py" <<'PY'
@@ -328,13 +341,19 @@ def authenticate() -> dict:
     return response.json()
 
 
-def heartbeat(hostname: str, agent_version: str, ssdv2_installed: bool) -> dict:
+def heartbeat(
+    hostname: str,
+    agent_version: str,
+    ssdv2_installed: bool,
+    installed_apps: list[dict[str, str | None]] | None = None,
+) -> dict:
     response = post(
         "/agent/heartbeat",
         {
             "hostname": hostname,
             "agent_version": agent_version,
             "ssdv2_installed": ssdv2_installed,
+            "installed_apps": installed_apps or [],
         },
     )
     response.raise_for_status()
@@ -376,6 +395,233 @@ def complete_job(job_id: str, result: dict | None = None, error_message: str | N
     return response.json()
 PY
 
+cat > "${INSTALL_DIR}/agent/discovery.py" <<'PY'
+from __future__ import annotations
+
+import json
+import re
+import shutil
+import subprocess
+from pathlib import Path
+
+from agent.config import DOCKER_BIN
+
+PREFERRED_NAME_MAP = {
+    "bazarr": "Bazarr",
+    "crowdsec": "CrowdSec",
+    "error-pages": "Error Pages",
+    "jellyfin": "Jellyfin",
+    "lidarr": "Lidarr",
+    "prowlarr": "Prowlarr",
+    "qbittorrent": "qBittorrent",
+    "radarr": "Radarr",
+    "readarr": "Readarr",
+    "sabnzbd": "SABnzbd",
+    "sonarr": "Sonarr",
+    "traefik": "Traefik",
+}
+
+IGNORED_PREFIXES = {"ssd", "docker", "compose", "svc", "service"}
+
+
+def run_command(command: list[str]) -> tuple[int, str]:
+    process = subprocess.run(
+        command,
+        capture_output=True,
+        text=True,
+    )
+    output = process.stdout.strip()
+
+    if process.stderr.strip():
+        output = f"{output}\n{process.stderr.strip()}".strip()
+
+    return process.returncode, output
+
+
+def normalize_slug(value: str | None) -> str | None:
+    if value is None:
+        return None
+
+    slug = str(value).strip().lower()
+    if not slug:
+        return None
+
+    slug = slug.replace(" ", "-")
+    slug = re.sub(r"[^a-z0-9._-]", "-", slug)
+    slug = re.sub(r"-+", "-", slug)
+    slug = slug.strip("-._")
+    slug = re.sub(r"-(?:\d+)$", "", slug)
+    slug = re.sub(r"_(?:\d+)$", "", slug)
+
+    return slug or None
+
+
+def prettify_slug(slug: str) -> str:
+    if slug in PREFERRED_NAME_MAP:
+        return PREFERRED_NAME_MAP[slug]
+    return slug.replace("-", " ").replace("_", " ").title()
+
+
+def candidate_slugs_from_name(name: str) -> list[str]:
+    normalized = normalize_slug(name)
+    if not normalized:
+        return []
+
+    results: list[str] = [normalized]
+
+    for separator in ("-", "_"):
+        parts = [part for part in normalized.split(separator) if part]
+        if len(parts) >= 2 and parts[0] in IGNORED_PREFIXES:
+            results.append(parts[1])
+
+    seen: set[str] = set()
+    deduped: list[str] = []
+
+    for item in results:
+        slug = normalize_slug(item)
+        if not slug or slug in seen:
+            continue
+        seen.add(slug)
+        deduped.append(slug)
+
+    return deduped
+
+
+def resolve_docker_bin() -> str | None:
+    configured = str(DOCKER_BIN or "").strip()
+    if configured:
+        return configured
+
+    found = shutil.which("docker")
+    if found:
+        return found
+
+    fallback = "/usr/bin/docker"
+    if Path(fallback).exists():
+        return fallback
+
+    return None
+
+
+def add_app(
+    results: dict[str, dict[str, str | None]],
+    slug: str | None,
+    public_url: str | None = None,
+) -> None:
+    normalized_slug = normalize_slug(slug)
+    if not normalized_slug:
+        return
+
+    existing = results.get(normalized_slug)
+    if existing is None:
+        results[normalized_slug] = {
+            "app_slug": normalized_slug,
+            "app_name": prettify_slug(normalized_slug),
+            "public_url": public_url,
+        }
+        return
+
+    if public_url and not existing.get("public_url"):
+        existing["public_url"] = public_url
+
+
+def extract_public_url_from_labels(labels: dict[str, str] | None) -> str | None:
+    if not labels:
+        return None
+
+    if str(labels.get("traefik.enable", "")).strip().lower() not in {"true", "1", "yes", "on"}:
+        return None
+
+    for key, value in labels.items():
+        if not key.startswith("traefik.http.routers."):
+            continue
+        if not key.endswith(".rule"):
+            continue
+
+        rule = str(value or "").strip()
+        if not rule:
+            continue
+
+        match = re.search(r"Host\(\s*`([^`]+)`\s*\)", rule)
+        if match:
+            host = match.group(1).strip()
+            if host:
+                return f"https://{host}"
+
+        match = re.search(r'Host\(\s*"([^"]+)"\s*\)', rule)
+        if match:
+            host = match.group(1).strip()
+            if host:
+                return f"https://{host}"
+
+    return None
+
+
+def inspect_container_labels(docker_bin: str, container_name: str) -> dict[str, str]:
+    return_code, output = run_command(
+        [docker_bin, "inspect", container_name, "--format", "{{json .Config.Labels}}"]
+    )
+    if return_code != 0 or not output:
+        return {}
+
+    try:
+        data = json.loads(output)
+    except json.JSONDecodeError:
+        return {}
+
+    if not isinstance(data, dict):
+        return {}
+
+    result: dict[str, str] = {}
+    for key, value in data.items():
+        result[str(key)] = "" if value is None else str(value)
+    return result
+
+
+def discover_installed_apps() -> list[dict[str, str | None]]:
+    results: dict[str, dict[str, str | None]] = {}
+
+    docker_bin = resolve_docker_bin()
+    if not docker_bin:
+        return []
+
+    return_code, output = run_command(
+        [docker_bin, "ps", "-a", "--format", "{{.Names}}\t{{.Image}}"]
+    )
+    if return_code != 0 or not output:
+        return []
+
+    for raw_line in output.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+
+        parts = line.split("\t")
+        container_name = parts[0].strip() if len(parts) >= 1 else ""
+        image_name = parts[1].strip() if len(parts) >= 2 else ""
+
+        image_basename = ""
+        if image_name:
+            image_basename = image_name.split("/")[-1].split(":")[0]
+
+        candidates: list[str] = []
+        if container_name:
+            candidates.extend(candidate_slugs_from_name(container_name))
+        if image_basename:
+            candidates.extend(candidate_slugs_from_name(image_basename))
+
+        selected_slug = candidates[0] if candidates else None
+        if not selected_slug:
+            continue
+
+        labels = inspect_container_labels(docker_bin, container_name) if container_name else {}
+        public_url = extract_public_url_from_labels(labels)
+
+        add_app(results, selected_slug, public_url)
+
+    return [results[slug] for slug in sorted(results)]
+PY
+
 cat > "${INSTALL_DIR}/agent/main.py" <<'PY'
 import time
 from datetime import datetime, timezone
@@ -383,6 +629,7 @@ from pathlib import Path
 
 from agent.api import authenticate, fetch_job, heartbeat
 from agent.config import AGENT_VERSION, HOSTNAME, POLL_INTERVAL
+from agent.discovery import discover_installed_apps
 from agent.runner import run_job
 
 
@@ -402,12 +649,22 @@ def main() -> None:
     while True:
         try:
             ssdv2_installed = is_ssdv2_installed()
+            installed_apps = discover_installed_apps()
 
-            hb = heartbeat(HOSTNAME, AGENT_VERSION, ssdv2_installed)
+            hb = heartbeat(HOSTNAME, AGENT_VERSION, ssdv2_installed, installed_apps)
             log(
                 f"heartbeat ok: last_seen_at={hb['last_seen_at']} "
-                f"ssdv2_installed={ssdv2_installed}"
+                f"ssdv2_installed={ssdv2_installed} "
+                f"installed_apps={len(installed_apps)}"
             )
+
+            if installed_apps:
+                log(
+                    "discovered apps: "
+                    + ", ".join(app["app_slug"] for app in installed_apps if app.get("app_slug"))
+                )
+            else:
+                log("discovered apps: none")
 
             job_response = fetch_job()
 
@@ -609,61 +866,6 @@ def run_uninstall_app(job_id: str, payload: dict, seq: int) -> tuple[bool, int, 
     return False, seq, None, f"Command failed with return code {return_code}"
 
 
-def run_install_ssdv2(job_id: str, payload: dict, seq: int) -> tuple[bool, int, dict | None, str | None]:
-    required_keys = [
-        "username",
-        "email",
-        "domain",
-        "password",
-        "cloudflare_login",
-        "cloudflare_api_key",
-    ]
-
-    missing = [key for key in required_keys if not str(payload.get(key) or "").strip()]
-    if missing:
-        return False, seq, None, f"Missing required payload fields: {', '.join(missing)}"
-
-    oauth_enabled = parse_bool(payload.get("oauth_enabled"))
-
-    if oauth_enabled:
-        oauth_missing = [
-            key
-            for key in ["oauth_client", "oauth_secret", "oauth_mail"]
-            if not str(payload.get(key) or "").strip()
-        ]
-        if oauth_missing:
-            return False, seq, None, f"Missing required OAuth payload fields: {', '.join(oauth_missing)}"
-
-    compose_dir = "~/seedbox-compose"
-
-    env_exports = [
-        f"SSD_USERNAME={quote(payload.get('username'))}",
-        f"SSD_EMAIL={quote(payload.get('email'))}",
-        f"SSD_DOMAIN={quote(payload.get('domain'))}",
-        f"SSD_PASSWORD={quote(payload.get('password'))}",
-        f"SSD_CLOUDFLARE_LOGIN={quote(payload.get('cloudflare_login'))}",
-        f"SSD_CLOUDFLARE_API_KEY={quote(payload.get('cloudflare_api_key'))}",
-        f"SSD_OAUTH_ENABLED={quote(str(oauth_enabled).lower())}",
-        f"SSD_OAUTH_CLIENT={quote(payload.get('oauth_client'))}",
-        f"SSD_OAUTH_SECRET={quote(payload.get('oauth_secret'))}",
-        f"SSD_OAUTH_MAIL={quote(payload.get('oauth_mail'))}",
-    ]
-
-    command = f"cd {compose_dir} && " + " ".join(env_exports) + " bash autoinstall.sh"
-    return_code, seq = run_streaming_command(job_id, seq, command)
-
-    if return_code == 0:
-        result = {
-            "message": "SSDv2 install finished",
-            "domain": payload.get("domain"),
-            "oauth_enabled": oauth_enabled,
-            "return_code": return_code,
-        }
-        return True, seq, result, None
-
-    return False, seq, None, f"Command failed with return code {return_code}"
-
-
 def run_job(job: dict) -> None:
     job_id = job["job_id"]
     job_type = job["type"]
@@ -707,6 +909,7 @@ POLL_INTERVAL=5
 VERIFY_TLS=${VERIFY_TLS_VALUE}
 MACHINE_ID=${MACHINE_ID}
 MACHINE_UUID=${MACHINE_UUID}
+DOCKER_BIN=${DOCKER_BIN}
 EOF
 
 chown -R "${AGENT_USER}:${AGENT_USER}" "${INSTALL_DIR}"
@@ -724,6 +927,7 @@ Wants=network-online.target
 Type=simple
 User=${AGENT_USER}
 Group=${AGENT_USER}
+${SUPPLEMENTARY_GROUPS_LINE}
 WorkingDirectory=${INSTALL_DIR}
 Environment=PYTHONUNBUFFERED=1
 Environment=HOME=${AGENT_HOME}

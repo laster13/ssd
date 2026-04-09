@@ -2,7 +2,7 @@ import uuid
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -27,6 +27,16 @@ class ApplicationState(Base):
     app_slug: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     app_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
+    source: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="ssd",
+        server_default=text("'ssd'"),
+        index=True,
+    )
+
+    public_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     present: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, index=True)
     transition: Mapped[str] = mapped_column(String(50), nullable=False, default="idle", index=True)
 
@@ -38,7 +48,9 @@ class ApplicationState(Base):
     installed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
     )
 
     updated_at: Mapped[datetime] = mapped_column(

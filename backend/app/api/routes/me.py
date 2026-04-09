@@ -30,8 +30,6 @@ INSTALL_JOB_TYPES = ["install_app", "install_ssdv2", "uninstall_app"]
 
 SUBDOMAIN_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])?$")
 PUBLIC_URL_RE = re.compile(r"https?://[^\s\"'<>]+", re.IGNORECASE)
-
-# hostname nu avec au moins un point, ex: sonarr.lastharo.eu
 HOSTNAME_RE = re.compile(
     r"\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}\b",
     re.IGNORECASE,
@@ -79,33 +77,24 @@ def _extract_public_url_from_messages(
         if not message:
             continue
 
-        # 1) URL complète
         for raw_url in PUBLIC_URL_RE.findall(message):
             url = _clean_public_url(raw_url)
             parsed = urlparse(url)
             hostname = (parsed.hostname or "").lower()
-
             if not _looks_like_public_host(hostname):
                 continue
-
             if preferred_prefix and hostname.startswith(preferred_prefix):
                 return url
-
             if fallback_url is None:
                 fallback_url = url
 
-        # 2) hostname nu
         for raw_host in HOSTNAME_RE.findall(message):
             hostname = _clean_hostname(raw_host)
-
             if not _looks_like_public_host(hostname):
                 continue
-
             rebuilt_url = f"https://{hostname}"
-
             if preferred_prefix and hostname.startswith(preferred_prefix):
                 return rebuilt_url
-
             if fallback_host is None:
                 fallback_host = rebuilt_url
 
@@ -122,7 +111,6 @@ def _find_latest_install_job_for_app(db: Session, state: ApplicationState) -> Jo
     jobs = db.execute(stmt).scalars().all()
 
     wanted_slug = (state.app_slug or "").strip().lower()
-
     for job in jobs:
         payload = job.payload or {}
         payload_slug = str(payload.get("app_slug") or "").strip().lower()
@@ -137,6 +125,8 @@ def resolve_application_public_url(db: Session, state: ApplicationState) -> str 
         return None
     if state.transition != "idle":
         return None
+    if state.source == "local":
+        return state.public_url
 
     job = _find_latest_install_job_for_app(db, state)
     if job is None:
@@ -151,7 +141,6 @@ def resolve_application_public_url(db: Session, state: ApplicationState) -> str 
         .order_by(JobLog.seq.desc(), JobLog.created_at.desc())
     )
     messages = db.execute(stmt).scalars().all()
-
     return _extract_public_url_from_messages(messages, preferred_subdomain)
 
 
@@ -161,6 +150,7 @@ def build_application_state_response(db: Session, state: ApplicationState) -> di
         "machine_id": state.machine_id,
         "app_slug": state.app_slug,
         "app_name": state.app_name,
+        "source": state.source,
         "present": state.present,
         "transition": state.transition,
         "last_operation": state.last_operation,
@@ -216,8 +206,8 @@ def queue_application_state_for_new_job(
         app_slug=app_slug,
         app_name=app_name,
     )
-
     state.app_name = app_name
+    state.source = "ssd"
     state.last_operation = operation
     state.last_job_id = job.id
     state.last_job_status = job.status
@@ -234,10 +224,8 @@ def get_owned_machine_or_404(db: Session, machine_id: UUID, current_user: User) 
         .limit(1)
     )
     machine = db.execute(stmt).scalar_one_or_none()
-
     if not machine:
         raise HTTPException(status_code=404, detail="Machine not found")
-
     return machine
 
 
@@ -251,10 +239,8 @@ def get_owned_installation_or_404(db: Session, job_id: UUID, current_user: User)
         .limit(1)
     )
     job = db.execute(stmt).scalar_one_or_none()
-
     if not job:
         raise HTTPException(status_code=404, detail="Installation not found")
-
     return job
 
 
@@ -310,7 +296,6 @@ def ensure_no_active_installation_for_machine(db: Session, machine: Machine) -> 
         .limit(1)
     )
     active_job_id = db.execute(stmt).scalar_one_or_none()
-
     if active_job_id:
         raise HTTPException(
             status_code=409,
@@ -398,14 +383,12 @@ def create_ssdv2_installation(
         "machine_id": str(machine.id),
         "hostname": machine.hostname,
     }
-
     job = Job(
         machine_id=machine.id,
         type="install_ssdv2",
         status="pending",
         payload=payload,
     )
-
     db.add(job)
     db.commit()
     db.refresh(job)
@@ -440,10 +423,7 @@ def create_my_installation(
     current_user: User = Depends(get_current_user),
 ):
     machine = get_owned_machine_or_404(db, payload.machine_id, current_user)
-
-    app_slug, subdomain, auth_type, install_profile = normalize_and_validate_installation_payload(
-        payload
-    )
+    app_slug, subdomain, auth_type, install_profile = normalize_and_validate_installation_payload(payload)
 
     catalog_app = get_catalog_app(app_slug)
     app_name = str(catalog_app.get("name") or app_slug) if catalog_app else app_slug
@@ -462,7 +442,6 @@ def create_my_installation(
             "auth_type": auth_type,
         },
     )
-
     db.add(job)
     db.flush()
 
@@ -521,7 +500,6 @@ def create_my_uninstallation(
             "app_name": app_name,
         },
     )
-
     db.add(job)
     db.flush()
 
@@ -570,7 +548,6 @@ def list_my_applications(
         .where(Machine.owner_id == current_user.id)
         .order_by(ApplicationState.updated_at.desc(), ApplicationState.created_at.desc())
     )
-
     states = db.execute(stmt).scalars().all()
     return [build_application_state_response(db, state) for state in states]
 
