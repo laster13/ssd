@@ -5,6 +5,7 @@ from app.models.machine import Machine
 from app.models.pairing_token import PairingToken
 from app.models.security_audit_log import SecurityAuditLog
 from app.models.streamfusion_addon_token import StreamFusionAddonToken
+from app.models.streamfusion_session import StreamFusionSession
 from app.models.user import User
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     "User",
     "SecurityAuditLog",
     "StreamFusionAddonToken",
+    "StreamFusionSession",
 ]

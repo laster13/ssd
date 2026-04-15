@@ -7,19 +7,16 @@ Create Date: 2026-04-06 10:30:00.000000
 
 import json
 import uuid
-
 from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
-
 
 # revision identifiers, used by Alembic.
 revision: str = "4c40fca6f315"
 down_revision: Union[str, Sequence[str], None] = "c2e8b10c9a4f"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
-
 
 ACTIVE_JOB_STATUSES = {"pending", "claimed", "running"}
 
@@ -31,27 +28,86 @@ def upgrade() -> None:
         sa.Column("machine_id", sa.UUID(), nullable=False),
         sa.Column("app_slug", sa.String(length=100), nullable=False),
         sa.Column("app_name", sa.String(length=255), nullable=True),
-        sa.Column("present", sa.Boolean(), nullable=False, server_default=sa.text("false")),
-        sa.Column("transition", sa.String(length=50), nullable=False, server_default=sa.text("'idle'")),
+        sa.Column(
+            "source",
+            sa.String(length=32),
+            nullable=False,
+            server_default=sa.text("'ssd'"),
+        ),
+        sa.Column(
+            "present",
+            sa.Boolean(),
+            nullable=False,
+            server_default=sa.text("false"),
+        ),
+        sa.Column(
+            "transition",
+            sa.String(length=50),
+            nullable=False,
+            server_default=sa.text("'idle'"),
+        ),
         sa.Column("last_operation", sa.String(length=50), nullable=True),
         sa.Column("last_job_id", sa.UUID(), nullable=True),
         sa.Column("last_job_status", sa.String(length=50), nullable=True),
         sa.Column("last_error", sa.Text(), nullable=True),
         sa.Column("installed_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.ForeignKeyConstraint(["machine_id"], ["machines.id"], ondelete="CASCADE"),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.ForeignKeyConstraint(
+            ["machine_id"],
+            ["machines.id"],
+            ondelete="CASCADE",
+        ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("machine_id", "app_slug", name="uq_application_states_machine_app"),
+        sa.UniqueConstraint(
+            "machine_id",
+            "app_slug",
+            name="uq_application_states_machine_app",
+        ),
     )
 
-    op.create_index(op.f("ix_application_states_machine_id"), "application_states", ["machine_id"], unique=False)
-    op.create_index(op.f("ix_application_states_app_slug"), "application_states", ["app_slug"], unique=False)
-    op.create_index(op.f("ix_application_states_present"), "application_states", ["present"], unique=False)
-    op.create_index(op.f("ix_application_states_transition"), "application_states", ["transition"], unique=False)
+    op.create_index(
+        op.f("ix_application_states_machine_id"),
+        "application_states",
+        ["machine_id"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_application_states_app_slug"),
+        "application_states",
+        ["app_slug"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_application_states_source"),
+        "application_states",
+        ["source"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_application_states_present"),
+        "application_states",
+        ["present"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_application_states_transition"),
+        "application_states",
+        ["transition"],
+        unique=False,
+    )
 
     bind = op.get_bind()
-
     rows = bind.execute(
         sa.text(
             """
@@ -101,6 +157,7 @@ def upgrade() -> None:
                 "machine_id": row["machine_id"],
                 "app_slug": app_slug,
                 "app_name": app_name,
+                "source": "ssd",
                 "present": False,
                 "transition": "idle",
                 "last_operation": None,
@@ -128,7 +185,9 @@ def upgrade() -> None:
 
         if job_type == "install_app" and status == "completed":
             state["present"] = True
-            state["installed_at"] = row["completed_at"] or row["updated_at"] or row["created_at"]
+            state["installed_at"] = (
+                row["completed_at"] or row["updated_at"] or row["created_at"]
+            )
 
         if job_type == "uninstall_app" and status == "completed":
             state["present"] = False
@@ -143,6 +202,7 @@ def upgrade() -> None:
                     machine_id,
                     app_slug,
                     app_name,
+                    source,
                     present,
                     transition,
                     last_operation,
@@ -150,11 +210,13 @@ def upgrade() -> None:
                     last_job_status,
                     last_error,
                     installed_at
-                ) VALUES (
+                )
+                VALUES (
                     :id,
                     :machine_id,
                     :app_slug,
                     :app_name,
+                    :source,
                     :present,
                     :transition,
                     :last_operation,
@@ -170,8 +232,24 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index(op.f("ix_application_states_transition"), table_name="application_states")
-    op.drop_index(op.f("ix_application_states_present"), table_name="application_states")
-    op.drop_index(op.f("ix_application_states_app_slug"), table_name="application_states")
-    op.drop_index(op.f("ix_application_states_machine_id"), table_name="application_states")
+    op.drop_index(
+        op.f("ix_application_states_transition"),
+        table_name="application_states",
+    )
+    op.drop_index(
+        op.f("ix_application_states_present"),
+        table_name="application_states",
+    )
+    op.drop_index(
+        op.f("ix_application_states_source"),
+        table_name="application_states",
+    )
+    op.drop_index(
+        op.f("ix_application_states_app_slug"),
+        table_name="application_states",
+    )
+    op.drop_index(
+        op.f("ix_application_states_machine_id"),
+        table_name="application_states",
+    )
     op.drop_table("application_states")

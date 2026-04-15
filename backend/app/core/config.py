@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     allow_self_registration: bool = True
 
     streamfusion_public_base_url: str = "https://streamfusion.lastharo.eu"
+    streamfusion_token_ttl_seconds: int = 600
+    streamfusion_session_ttl_seconds: int = 7200
+    streamfusion_session_cookie_name: str = "streamfusion_session"
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -42,6 +45,20 @@ class Settings(BaseSettings):
         if self.jwt_secret_key in bad_values or len(self.jwt_secret_key) < 32:
             raise ValueError("JWT_SECRET_KEY must be a strong unique secret")
 
+        if not self.streamfusion_public_base_url.startswith("https://"):
+            raise ValueError("STREAMFUSION_PUBLIC_BASE_URL must start with https://")
+
+        if self.streamfusion_token_ttl_seconds < 60:
+            raise ValueError("STREAMFUSION_TOKEN_TTL_SECONDS must be >= 60")
+
+        if self.streamfusion_session_ttl_seconds < 300:
+            raise ValueError("STREAMFUSION_SESSION_TTL_SECONDS must be >= 300")
+
+        cookie_name = self.streamfusion_session_cookie_name.strip()
+        if not cookie_name:
+            raise ValueError("STREAMFUSION_SESSION_COOKIE_NAME must not be empty")
+
+        self.streamfusion_session_cookie_name = cookie_name
         return self
 
 

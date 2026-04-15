@@ -15,9 +15,13 @@ def normalize_pairing_code(code: str) -> str:
     return code.strip().upper().replace(" ", "").replace("-", "")
 
 
+def _hash_with_pepper(value: str) -> str:
+    return hashlib.sha256(f"{value}{settings.token_pepper}".encode("utf-8")).hexdigest()
+
+
 def hash_pairing_code(code: str) -> str:
     normalized = normalize_pairing_code(code)
-    return hashlib.sha256(f"{normalized}{settings.token_pepper}".encode("utf-8")).hexdigest()
+    return _hash_with_pepper(normalized)
 
 
 def generate_machine_token() -> str:
@@ -25,7 +29,7 @@ def generate_machine_token() -> str:
 
 
 def hash_machine_token(token: str) -> str:
-    return hashlib.sha256(f"{token}{settings.token_pepper}".encode("utf-8")).hexdigest()
+    return _hash_with_pepper(token)
 
 
 def generate_streamfusion_addon_token() -> str:
@@ -33,4 +37,12 @@ def generate_streamfusion_addon_token() -> str:
 
 
 def hash_streamfusion_addon_token(token: str) -> str:
-    return hashlib.sha256(f"{token}{settings.token_pepper}".encode("utf-8")).hexdigest()
+    return _hash_with_pepper(token)
+
+
+def generate_streamfusion_session_token() -> str:
+    return secrets.token_urlsafe(48)
+
+
+def hash_streamfusion_session_token(token: str) -> str:
+    return _hash_with_pepper(token)

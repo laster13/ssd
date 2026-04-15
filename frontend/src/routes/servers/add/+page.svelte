@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { PUBLIC_BACKEND_URL_HTTPS } from '$env/static/public';
+	import { PUBLIC_AGENT_BACKEND_URL_HTTPS } from '$env/static/public';
 
 	let { data, form } = $props();
 
@@ -10,13 +10,13 @@
 	const pairingCode = $derived(pairing?.pairing_code ?? '-');
 	const machineUuid = $derived(pairing?.machine_uuid ?? '-');
 	const expiresAt = $derived(pairing?.expires_at ?? null);
-	const backendUrl = $derived((PUBLIC_BACKEND_URL_HTTPS || '').replace(/\/$/, ''));
+	const backendUrl = $derived((PUBLIC_AGENT_BACKEND_URL_HTTPS || '').replace(/\/$/, ''));
 
-	const bootstrapCommand = $derived(
-		pairing && backendUrl
-			? `curl -fsSL ${backendUrl}/bootstrap.sh | sudo bash -s -- --pairing-code ${pairing.pairing_code} --backend-url ${backendUrl}`
-			: ''
-	);
+        const bootstrapCommand = $derived(
+                pairing && backendUrl
+                        ? `curl -4 -fsSL ${backendUrl}/bootstrap.sh | sudo bash -s -- --pairing-code ${pairing.pairing_code} --backend-url ${backendUrl} --force-ipv4`
+                        : ''
+        );
 
 	function formatDate(value: unknown) {
 		if (!value) return '-';

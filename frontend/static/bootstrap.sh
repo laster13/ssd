@@ -6,16 +6,22 @@ BACKEND_URL=""
 INSTALL_DIR="/opt/ssd-agent"
 AGENT_USER=""
 ALLOW_INSECURE_HTTP="${ALLOW_INSECURE_HTTP:-false}"
+FORCE_IPV4="${FORCE_IPV4:-true}"
 AGENT_VERSION="0.1.0"
 
 usage() {
   cat <<'EOF'
 Usage:
-  bootstrap.sh --pairing-code XXXX-XXXX --backend-url https://admin.example.com [--agent-user USER] [--install-dir /opt/ssd-agent]
+  bootstrap.sh --pairing-code XXXX-XXXX --backend-url https://admin.example.com [--agent-user USER] [--install-dir /opt/ssd-agent] [--force-ipv4|--no-force-ipv4]
 
 By default, insecure HTTP is refused.
 To override temporarily (not recommended), run with:
   ALLOW_INSECURE_HTTP=true ./bootstrap.sh ...
+
+IPv4 is forced by default.
+You can also control it explicitly with:
+  ./bootstrap.sh ... --force-ipv4
+  ./bootstrap.sh ... --no-force-ipv4
 EOF
   exit 1
 }
@@ -116,6 +122,14 @@ while [[ $# -gt 0 ]]; do
       INSTALL_DIR="${2}"
       shift 2
       ;;
+    --force-ipv4)
+      FORCE_IPV4="true"
+      shift
+      ;;
+    --no-force-ipv4)
+      FORCE_IPV4="false"
+      shift
+      ;;
     *)
       echo "Unknown argument: $1"
       usage
@@ -171,11 +185,19 @@ log "Agent user resolved to: ${AGENT_USER}"
 log "Agent home: ${AGENT_HOME}"
 log "Compose dir: ${COMPOSE_DIR}"
 log "Requested install dir: ${INSTALL_DIR}"
+log "Backend URL: ${BACKEND_URL}"
+log "Force IPv4: ${FORCE_IPV4}"
 
 log "Installing prerequisites..."
 export DEBIAN_FRONTEND=noninteractive
-apt-get update -y
-apt-get install -y python3 python3-venv python3-pip curl ca-certificates
+
+APT_FLAGS=()
+if [[ "${FORCE_IPV4}" == "true" ]]; then
+  APT_FLAGS+=(-o Acquire::ForceIPv4=true)
+fi
+
+apt-get "${APT_FLAGS[@]}" update -y
+apt-get "${APT_FLAGS[@]}" install -y python3 python3-venv python3-pip curl ca-certificates
 
 INSTALL_DIR="$(python3 - <<'PY' "${INSTALL_DIR}"
 import os, sys
@@ -217,8 +239,8 @@ chmod 700 "${AGENT_HOME}/.ansible/tmp"
 log "Creating virtualenv..."
 rm -rf "${INSTALL_DIR}/.venv"
 run_as_agent_user python3 -m venv "${INSTALL_DIR}/.venv"
-run_as_agent_user "${INSTALL_DIR}/.venv/bin/pip" install --upgrade pip
-run_as_agent_user "${INSTALL_DIR}/.venv/bin/pip" install requests websockets
+run_as_agent_user env PIP_DISABLE_PIP_VERSION_CHECK=1 "${INSTALL_DIR}/.venv/bin/pip" install --upgrade pip
+run_as_agent_user env PIP_DISABLE_PIP_VERSION_CHECK=1 "${INSTALL_DIR}/.venv/bin/pip" install requests websockets
 run_as_agent_user "${INSTALL_DIR}/.venv/bin/python" - <<'PY'
 import importlib.util
 missing = [name for name in ("requests", "websockets") if importlib.util.find_spec(name) is None]
@@ -229,7 +251,10 @@ PY
 
 log "Verifying pairing code..."
 
-CURL_FLAGS=(-fsSL --connect-timeout 10 --max-time 30)
+CURL_FLAGS=(--silent --show-error --location --connect-timeout 10 --max-time 30)
+if [[ "${FORCE_IPV4}" == "true" ]]; then
+  CURL_FLAGS+=(-4)
+fi
 if [[ "${BACKEND_URL}" == https://* ]]; then
   CURL_FLAGS+=(--proto '=https' --tlsv1.2)
 fi
@@ -240,10 +265,33 @@ print(json.dumps({"pairing_code": sys.argv[1]}))
 PY
 )"
 
-VERIFY_RESPONSE="$(curl "${CURL_FLAGS[@]}" \
-  -X POST "${BACKEND_URL}/pairing/verify" \
-  -H "Content-Type: application/json" \
-  --data "${PAIRING_REQUEST}")"
+PAIRING_TMP_BODY="$(mktemp)"
+HTTP_CODE="$(
+  curl "${CURL_FLAGS[@]}" \
+    -o "${PAIRING_TMP_BODY}" \
+    -w '%{http_code}' \
+    -X POST "${BACKEND_URL}/pairing/verify" \
+    -H "Content-Type: application/json" \
+    --data "${PAIRING_REQUEST}" || true
+)"
+
+if [[ -z "${HTTP_CODE}" ]]; then
+  rm -f "${PAIRING_TMP_BODY}"
+  die "Pairing verify request failed before receiving an HTTP status code."
+fi
+
+log "Pairing verify HTTP status: ${HTTP_CODE}"
+
+if [[ "${HTTP_CODE}" != "200" ]]; then
+  echo "[bootstrap] Pairing verify failed with HTTP ${HTTP_CODE}" >&2
+  echo "[bootstrap] Response body:" >&2
+  cat "${PAIRING_TMP_BODY}" >&2 || true
+  rm -f "${PAIRING_TMP_BODY}"
+  exit 1
+fi
+
+VERIFY_RESPONSE="$(cat "${PAIRING_TMP_BODY}")"
+rm -f "${PAIRING_TMP_BODY}"
 
 log "Pairing response received."
 
@@ -305,13 +353,26 @@ HOSTNAME = os.environ.get("HOSTNAME", "unknown-host")
 AGENT_VERSION = os.environ.get("AGENT_VERSION", "0.1.0")
 POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", "5"))
 VERIFY_TLS = os.environ.get("VERIFY_TLS", "true").lower() == "true"
+FORCE_IPV4 = os.environ.get("FORCE_IPV4", "true").lower() == "true"
 DOCKER_BIN = os.environ.get("DOCKER_BIN", "/usr/bin/docker")
 PY
 
 cat > "${INSTALL_DIR}/agent/api.py" <<'PY'
-import requests
+import socket
 
-from agent.config import BACKEND_URL, MACHINE_TOKEN, VERIFY_TLS
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.poolmanager import PoolManager
+
+from agent.config import BACKEND_URL, MACHINE_TOKEN, VERIFY_TLS, FORCE_IPV4
+
+
+class IPv4HTTPAdapter(HTTPAdapter):
+    def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
+        if FORCE_IPV4:
+            pool_kwargs["socket_options"] = HTTPAdapter()._socket_options if hasattr(HTTPAdapter(), "_socket_options") else []
+            pool_kwargs["source_address"] = ("0.0.0.0", 0)
+        return super().init_poolmanager(connections, maxsize, block=block, **pool_kwargs)
 
 
 def auth_headers() -> dict[str, str]:
@@ -321,8 +382,25 @@ def auth_headers() -> dict[str, str]:
     }
 
 
+_session = requests.Session()
+
+if FORCE_IPV4:
+    try:
+        from urllib3.util import connection as urllib3_connection
+
+        def _force_ipv4():
+            return socket.AF_INET
+
+        urllib3_connection.allowed_gai_family = _force_ipv4
+    except Exception:
+        pass
+
+    _session.mount("http://", IPv4HTTPAdapter())
+    _session.mount("https://", IPv4HTTPAdapter())
+
+
 def post(path: str, payload: dict | None = None) -> requests.Response:
-    return requests.post(
+    return _session.post(
         f"{BACKEND_URL}{path}",
         json=payload,
         headers=auth_headers(),
@@ -620,12 +698,13 @@ PY
 
 cat > "${INSTALL_DIR}/agent/presence.py" <<'PY'
 import asyncio
+import socket
 import threading
 from urllib.parse import quote
 
 import websockets
 
-from agent.config import BACKEND_URL, MACHINE_TOKEN, VERIFY_TLS
+from agent.config import BACKEND_URL, MACHINE_TOKEN, VERIFY_TLS, FORCE_IPV4
 
 
 def _build_ws_url(machine_id: str) -> str:
@@ -645,15 +724,19 @@ async def _presence_loop(machine_id: str, log) -> None:
 
     while True:
         try:
-            async with websockets.connect(
-                url,
-                open_timeout=10,
-                close_timeout=5,
-                ping_interval=20,
-                ping_timeout=20,
-                user_agent_header="ssd-agent-presence/0.1",
-                ssl=VERIFY_TLS if url.startswith("wss://") else None,
-            ) as websocket:
+            connect_kwargs = {
+                "open_timeout": 10,
+                "close_timeout": 5,
+                "ping_interval": 20,
+                "ping_timeout": 20,
+                "user_agent_header": "ssd-agent-presence/0.1",
+                "ssl": VERIFY_TLS if url.startswith("wss://") else None,
+            }
+
+            if FORCE_IPV4:
+                connect_kwargs["family"] = socket.AF_INET
+
+            async with websockets.connect(url, **connect_kwargs) as websocket:
                 log(f"presence websocket connected: machine_id={machine_id}")
                 while True:
                     await websocket.send("ping")
@@ -959,6 +1042,7 @@ HOSTNAME=${HOSTNAME_VALUE}
 AGENT_VERSION=${AGENT_VERSION}
 POLL_INTERVAL=5
 VERIFY_TLS=${VERIFY_TLS_VALUE}
+FORCE_IPV4=${FORCE_IPV4}
 MACHINE_ID=${MACHINE_ID}
 MACHINE_UUID=${MACHINE_UUID}
 DOCKER_BIN=${DOCKER_BIN}
@@ -987,6 +1071,7 @@ Environment=TERM=xterm
 Environment=TMPDIR=${INSTALL_DIR}/tmp
 Environment=ANSIBLE_LOCAL_TEMP=${INSTALL_DIR}/tmp/ansible
 Environment=ANSIBLE_REMOTE_TMP=${INSTALL_DIR}/tmp/ansible
+Environment=FORCE_IPV4=${FORCE_IPV4}
 ExecStart=${INSTALL_DIR}/.venv/bin/python -m agent.main
 Restart=always
 RestartSec=5

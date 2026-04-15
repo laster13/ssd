@@ -1,36 +1,44 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
-	import { PUBLIC_BACKEND_URL_HTTPS } from '$env/static/public';
+  import { onDestroy } from 'svelte';
+  import { getAgentBackendUrl } from '$lib/public-config';
 
-	let copied = $state(false);
-	let copyTimeout: ReturnType<typeof setTimeout> | null = null;
+  let copied = $state(false);
+  let copyTimeout: ReturnType<typeof setTimeout> | null = null;
 
-	const backendUrl = (PUBLIC_BACKEND_URL_HTTPS || '').replace(/\/$/, '');
-	const installScriptUrl = backendUrl ? `${backendUrl}/install-ssd-local.sh` : '';
+  let agentBackendUrl = '';
 
-        const installCommand = installScriptUrl
-	? `curl -fsSL ${installScriptUrl} -o /tmp/install-ssd-local.sh && sudo TARGET_USER="$USER" bash /tmp/install-ssd-local.sh`
-	: '';
+  try {
+    agentBackendUrl = getAgentBackendUrl();
+  } catch {
+    agentBackendUrl = '';
+  }
 
-	async function copyInstallCommand() {
-		if (!installCommand) return;
+  const installScriptUrl = agentBackendUrl ? `${agentBackendUrl}/install-ssd-local.sh` : '';
 
-		try {
-			await navigator.clipboard.writeText(installCommand);
-			copied = true;
+  const installCommand = installScriptUrl
+    ? `curl -4 -fsSL ${installScriptUrl} -o /tmp/install-ssd-local.sh && sudo TARGET_USER="$USER" bash /tmp/install-ssd-local.sh`
+    : '';
 
-			if (copyTimeout) clearTimeout(copyTimeout);
-			copyTimeout = setTimeout(() => {
-				copied = false;
-			}, 2200);
-		} catch (error) {
-			console.error('copy install command failed', error);
-		}
-	}
+  async function copyInstallCommand() {
+    if (!installCommand) return;
 
-	onDestroy(() => {
-		if (copyTimeout) clearTimeout(copyTimeout);
-	});
+    try {
+      await navigator.clipboard.writeText(installCommand);
+      copied = true;
+
+      if (copyTimeout) clearTimeout(copyTimeout);
+
+      copyTimeout = setTimeout(() => {
+        copied = false;
+      }, 2200);
+    } catch (error) {
+      console.error('copy install command failed', error);
+    }
+  }
+
+  onDestroy(() => {
+    if (copyTimeout) clearTimeout(copyTimeout);
+  });
 </script>
 
 <svelte:head>
@@ -193,8 +201,7 @@
 										<div
 											class="mt-5 rounded-[20px] border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-700 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-300"
 										>
-											La variable <span class="font-mono">PUBLIC_BACKEND_URL_HTTPS</span> n’est
-											pas configurée.
+											La variable PUBLIC_AGENT_BACKEND_URL_HTTPS n’est pas configurée.
 										</div>
 									{/if}
 								</div>

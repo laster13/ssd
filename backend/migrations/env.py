@@ -1,43 +1,99 @@
-"""remove machine settings
+from __future__ import annotations
 
-Revision ID: b8f4a0c7f5b1
-Revises: c2e8b10c9a4f
-Create Date: 2026-04-07 11:30:00.000000
-"""
+import os
+import sys
+from logging.config import fileConfig
+from pathlib import Path
 
-from typing import Sequence, Union
-
-from alembic import op
-import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
-
-# revision identifiers, used by Alembic.
-revision: str = "b8f4a0c7f5b1"
-down_revision: Union[str, Sequence[str], None] = "c2e8b10c9a4f"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+from alembic import context
+from sqlalchemy import engine_from_config, pool
 
 
-def upgrade() -> None:
-    op.drop_table("machine_settings")
+BASE_DIR = Path(__file__).resolve().parents[1]
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
 
 
-def downgrade() -> None:
-    op.create_table(
-        "machine_settings",
-        sa.Column("machine_id", postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column("username", sa.String(length=255), nullable=True),
-        sa.Column("email", sa.String(length=255), nullable=True),
-        sa.Column("domain", sa.String(length=255), nullable=True),
-        sa.Column("password", sa.String(length=255), nullable=True),
-        sa.Column("cloudflare_login", sa.String(length=255), nullable=True),
-        sa.Column("cloudflare_api_key", sa.String(length=255), nullable=True),
-        sa.Column("oauth_enabled", sa.Boolean(), nullable=False, server_default=sa.text("false")),
-        sa.Column("oauth_client", sa.String(length=255), nullable=True),
-        sa.Column("oauth_secret", sa.String(length=255), nullable=True),
-        sa.Column("oauth_mail", sa.String(length=255), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
-        sa.ForeignKeyConstraint(["machine_id"], ["machines.id"], ondelete="CASCADE"),
-        sa.PrimaryKeyConstraint("machine_id"),
+def load_local_env(env_path: Path) -> None:
+    if not env_path.exists():
+        return
+
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+
+        if not line or line.startswith("#"):
+            continue
+
+        if line.startswith("export "):
+            line = line[len("export ") :].strip()
+
+        if "=" not in line:
+            continue
+
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+
+        if key:
+            os.environ.setdefault(key, value)
+
+
+load_local_env(BASE_DIR / ".env")
+
+config = context.config
+
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
+
+database_url = os.getenv("DATABASE_URL") or config.get_main_option("sqlalchemy.url")
+if not database_url or database_url.startswith("driver://"):
+    raise RuntimeError(
+        "Alembic needs DATABASE_URL. Define it in backend/.env or export it in your shell."
     )
+
+config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
+
+from app.core.database import Base
+import app.models  # noqa: F401
+
+
+target_metadata = Base.metadata
+
+
+def run_migrations_offline() -> None:
+    context.configure(
+        url=database_url,
+        target_metadata=target_metadata,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+        compare_type=True,
+    )
+
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+def run_migrations_online() -> None:
+    section = config.get_section(config.config_ini_section, {}) or {}
+    connectable = engine_from_config(
+        section,
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,
+        future=True,
+    )
+
+    with connectable.connect() as connection:
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            compare_type=True,
+        )
+
+        with context.begin_transaction():
+            context.run_migrations()
+
+
+if context.is_offline_mode():
+    run_migrations_offline()
+else:
+    run_migrations_online()
