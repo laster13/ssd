@@ -62,7 +62,7 @@ def expected_streamfusion_host() -> str:
 
 def build_configure_url(plain_token: str) -> str:
     base = settings.streamfusion_public_base_url.rstrip("/")
-    return f"{base}/configure?token={quote(plain_token)}"
+    return f"{base}/_sf/auth?token={quote(plain_token)}"
 
 
 def token_to_create_response(
@@ -176,7 +176,7 @@ def create_streamfusion_token(
     return token_to_create_response(row, plain_token)
 
 
-@router.get("/streamfusion/configure")
+@router.get("/_sf/auth")
 def configure_streamfusion_access(
     token: str = Query(...),
     x_forwarded_host: str | None = Header(default=None, alias="X-Forwarded-Host"),
@@ -243,7 +243,7 @@ def configure_streamfusion_access(
     return response
 
 
-@router.get("/streamfusion/resolve")
+@router.get("/resolve")
 def resolve_streamfusion_access(
     response: Response,
     streamfusion_session: str | None = Cookie(
