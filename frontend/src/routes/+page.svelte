@@ -51,22 +51,22 @@
 							Plateforme SSD
 						</div>
 
-						<a
-							href="https://discord.gg/87RV5DStEK"
-							target="_blank"
-							rel="noreferrer"
-							class="group inline-flex items-center gap-2 rounded-full border border-violet-200 bg-white/88 px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-violet-700 shadow-[0_10px_24px_rgba(139,92,246,0.10)] transition-all duration-300 hover:-translate-y-0.5 hover:border-violet-300 hover:bg-white hover:shadow-[0_14px_30px_rgba(139,92,246,0.16)] dark:border-violet-400/20 dark:bg-violet-400/[0.10] dark:text-violet-200 dark:shadow-none dark:hover:border-violet-400/30 dark:hover:bg-violet-400/[0.14]"
-						>
-							<svg viewBox="0 0 24 24" class="h-4 w-4" fill="currentColor" aria-hidden="true">
-								<path
-									d="M20.317 4.369A19.791 19.791 0 0 0 15.885 3c-.191.328-.403.77-.554 1.116a18.27 18.27 0 0 0-5.487 0A12.64 12.64 0 0 0 9.29 3a19.736 19.736 0 0 0-4.438 1.372C2.05 8.554 1.288 12.633 1.67 16.656a19.9 19.9 0 0 0 5.993 3.03c.482-.662.91-1.361 1.279-2.092a12.96 12.96 0 0 1-2.013-.97c.168-.123.332-.252.49-.385 3.88 1.823 8.09 1.823 11.924 0 .16.133.324.262.492.385a12.9 12.9 0 0 1-2.017.972c.37.729.797 1.428 1.28 2.09a19.86 19.86 0 0 0 6-3.03c.447-4.663-.762-8.705-3.776-12.287ZM9.75 14.23c-1.165 0-2.124-1.06-2.124-2.362 0-1.303.94-2.364 2.124-2.364 1.193 0 2.143 1.07 2.124 2.364 0 1.302-.94 2.362-2.124 2.362Zm4.5 0c-1.165 0-2.124-1.06-2.124-2.362 0-1.303.94-2.364 2.124-2.364 1.193 0 2.143 1.07 2.124 2.364 0 1.302-.94 2.362-2.124 2.362Z"
-								/>
-							</svg>
-							<span>Discord</span>
-							<span class="transition-transform duration-300 group-hover:translate-x-0.5">↗</span>
-						</a>
-
 						{#if data.user}
+							<a
+								href="https://discord.gg/87RV5DStEK"
+								target="_blank"
+								rel="noreferrer"
+								class="group inline-flex items-center gap-2 rounded-full border border-violet-200 bg-white/88 px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-violet-700 shadow-[0_10px_24px_rgba(139,92,246,0.10)] transition-all duration-300 hover:-translate-y-0.5 hover:border-violet-300 hover:bg-white hover:shadow-[0_14px_30px_rgba(139,92,246,0.16)] dark:border-violet-400/20 dark:bg-violet-400/[0.10] dark:text-violet-200 dark:shadow-none dark:hover:border-violet-400/30 dark:hover:bg-violet-400/[0.14]"
+							>
+								<svg viewBox="0 0 24 24" class="h-4 w-4" fill="currentColor" aria-hidden="true">
+									<path
+										d="M20.317 4.369A19.791 19.791 0 0 0 15.885 3c-.191.328-.403.77-.554 1.116a18.27 18.27 0 0 0-5.487 0A12.64 12.64 0 0 0 9.29 3a19.736 19.736 0 0 0-4.438 1.372C2.05 8.554 1.288 12.633 1.67 16.656a19.9 19.9 0 0 0 5.993 3.03c.482-.662.91-1.361 1.279-2.092a12.96 12.96 0 0 1-2.013-.97c.168-.123.332-.252.49-.385 3.88 1.823 8.09 1.823 11.924 0 .16.133.324.262.492.385a12.9 12.9 0 0 1-2.017.972c.37.729.797 1.428 1.28 2.09a19.86 19.86 0 0 0 6-3.03c.447-4.663-.762-8.705-3.776-12.287ZM9.75 14.23c-1.165 0-2.124-1.06-2.124-2.362 0-1.303.94-2.364 2.124-2.364 1.193 0 2.143 1.07 2.124 2.364 0 1.302-.94 2.362-2.124 2.362Zm4.5 0c-1.165 0-2.124-1.06-2.124-2.362 0-1.303.94-2.364 2.124-2.364 1.193 0 2.143 1.07 2.124 2.364 0 1.302-.94 2.362-2.124 2.362Z"
+									/>
+								</svg>
+								<span>Discord</span>
+								<span class="transition-transform duration-300 group-hover:translate-x-0.5">↗</span>
+							</a>
+
 							<a
 								href="https://projetssd.github.io/ssdv2_docs/"
 								target="_blank"
@@ -106,17 +106,15 @@
 					</div>
 
 					<div class="mt-6 max-w-4xl">
-
-
-                                                <h1
-	                                                class="text-xl font-semibold tracking-[-0.03em] text-zinc-950 dark:text-white sm:text-2xl lg:text-[2rem] lg:leading-[1.12]"
-                                                >
-	                                                         Déploie tes applications Docker avec
-	                                                <span class="bg-[linear-gradient(90deg,#0ea5e9_0%,#2563eb_26%,#8b5cf6_62%,#10b981_100%)] bg-clip-text text-transparent">
-		                                                 Traefik (serveur Web) et CrowdSec (sécurité)
-	                                                </span>
-	                                                         depuis une interface claire et moderne.
-                                               </h1>
+						<h1
+							class="text-xl font-semibold tracking-[-0.03em] text-zinc-950 dark:text-white sm:text-2xl lg:text-[2rem] lg:leading-[1.12]"
+						>
+							Déploie tes applications Docker avec
+							<span class="bg-[linear-gradient(90deg,#0ea5e9_0%,#2563eb_26%,#8b5cf6_62%,#10b981_100%)] bg-clip-text text-transparent">
+								Traefik (serveur Web) et CrowdSec (sécurité)
+							</span>
+							depuis une interface claire et moderne.
+						</h1>
 
 						<p class="mt-6 max-w-2xl text-base leading-8 text-zinc-600 dark:text-zinc-400">
 							SSD t’aide à installer, suivre et gérer tes services sur un ou plusieurs serveurs,
@@ -162,9 +160,7 @@
 							class="group relative overflow-hidden rounded-[24px] border border-sky-200/70 bg-white/84 px-4 py-4 shadow-[0_16px_34px_rgba(14,165,233,0.08)] transition-transform duration-300 hover:-translate-y-1 dark:border-sky-400/15 dark:bg-sky-400/[0.06] dark:shadow-none"
 						>
 							<div class="absolute inset-x-4 top-0 h-px bg-sky-300/70 dark:bg-sky-400/30"></div>
-							<p
-								class="text-[11px] font-semibold uppercase tracking-[0.15em] text-sky-700 dark:text-sky-300"
-							>
+							<p class="text-[11px] font-semibold uppercase tracking-[0.15em] text-sky-700 dark:text-sky-300">
 								Catalogue
 							</p>
 							<p class="mt-2 text-2xl font-semibold tracking-[-0.04em] text-zinc-950 dark:text-white">
@@ -236,14 +232,17 @@
 							<div
 								class="absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,rgba(34,211,238,0.9),rgba(96,165,250,0.9),rgba(168,85,247,0.9))]"
 							></div>
+
 							<div
 								class="mb-4 inline-flex items-center rounded-full border border-black/5 bg-black/[0.02] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-400"
 							>
 								01 — Découvrir
 							</div>
+
 							<h3 class="text-lg font-semibold tracking-[-0.03em] text-zinc-950 dark:text-white">
 								Catalogue et documentation
 							</h3>
+
 							<p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-400">
 								Explore plus de 180 applications, retrouve leur documentation et choisis rapidement
 								le service adapté à ton besoin.
@@ -257,8 +256,8 @@
 										Parcours centralisé
 									</p>
 									<p class="mt-1 text-sm leading-6 text-zinc-600 dark:text-zinc-400">
-										Le catalogue, la doc et les actions de déploiement restent réunis dans la
-										même interface.
+										Le catalogue, la doc et les actions de déploiement restent réunis dans la même
+										interface.
 									</p>
 								</div>
 
@@ -280,16 +279,19 @@
 							class="group relative overflow-hidden rounded-[28px] border border-black/5 bg-white/80 p-6 shadow-[0_18px_40px_rgba(15,23,42,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_52px_rgba(15,23,42,0.10)] dark:border-white/10 dark:bg-white/[0.045] dark:shadow-none"
 						>
 							<div
-								class="absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,rgba(16,185,129,0.9),rgba(34,211,238,0.9),rgba(59,130,246,0.9))]"
+								class="absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,rgba(16,185,129,0.9),rgba(34,197,94,0.9),rgba(34,211,238,0.9))]"
 							></div>
+
 							<div
 								class="mb-4 inline-flex items-center rounded-full border border-black/5 bg-black/[0.02] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-400"
 							>
 								02 — Déployer
 							</div>
+
 							<h3 class="text-lg font-semibold tracking-[-0.03em] text-zinc-950 dark:text-white">
 								Local ou appairé, selon ton besoin
 							</h3>
+
 							<p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-400">
 								Tu peux utiliser SSD uniquement en local avec le script si tu veux garder un
 								fonctionnement autonome.
@@ -303,8 +305,8 @@
 										Appairage optionnel
 									</p>
 									<p class="mt-1 text-sm leading-6 text-zinc-600 dark:text-zinc-400">
-										Si tu appaires tes serveurs, tu peux ensuite déployer, installer et
-										désinstaller tes applications directement depuis l’interface.
+										Si tu appaires tes serveurs, tu peux ensuite déployer, installer et désinstaller
+										tes applications directement depuis l’interface.
 									</p>
 								</div>
 
@@ -326,16 +328,19 @@
 							class="group relative overflow-hidden rounded-[28px] border border-black/5 bg-white/80 p-6 shadow-[0_18px_40px_rgba(15,23,42,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_52px_rgba(15,23,42,0.10)] dark:border-white/10 dark:bg-white/[0.045] dark:shadow-none"
 						>
 							<div
-								class="absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,rgba(245,158,11,0.9),rgba(168,85,247,0.9),rgba(34,211,238,0.9))]"
+								class="absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,rgba(245,158,11,0.95),rgba(249,115,22,0.9),rgba(239,68,68,0.9))]"
 							></div>
+
 							<div
 								class="mb-4 inline-flex items-center rounded-full border border-black/5 bg-black/[0.02] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-400"
 							>
 								03 — Exploiter
 							</div>
+
 							<h3 class="text-lg font-semibold tracking-[-0.03em] text-zinc-950 dark:text-white">
 								Suivi, diagnostic et confiance
 							</h3>
+
 							<p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-400">
 								SSD te fait gagner du temps tout en gardant une bonne visibilité sur l’état des
 								déploiements et les erreurs.
@@ -385,18 +390,20 @@
 								>
 									Prêt à commencer
 								</p>
+
 								<h2
 									class="mt-2 max-w-2xl text-2xl font-semibold tracking-[-0.04em] text-zinc-950 dark:text-white sm:text-3xl"
 								>
 									Un outil gratuit pour déployer vite et garder le contrôle
 								</h2>
-								<p class="mt-3 max-w-2xl text-sm leading-8 text-zinc-600 dark:text-zinc-400">
-									Que tu veuilles héberger quelques services ou structurer une stack plus
-									complète, SSD te donne une base claire, moderne et efficace.
+
+								<p class="mt-4 max-w-2xl text-sm leading-7 text-zinc-600 dark:text-zinc-400">
+									Que tu veuilles héberger quelques services ou structurer une stack plus complète,
+									SSD te donne une base claire, moderne et efficace.
 								</p>
 							</div>
 
-							<div class="flex flex-col gap-3 sm:flex-row lg:flex-col lg:items-stretch">
+							<div class="flex flex-col gap-3 sm:flex-row lg:flex-col xl:flex-row">
 								<a
 									href="/app-store/library"
 									class="inline-flex items-center justify-center rounded-[18px] border border-cyan-200 bg-[linear-gradient(90deg,#06b6d4,#2563eb)] px-5 py-3 text-sm font-semibold text-white shadow-[0_14px_34px_rgba(37,99,235,0.24)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(37,99,235,0.30)] dark:border-white/10"
