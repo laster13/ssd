@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote, urlsplit
 
-from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Query, Response, status
+from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Query, Request, Response, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
@@ -14,6 +14,10 @@ from app.core.security import (
     generate_streamfusion_session_token,
     hash_streamfusion_addon_token,
     hash_streamfusion_session_token,
+)
+from app.core.streamfusion_tokens import (
+    assert_expected_streamfusion_host_or_404,
+    assert_valid_streamfusion_path_token,
 )
 from app.models.streamfusion_addon_token import StreamFusionAddonToken
 from app.models.streamfusion_session import StreamFusionSession
@@ -88,29 +92,23 @@ def get_valid_streamfusion_token_or_404(
     for_update: bool = False,
 ) -> StreamFusionAddonToken:
     token_hash = hash_streamfusion_addon_token(plain_token)
-
     stmt = (
         select(StreamFusionAddonToken)
         .where(StreamFusionAddonToken.token_hash == token_hash)
         .limit(1)
     )
-
     if for_update:
         stmt = stmt.with_for_update()
 
     row = db.execute(stmt).scalar_one_or_none()
-
     if not row:
         raise HTTPException(status_code=404, detail="Not found")
 
     now = now_utc()
-
     if row.revoked_at is not None:
         raise HTTPException(status_code=404, detail="Not found")
-
     if row.expires_at <= now:
         raise HTTPException(status_code=404, detail="Not found")
-
     if row.consumed_at is not None:
         raise HTTPException(status_code=404, detail="Not found")
 
@@ -126,22 +124,18 @@ def get_valid_streamfusion_session_or_403(
         raise HTTPException(status_code=403, detail="Forbidden")
 
     session_hash = hash_streamfusion_session_token(token)
-
     stmt = (
         select(StreamFusionSession)
         .where(StreamFusionSession.session_hash == session_hash)
         .limit(1)
     )
     row = db.execute(stmt).scalar_one_or_none()
-
     if not row:
         raise HTTPException(status_code=403, detail="Forbidden")
 
     now = now_utc()
-
     if row.revoked_at is not None:
         raise HTTPException(status_code=403, detail="Forbidden")
-
     if row.expires_at <= now:
         raise HTTPException(status_code=403, detail="Forbidden")
 
@@ -168,7 +162,6 @@ def create_streamfusion_token(
         label=normalize_label(payload.label),
         expires_at=expires_at,
     )
-
     db.add(row)
     db.commit()
     db.refresh(row)
@@ -262,6 +255,29 @@ def resolve_streamfusion_access(
     session_row = get_valid_streamfusion_session_or_403(db, streamfusion_session)
     session_row.last_used_at = now_utc()
     db.commit()
+
+    response.status_code = 204
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@router.get("/resolve-path-token")
+def resolve_streamfusion_path_token(
+    request: Request,
+    response: Response,
+    x_forwarded_host: str | None = Header(default=None, alias="X-Forwarded-Host"),
+    x_forwarded_uri: str | None = Header(default=None, alias="X-Forwarded-Uri"),
+    referer: str | None = Header(default=None, alias="Referer"),
+    db: Session = Depends(get_db),
+):
+    forwarded_host = normalize_header_value(x_forwarded_host, max_len=255)
+    assert_expected_streamfusion_host_or_404(forwarded_host)
+
+    forwarded_uri = normalize_header_value(x_forwarded_uri, max_len=2048)
+    if forwarded_uri is None:
+        forwarded_uri = request.url.path
+
+    assert_valid_streamfusion_path_token(db, forwarded_uri, referer=referer)
 
     response.status_code = 204
     response.headers["Cache-Control"] = "no-store"

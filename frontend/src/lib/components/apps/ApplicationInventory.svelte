@@ -44,12 +44,14 @@
 		applications = [],
 		machines = [],
 		uninstallError = null,
-		uninstallSuccess = null
+		uninstallSuccess = null,
+		openError = null
 	}: {
 		applications?: ApplicationState[];
 		machines?: Machine[];
 		uninstallError?: string | null;
 		uninstallSuccess?: string | null;
+		openError?: string | null;
 	} = $props();
 
 	let selectedView = $state<InventoryView>('all');
@@ -199,11 +201,22 @@
 		}
 	});
 
+	function isStreamfusion(item: InventoryItem) {
+		return item.appSlug === 'streamfusion';
+	}
+
+	function canOpen(item: InventoryItem) {
+		if (item.machineStatus !== 'online') return false;
+		if (!item.present) return false;
+		if (item.transition !== 'idle') return false;
+		if (isStreamfusion(item)) return true;
+		return Boolean(item.publicUrl);
+	}
+
 	function appHref(item: InventoryItem) {
-		if (item.machineStatus !== 'online') return null;
-		if (!item.publicUrl || !item.present) return null;
-		if (item.transition !== 'idle') return null;
-		return item.publicUrl;
+		if (!canOpen(item)) return null;
+		if (isStreamfusion(item)) return null;
+		return item.publicUrl ?? null;
 	}
 
 	function logHref(item: InventoryItem) {
@@ -238,6 +251,14 @@
 	<div class="mx-auto mt-6 max-w-7xl px-4 sm:px-6 lg:px-8">
 		<div class="rounded-[18px] border border-rose-200 bg-rose-50/80 px-4 py-3 text-sm text-rose-700 dark:border-rose-400/15 dark:bg-rose-500/10 dark:text-rose-300">
 			{uninstallError}
+		</div>
+	</div>
+{/if}
+
+{#if openError}
+	<div class="mx-auto mt-6 max-w-7xl px-4 sm:px-6 lg:px-8">
+		<div class="rounded-[18px] border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-700 dark:border-amber-400/15 dark:bg-amber-500/10 dark:text-amber-300">
+			{openError}
 		</div>
 	</div>
 {/if}
@@ -344,7 +365,9 @@
 										</a>
 									</h3>
 								{:else}
-									<h3 class="truncate text-lg font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50">{item.appTitle}</h3>
+									<h3 class="truncate text-lg font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50">
+										{item.appTitle}
+									</h3>
 								{/if}
 
 								{#if item.machineStatus === 'offline'}
@@ -379,6 +402,30 @@
 						</div>
 
 						<div class="flex flex-wrap items-center gap-2">
+							{#if isStreamfusion(item) && canOpen(item)}
+								<form method="POST" action="?/openApplication">
+									<input type="hidden" name="app_slug" value={item.appSlug} />
+									<input type="hidden" name="app_title" value={item.appTitle} />
+									<input type="hidden" name="machine_name" value={item.machineName} />
+									<input type="hidden" name="public_url" value={item.publicUrl ?? ''} />
+									<button
+										type="submit"
+										class="inline-flex items-center justify-center rounded-[14px] border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-medium text-sky-700 transition hover:border-sky-300 hover:bg-sky-100 dark:border-sky-400/20 dark:bg-sky-500/10 dark:text-sky-200 dark:hover:border-sky-400/30 dark:hover:bg-sky-500/15"
+									>
+										Ouvrir
+									</button>
+								</form>
+							{:else if appHref(item)}
+								<a
+									href={appHref(item) ?? '#'}
+									target="_blank"
+									rel="noreferrer"
+									class="inline-flex items-center justify-center rounded-[14px] border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-medium text-sky-700 transition hover:border-sky-300 hover:bg-sky-100 dark:border-sky-400/20 dark:bg-sky-500/10 dark:text-sky-200 dark:hover:border-sky-400/30 dark:hover:bg-sky-500/15"
+								>
+									Ouvrir
+								</a>
+							{/if}
+
 							{#if logHref(item)}
 								<a href={logHref(item) ?? '#'} class="inline-flex items-center justify-center rounded-[14px] border border-black/5 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition hover:border-black/10 hover:bg-zinc-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-200 dark:hover:bg-white/[0.06]">Log</a>
 							{/if}
