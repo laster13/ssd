@@ -52,6 +52,9 @@
 							placeholder="••••••••••••"
 							class="rounded-[16px] border border-black/8 bg-black/[0.03] px-4 py-4 text-zinc-900 placeholder:text-zinc-500 outline-none transition-all duration-200 focus:border-black/12 focus:bg-black/[0.05] dark:border-white/10 dark:bg-[rgba(15,23,42,0.6)] dark:text-white dark:placeholder:text-zinc-500 dark:focus:border-white/20 dark:focus:bg-[rgba(15,23,42,0.72)]"
 						/>
+						<span class="text-xs leading-6 text-zinc-500 dark:text-zinc-400">
+							14 caractères ou plus recommandés.
+						</span>
 					</label>
 
 					<button

@@ -92,6 +92,7 @@ def get_valid_streamfusion_token_or_404(
     for_update: bool = False,
 ) -> StreamFusionAddonToken:
     token_hash = hash_streamfusion_addon_token(plain_token)
+
     stmt = (
         select(StreamFusionAddonToken)
         .where(StreamFusionAddonToken.token_hash == token_hash)
@@ -115,15 +116,40 @@ def get_valid_streamfusion_token_or_404(
     return row
 
 
+def validate_streamfusion_session_context(
+    row: StreamFusionSession,
+    *,
+    client_ip: str | None,
+    user_agent: str | None,
+) -> bool:
+    if settings.streamfusion_bind_user_agent:
+        expected_ua = (row.user_agent or "").strip()
+        current_ua = (user_agent or "").strip()
+        if expected_ua and current_ua != expected_ua:
+            return False
+
+    if settings.streamfusion_bind_ip:
+        expected_ip = (row.client_ip or "").strip()
+        current_ip = (client_ip or "").strip()
+        if expected_ip and current_ip != expected_ip:
+            return False
+
+    return True
+
+
 def get_valid_streamfusion_session_or_403(
     db: Session,
     plain_session_token: str | None,
+    *,
+    client_ip: str | None,
+    user_agent: str | None,
 ) -> StreamFusionSession:
     token = (plain_session_token or "").strip()
     if not token:
         raise HTTPException(status_code=403, detail="Forbidden")
 
     session_hash = hash_streamfusion_session_token(token)
+
     stmt = (
         select(StreamFusionSession)
         .where(StreamFusionSession.session_hash == session_hash)
@@ -137,6 +163,18 @@ def get_valid_streamfusion_session_or_403(
     if row.revoked_at is not None:
         raise HTTPException(status_code=403, detail="Forbidden")
     if row.expires_at <= now:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    is_valid_context = validate_streamfusion_session_context(
+        row,
+        client_ip=client_ip,
+        user_agent=user_agent,
+    )
+
+    if not is_valid_context:
+        row.revoked_at = now
+        db.add(row)
+        db.commit()
         raise HTTPException(status_code=403, detail="Forbidden")
 
     return row
@@ -162,6 +200,7 @@ def create_streamfusion_token(
         label=normalize_label(payload.label),
         expires_at=expires_at,
     )
+
     db.add(row)
     db.commit()
     db.refresh(row)
@@ -180,13 +219,14 @@ def configure_streamfusion_access(
     forwarded_host = normalize_header_value(x_forwarded_host, max_len=255)
     if forwarded_host is not None:
         forwarded_host = forwarded_host.split(":", 1)[0].lower()
-        if forwarded_host != expected_streamfusion_host():
-            raise HTTPException(status_code=404, detail="Not found")
+
+    if forwarded_host != expected_streamfusion_host():
+        raise HTTPException(status_code=404, detail="Not found")
 
     client_ip = extract_client_ip(x_forwarded_for)
     normalized_user_agent = normalize_header_value(user_agent, max_len=512)
-    now = now_utc()
 
+    now = now_utc()
     token_row = get_valid_streamfusion_token_or_404(db, token, for_update=True)
 
     db.execute(
@@ -244,15 +284,27 @@ def resolve_streamfusion_access(
         alias=settings.streamfusion_session_cookie_name,
     ),
     x_forwarded_host: str | None = Header(default=None, alias="X-Forwarded-Host"),
+    x_forwarded_for: str | None = Header(default=None, alias="X-Forwarded-For"),
+    user_agent: str | None = Header(default=None, alias="User-Agent"),
     db: Session = Depends(get_db),
 ):
     forwarded_host = normalize_header_value(x_forwarded_host, max_len=255)
     if forwarded_host is not None:
         forwarded_host = forwarded_host.split(":", 1)[0].lower()
-        if forwarded_host != expected_streamfusion_host():
-            raise HTTPException(status_code=404, detail="Not found")
 
-    session_row = get_valid_streamfusion_session_or_403(db, streamfusion_session)
+    if forwarded_host != expected_streamfusion_host():
+        raise HTTPException(status_code=404, detail="Not found")
+
+    client_ip = extract_client_ip(x_forwarded_for)
+    normalized_user_agent = normalize_header_value(user_agent, max_len=512)
+
+    session_row = get_valid_streamfusion_session_or_403(
+        db,
+        streamfusion_session,
+        client_ip=client_ip,
+        user_agent=normalized_user_agent,
+    )
+
     session_row.last_used_at = now_utc()
     db.commit()
 

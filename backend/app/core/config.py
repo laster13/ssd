@@ -14,12 +14,20 @@ class Settings(BaseSettings):
 
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 15
+    jwt_issuer: str = "ssd.lastharo.eu"
+    jwt_audience: str = "ssd-api"
+
     allow_self_registration: bool = True
+
+    redis_url: str = "redis://redis:6379/0"
+    rate_limit_redis_prefix: str = "ssd:ratelimit"
 
     streamfusion_public_base_url: str = "https://streamfusion.lastharo.eu"
     streamfusion_token_ttl_seconds: int = 600
     streamfusion_session_ttl_seconds: int = 7200
     streamfusion_session_cookie_name: str = "streamfusion_session"
+    streamfusion_bind_user_agent: bool = True
+    streamfusion_bind_ip: bool = False
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -45,6 +53,18 @@ class Settings(BaseSettings):
         if self.jwt_secret_key in bad_values or len(self.jwt_secret_key) < 32:
             raise ValueError("JWT_SECRET_KEY must be a strong unique secret")
 
+        if not self.jwt_issuer.strip():
+            raise ValueError("JWT_ISSUER must not be empty")
+
+        if not self.jwt_audience.strip():
+            raise ValueError("JWT_AUDIENCE must not be empty")
+
+        if not self.redis_url.strip():
+            raise ValueError("REDIS_URL must not be empty")
+
+        if not self.rate_limit_redis_prefix.strip():
+            raise ValueError("RATE_LIMIT_REDIS_PREFIX must not be empty")
+
         if not self.streamfusion_public_base_url.startswith("https://"):
             raise ValueError("STREAMFUSION_PUBLIC_BASE_URL must start with https://")
 
@@ -57,8 +77,8 @@ class Settings(BaseSettings):
         cookie_name = self.streamfusion_session_cookie_name.strip()
         if not cookie_name:
             raise ValueError("STREAMFUSION_SESSION_COOKIE_NAME must not be empty")
-
         self.streamfusion_session_cookie_name = cookie_name
+
         return self
 
 

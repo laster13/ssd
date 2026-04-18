@@ -3,10 +3,11 @@ from fastapi import Depends, Header, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.auth import decode_access_token
+from app.core.auth import decode_access_token, parse_uuid_subject
 from app.core.database import get_db
 from app.core.security import hash_machine_token
 from app.models.machine import Machine
+from app.models.revoked_token import RevokedToken
 from app.models.user import User
 
 
@@ -18,7 +19,11 @@ def extract_bearer_token(authorization: str | None) -> str:
     if len(parts) != 2 or parts[0].lower() != "bearer":
         raise HTTPException(status_code=401, detail="Invalid Authorization header")
 
-    return parts[1].strip()
+    token = parts[1].strip()
+    if not token:
+        raise HTTPException(status_code=401, detail="Empty bearer token")
+
+    return token
 
 
 def get_current_machine(
@@ -26,8 +31,8 @@ def get_current_machine(
     db: Session = Depends(get_db),
 ) -> Machine:
     machine_token = extract_bearer_token(authorization)
-    token_hash = hash_machine_token(machine_token)
 
+    token_hash = hash_machine_token(machine_token)
     stmt = select(Machine).where(Machine.auth_token_hash == token_hash).limit(1)
     machine = db.execute(stmt).scalar_one_or_none()
 
@@ -51,11 +56,28 @@ def get_current_user(
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid access token")
 
+    if payload.get("typ") != "access":
+        raise HTTPException(status_code=401, detail="Invalid token type")
+
     subject = payload.get("sub")
-    if not subject:
+    jti = payload.get("jti")
+    token_version = payload.get("tv")
+
+    if not subject or not jti or token_version is None:
         raise HTTPException(status_code=401, detail="Invalid access token payload")
 
-    stmt = select(User).where(User.id == subject).limit(1)
+    revoked = db.execute(
+        select(RevokedToken).where(RevokedToken.jti == jti).limit(1)
+    ).scalar_one_or_none()
+    if revoked is not None:
+        raise HTTPException(status_code=401, detail="Token revoked")
+
+    try:
+        user_id = parse_uuid_subject(subject)
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid access token payload")
+
+    stmt = select(User).where(User.id == user_id).limit(1)
     user = db.execute(stmt).scalar_one_or_none()
 
     if not user:
@@ -63,6 +85,9 @@ def get_current_user(
 
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Inactive user")
+
+    if int(user.token_version) != int(token_version):
+        raise HTTPException(status_code=401, detail="Token expired by rotation")
 
     return user
 

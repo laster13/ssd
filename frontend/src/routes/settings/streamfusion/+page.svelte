@@ -59,8 +59,7 @@
 				<div
 					class="mb-6 rounded-[18px] border border-amber-200 bg-amber-50 px-4 py-4 text-sm leading-7 text-amber-800 dark:border-amber-500/28 dark:bg-amber-500/[0.08] dark:text-amber-200"
 				>
-					<strong>Important :</strong> conserve ce lien de configuration dans un endroit sûr.
-					Si tu le perds, tu devras en générer un nouveau puis refaire ta configuration.
+					<strong>Important :</strong> Ce lien de configuration est à usage unique.
 				</div>
 
 				<section
@@ -70,25 +69,8 @@
 						Créer un lien de configuration
 					</h2>
 
-					<p class="mt-2 text-sm leading-7 text-zinc-600 dark:text-zinc-400">
-						Tu peux ajouter un label optionnel pour reconnaître plus facilement ce lien.
-					</p>
-
 					<form method="POST" action="?/create" class="mt-5 grid gap-4">
 						<input type="hidden" name="_csrf" value={data.csrfToken} />
-
-						<label class="grid gap-2">
-							<span class="text-sm font-medium text-zinc-800 dark:text-zinc-200">
-								Label optionnel
-							</span>
-							<input
-								name="label"
-								type="text"
-								value={form?.label ?? ''}
-								placeholder="Salon, iPhone, profil FR…"
-								class="rounded-[16px] border border-black/8 bg-black/[0.03] px-4 py-4 text-zinc-900 placeholder:text-zinc-500 outline-none transition-all duration-200 focus:border-black/12 focus:bg-black/[0.05] dark:border-white/10 dark:bg-[rgba(15,23,42,0.6)] dark:text-white dark:focus:border-white/20 dark:focus:bg-[rgba(15,23,42,0.72)]"
-							/>
-						</label>
 
 						<div>
 							<button
@@ -112,9 +94,8 @@
 						</h2>
 
 						<p class="mt-3 text-sm leading-7 text-emerald-800 dark:text-emerald-200">
-							Ouvre cette page pour configurer ton addon StreamFusion. Pense à conserver ce
-							lien : si tu le perds, tu devras en générer un nouveau et refaire ta
-							configuration.
+							Ouvre cette page pour configurer ton addon StreamFusion.
+							Pour une nouvelle configuration, tu devras en générer un nouveau.
 						</p>
 
 						<div

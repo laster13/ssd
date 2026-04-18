@@ -1,15 +1,20 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from datetime import datetime, timezone
+
+import jwt
 import pyotp
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from sqlalchemy import select
+
+from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
-from app.core.crypto import decrypt_secret, encrypt_secret
-from app.core.config import settings
 from app.core.audit import audit_event
-from app.core.auth import create_access_token, hash_password, verify_password
+from app.core.auth import create_access_token, decode_access_token, hash_password, verify_password
+from app.core.config import settings
+from app.core.crypto import decrypt_secret, encrypt_secret
 from app.core.database import get_db
 from app.core.rate_limit import enforce_rate_limit, get_client_ip
+from app.models.revoked_token import RevokedToken
 from app.models.user import User
 from app.schemas.auth import (
     AuthTokenResponse,
@@ -23,6 +28,48 @@ from app.schemas.auth import (
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+def _revoke_bearer_token_if_present(
+    authorization: str | None,
+    db: Session,
+    *,
+    user_id: str | None = None,
+) -> None:
+    if not authorization:
+        return
+
+    parts = authorization.split(" ", 1)
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        return
+
+    token = parts[1].strip()
+    if not token:
+        return
+
+    try:
+        payload = decode_access_token(token)
+    except jwt.InvalidTokenError:
+        return
+
+    jti = payload.get("jti")
+    exp = payload.get("exp")
+    if not jti or not exp:
+        return
+
+    expires_at = datetime.fromtimestamp(int(exp), tz=timezone.utc)
+
+    existing = db.execute(
+        select(RevokedToken).where(RevokedToken.jti == jti).limit(1)
+    ).scalar_one_or_none()
+    if existing is None:
+        db.add(
+            RevokedToken(
+                jti=jti,
+                user_id=user_id,
+                expires_at=expires_at,
+            )
+        )
 
 
 @router.post("/register", response_model=UserResponse)
@@ -50,10 +97,7 @@ def register(
     enforce_rate_limit(f"auth:register:ip:{client_ip}", limit=10, window_seconds=3600)
     enforce_rate_limit(f"auth:register:email:{email}", limit=3, window_seconds=3600)
 
-    existing = db.execute(
-        select(User).where(User.email == email).limit(1)
-    ).scalar_one_or_none()
-
+    existing = db.execute(select(User).where(User.email == email).limit(1)).scalar_one_or_none()
     if existing:
         audit_event(
             event_type="auth.register.conflict",
@@ -74,6 +118,7 @@ def register(
         is_admin=False,
         two_factor_enabled=False,
         two_factor_secret=None,
+        token_version=0,
     )
 
     db.add(user)
@@ -102,6 +147,7 @@ def register(
         updated_at=user.updated_at,
     )
 
+
 @router.post("/login", response_model=AuthTokenResponse)
 def login(
     payload: LoginRequest,
@@ -115,7 +161,6 @@ def login(
     enforce_rate_limit(f"auth:login:email:{email}", limit=8, window_seconds=600)
 
     user = db.execute(select(User).where(User.email == email).limit(1)).scalar_one_or_none()
-
     if not user:
         audit_event(
             event_type="auth.login.failed",
@@ -210,7 +255,8 @@ def login(
 
     access_token = create_access_token(
         subject=str(user.id),
-        extra={"is_admin": user.is_admin},
+        token_version=user.token_version,
+        is_admin=user.is_admin,
     )
 
     audit_event(
@@ -230,6 +276,32 @@ def login(
         access_token=access_token,
         token_type="bearer",
     )
+
+
+@router.post("/logout")
+def logout(
+    request: Request,
+    authorization: str | None = Header(default=None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _revoke_bearer_token_if_present(authorization, db, user_id=str(current_user.id))
+    db.commit()
+
+    audit_event(
+        event_type="auth.logout.success",
+        severity="info",
+        success=True,
+        status_code=200,
+        actor_type="user",
+        actor_user_id=current_user.id,
+        target_user_id=current_user.id,
+        request=request,
+        description="Logout successful",
+        details={"email": current_user.email},
+    )
+
+    return {"ok": True}
 
 
 @router.get("/me", response_model=UserResponse)
@@ -256,11 +328,8 @@ def setup_two_factor(
     db: Session = Depends(get_db),
 ):
     client_ip = get_client_ip(request)
-
     enforce_rate_limit(f"auth:2fa:setup:ip:{client_ip}", limit=10, window_seconds=3600)
     enforce_rate_limit(f"auth:2fa:setup:user:{current_user.id}", limit=5, window_seconds=3600)
-
-    secret = None
 
     if not current_user.two_factor_secret:
         secret = pyotp.random_base32()
@@ -302,7 +371,6 @@ def confirm_two_factor(
     db: Session = Depends(get_db),
 ):
     client_ip = get_client_ip(request)
-
     enforce_rate_limit(f"auth:2fa:confirm:ip:{client_ip}", limit=20, window_seconds=600)
     enforce_rate_limit(f"auth:2fa:confirm:user:{current_user.id}", limit=8, window_seconds=600)
 
@@ -359,11 +427,11 @@ def confirm_two_factor(
 def disable_two_factor(
     payload: TwoFactorDisableRequest,
     request: Request,
+    authorization: str | None = Header(default=None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     client_ip = get_client_ip(request)
-
     enforce_rate_limit(f"auth:2fa:disable:ip:{client_ip}", limit=10, window_seconds=600)
     enforce_rate_limit(f"auth:2fa:disable:user:{current_user.id}", limit=5, window_seconds=600)
 
@@ -413,6 +481,10 @@ def disable_two_factor(
 
     current_user.two_factor_enabled = False
     current_user.two_factor_secret = None
+    current_user.token_version = int(current_user.token_version) + 1
+
+    _revoke_bearer_token_if_present(authorization, db, user_id=str(current_user.id))
+
     db.add(current_user)
     db.commit()
     db.refresh(current_user)
