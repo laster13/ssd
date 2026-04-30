@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     streamfusion_bind_user_agent: bool = True
     streamfusion_bind_ip: bool = False
 
+    streamfusion_database_url: str
+    streamfusion_meili_url: str = "http://localhost:7700"
+    streamfusion_meili_master_key: str
+    torznab_api_key: str | None = None
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

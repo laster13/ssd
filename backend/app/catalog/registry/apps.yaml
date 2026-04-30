@@ -24,7 +24,7 @@ apps:
 - slug: aiostreams
   title: aiostreams
   category: media
-  tagline: Adonn Stremio
+  tagline: add-on Stremio
   docs:
     missing: true
 - slug: airdcpp
@@ -78,7 +78,7 @@ apps:
 - slug: bitwarden
   title: bitwarden
   category: securite
-  tagline: Gestionnaire de mots de passeL
+  tagline: Gestionnaire de mots de passe
   docs:
     path: docs/fr/applications/securite/bitwarden.md
 - slug: bookstack

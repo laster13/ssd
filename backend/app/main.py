@@ -9,6 +9,7 @@ from app.api.routes.me import router as me_router
 from app.api.routes.pairing import router as pairing_router
 from app.api.routes.streamfusion import router as streamfusion_router
 from app.api.routes.ws import router as ws_router
+from app.api.routes.torznab import router as torznab_router
 
 app = FastAPI(title="SSD Backend")
 
@@ -21,3 +22,4 @@ app.include_router(bootstrap_router)
 app.include_router(me_router)
 app.include_router(streamfusion_router)
 app.include_router(catalog_router)
+app.include_router(torznab_router)

@@ -25,7 +25,7 @@
 		{ label: 'App Store', href: '/app-store/library' },
 		{ label: 'Serveurs', href: '/servers' },
 		{ label: 'Applications', href: '/applications' },
-		{ label: 'Stream-Fusion', href: '/settings/streamfusion' }
+		{ label: 'Stremio', href: '/stremio' }
 	];
 
 	function isActive(href: string) {

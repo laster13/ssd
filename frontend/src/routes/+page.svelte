@@ -52,8 +52,8 @@
 						</div>
 
 						{#if data.user}
-							<a
-								href="https://discord.gg/87RV5DStEK"
+                                                        <a
+								href="https://discord.gg/r3Nw4GAkJG"
 								target="_blank"
 								rel="noreferrer"
 								class="group inline-flex items-center gap-2 rounded-full border border-violet-200 bg-white/88 px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-violet-700 shadow-[0_10px_24px_rgba(139,92,246,0.10)] transition-all duration-300 hover:-translate-y-0.5 hover:border-violet-300 hover:bg-white hover:shadow-[0_14px_30px_rgba(139,92,246,0.16)] dark:border-violet-400/20 dark:bg-violet-400/[0.10] dark:text-violet-200 dark:shadow-none dark:hover:border-violet-400/30 dark:hover:bg-violet-400/[0.14]"
@@ -64,6 +64,21 @@
 									/>
 								</svg>
 								<span>Discord</span>
+								<span class="transition-transform duration-300 group-hover:translate-x-0.5">↗</span>
+							</a>
+
+                                                        <a
+								href="https://www.reddit.com/r/SelfhostingFrance/"
+								target="_blank"
+								rel="noreferrer"
+								class="group inline-flex items-center gap-2 rounded-full border border-orange-200 bg-white/88 px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-orange-700 shadow-[0_10px_24px_rgba(249,115,22,0.10)] transition-all duration-300 hover:-translate-y-0.5 hover:border-orange-300 hover:bg-white hover:shadow-[0_14px_30px_rgba(249,115,22,0.18)] dark:border-orange-400/20 dark:bg-orange-400/[0.10] dark:text-orange-200 dark:shadow-none dark:hover:border-orange-400/30 dark:hover:bg-orange-400/[0.14]"
+							>
+								<svg viewBox="0 0 24 24" class="h-4 w-4 transition-transform duration-300 group-hover:rotate-[-8deg] group-hover:scale-110" fill="currentColor" aria-hidden="true">
+									<path
+										d="M22 12.15a2.6 2.6 0 0 0-4.42-1.86 12.7 12.7 0 0 0-5.05-1.16l.86-4.05 2.82.6a1.9 1.9 0 1 0 .2-.94l-3.3-.7a.5.5 0 0 0-.6.38l-1 4.72a12.8 12.8 0 0 0-5.09 1.15A2.6 2.6 0 1 0 3.55 13.7a4.78 4.78 0 0 0-.05.67c0 2.9 3.8 5.25 8.5 5.25s8.5-2.35 8.5-5.25c0-.23-.02-.45-.06-.67A2.6 2.6 0 0 0 22 12.15ZM7.8 13.62a1.35 1.35 0 1 1 2.7 0 1.35 1.35 0 0 1-2.7 0Zm7.48 3.15c-.93.93-2.74 1-3.28 1-.54 0-2.35-.07-3.28-1a.48.48 0 0 1 .68-.68c.59.59 1.86.72 2.6.72s2.01-.13 2.6-.72a.48.48 0 1 1 .68.68Zm-.43-1.8a1.35 1.35 0 1 1 0-2.7 1.35 1.35 0 0 1 0 2.7Z"
+									/>
+								</svg>
+								<span>Reddit</span>
 								<span class="transition-transform duration-300 group-hover:translate-x-0.5">↗</span>
 							</a>
 
@@ -138,6 +153,13 @@
 							>
 								Gérer mes serveurs
 							</a>
+ 
+                                                        <a
+	                                                        href="/stremio"
+	                                                        class="inline-flex items-center rounded-2xl border border-black/10 bg-white px-5 py-3 text-sm font-medium text-zinc-900 transition hover:bg-black/[0.03] dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
+                                                        >
+	                                                        Stremio
+                                                        </a>
 						{:else}
 							<a
 								href="/register"
