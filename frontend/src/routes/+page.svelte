@@ -160,6 +160,14 @@
                                                         >
 	                                                        Stremio
                                                         </a>
+
+                                                        <a
+                                                                href="/tutos"
+								class="inline-flex items-center justify-center rounded-[18px] border border-zinc-200 bg-white px-5 py-3 text-sm font-semibold text-zinc-900 shadow-[0_12px_24px_rgba(15,23,42,0.06)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_32px_rgba(15,23,42,0.10)] dark:border-white/10 dark:bg-white/[0.05] dark:text-white dark:shadow-[0_10px_24px_rgba(0,0,0,0.18)]"
+                                                        >
+                                                                Tutos
+                                                        </a>
+
 						{:else}
 							<a
 								href="/register"
@@ -174,6 +182,13 @@
 							>
 								Voir les applications
 							</a>
+
+                                                        <a
+                                                                href="/tutos"
+								class="inline-flex items-center justify-center rounded-[18px] border border-zinc-200 bg-white px-5 py-3 text-sm font-semibold text-zinc-900 shadow-[0_12px_24px_rgba(15,23,42,0.06)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_32px_rgba(15,23,42,0.10)] dark:border-white/10 dark:bg-white/[0.05] dark:text-white dark:shadow-[0_10px_24px_rgba(0,0,0,0.18)]"
+                                                        >
+                                                                Tutos
+                                                        </a>
 						{/if}
 					</div>
 

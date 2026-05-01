@@ -25,7 +25,8 @@
 		{ label: 'App Store', href: '/app-store/library' },
 		{ label: 'Serveurs', href: '/servers' },
 		{ label: 'Applications', href: '/applications' },
-		{ label: 'Stremio', href: '/stremio' }
+		{ label: 'Stremio', href: '/stremio' },
+                { label: 'Tutos', href: '/tutos' }
 	];
 
 	function isActive(href: string) {

@@ -25,6 +25,7 @@
 		"vite": "^7.3.1"
 	},
 	"dependencies": {
+		"mermaid": "10.9.3",
 		"qrcode": "^1.5.4",
 		"zod": "^4.3.6"
 	}

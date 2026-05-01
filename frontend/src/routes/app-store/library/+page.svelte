@@ -83,13 +83,22 @@
 				<div class="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.75),rgba(255,255,255,0.45))] dark:bg-[linear-gradient(to_bottom,rgba(255,255,255,0.035),rgba(255,255,255,0.01))]"></div>
 
 				<div class="relative p-5 sm:p-6">
-					<div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-						<div>
-							<div class="mb-3 inline-flex items-center gap-2 rounded-full border border-black/5 bg-black/[0.03] px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-600 dark:border-white/10 dark:bg-white/[0.045] dark:text-zinc-300">
-								<span class="h-1.5 w-1.5 rounded-full bg-cyan-400"></span>
-								Library
-							</div>
 
+                                        <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+	                                         <div>
+                                                    <div class="mb-4">
+	                                               <a
+		                                         href="/"
+		                                            class="inline-flex items-center text-sm text-zinc-500 transition hover:text-zinc-900 dark:hover:text-zinc-100"
+	                                               >
+		                                            ← Retour à l’accueil
+	                                               </a>
+                                                  </div>
+
+                                                  <div class="mb-3 inline-flex items-center gap-2 rounded-full border border-black/5 bg-black/[0.03] px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-600 dark:border-white/10 dark:bg-white/[0.045] dark:text-zinc-300">
+	                                                        <span class="h-1.5 w-1.5 rounded-full bg-cyan-400"></span>
+	                                                                Library
+                                                  </div>
 							<h1 class="max-w-2xl text-lg font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50 sm:text-xl xl:text-2xl xl:leading-[1.1]">
 								<span class="mt-1 block bg-[linear-gradient(90deg,#0f172a_0%,#0891b2_18%,#059669_44%,#2563eb_70%,#7c3aed_100%)] bg-clip-text text-transparent dark:bg-[linear-gradient(90deg,#f8fafc_0%,#a7f3d0_18%,#67e8f9_40%,#93c5fd_66%,#d8b4fe_100%)]">
 									Bibliothèque complète
@@ -99,7 +108,7 @@
 							<p class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-400">
 								Accède à tout le catalogue avec recherche, tri et filtres.
 							</p>
-						</div>
+						  </div>
 
 						{#if !isAuthenticated}
 							<div class="rounded-full border border-amber-300/40 bg-amber-100/70 px-4 py-2 text-xs font-semibold text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-200">
