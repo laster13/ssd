@@ -11,7 +11,7 @@ export const googleOAuth2TraefikSsdv2: Tutorial = {
   duration: '30 à 60 min',
   estimatedTime:
     'Environ 30 à 60 minutes pour la partie OAuth, plus du temps supplémentaire pour le bypass API avancé.',
-  category: 'OAuth2',
+  category: 'Sécurité',
   group: 'Sécurité',
   icon: 'shield',
   tags: [

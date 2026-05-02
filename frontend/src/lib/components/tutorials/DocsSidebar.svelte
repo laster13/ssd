@@ -1,53 +1,57 @@
 <script lang="ts">
-  import type { DocsNavGroup } from '$lib/data/tutorials';
+	import type { DocsNavGroup } from '$lib/data/tutorials';
 
-  let {
-    groups,
-    currentSlug
-  }: {
-    groups: DocsNavGroup[];
-    currentSlug?: string;
-  } = $props();
+	let {
+		groups
+	}: {
+		groups: DocsNavGroup[];
+	} = $props();
 </script>
 
-<aside class="rounded-3xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:p-5">
-  <h2 class="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500 sm:text-sm">
-    Documentation
-  </h2>
+<aside class="space-y-3">
+	<div class="px-2">
+		<p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">
+			Navigation
+		</p>
+	</div>
 
-  <div class="mt-4 space-y-4 sm:space-y-5">
-    {#each groups as group}
-      <section>
-        <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{group.name}</h3>
+	{#each groups as group}
+		<section class="rounded-2xl border border-zinc-200 bg-zinc-50/80 p-3 dark:border-zinc-800 dark:bg-zinc-950/40">
+			<h2
+				class="px-2 text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-100"
+			>
+				<span class="bg-gradient-to-r from-sky-500 via-blue-600 to-violet-600 bg-clip-text text-transparent">
+					{group.name}
+				</span>
+			</h2>
 
-        <div class="mt-3 space-y-4">
-          {#each group.categories as category}
-            <div>
-              <h4 class="text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-500 sm:text-xs">
-                {category.name}
-              </h4>
+			<div class="mt-3 space-y-3">
+				{#each group.categories as category}
+					<div>
+						<h3
+							class="px-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400"
+						>
+							{category.name}
+						</h3>
 
-              <ul class="mt-2 space-y-1">
-                {#each category.items as item}
-                  <li>
-                    <a
-                      href={`/tutos/${item.slug}`}
-                      aria-current={currentSlug === item.slug ? 'page' : undefined}
-                      class={`block rounded-xl px-3 py-2 text-sm leading-5 transition ${
-                        currentSlug === item.slug
-                          ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
-                          : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100'
-                      }`}
-                    >
-                      {item.title}
-                    </a>
-                  </li>
-                {/each}
-              </ul>
-            </div>
-          {/each}
-        </div>
-      </section>
-    {/each}
-  </div>
+						<nav class="mt-2 space-y-1">
+							{#each category.items as item}
+								<a
+									href={`/tutos/${item.slug}`}
+									class="group flex items-center justify-between rounded-xl px-3 py-2 text-sm text-zinc-600 transition hover:bg-white hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
+								>
+									<span class="truncate">{item.title}</span>
+									<span
+										class="ml-3 shrink-0 text-zinc-400 transition-transform duration-200 group-hover:translate-x-0.5 dark:text-zinc-500"
+									>
+										→
+									</span>
+								</a>
+							{/each}
+						</nav>
+					</div>
+				{/each}
+			</div>
+		</section>
+	{/each}
 </aside>

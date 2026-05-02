@@ -2,8 +2,6 @@
   import { tick } from 'svelte';
   import DocsSidebar from '$lib/components/tutorials/DocsSidebar.svelte';
   import TableOfContents from '$lib/components/tutorials/TableOfContents.svelte';
-  import MobileDocsMenu from '$lib/components/tutorials/MobileDocsMenu.svelte';
-  import MobileTocMenu from '$lib/components/tutorials/MobileTocMenu.svelte';
   import MobileArticleActions from '$lib/components/tutorials/MobileArticleActions.svelte';
   import TutorialBadge from '$lib/components/tutorials/TutorialBadge.svelte';
   import TutorialSectionCard from '$lib/components/tutorials/TutorialSectionCard.svelte';
@@ -15,6 +13,7 @@
   import TutorialDiagramCard from '$lib/components/tutorials/TutorialDiagramCard.svelte';
   import TutorialTabs from '$lib/components/tutorials/TutorialTabs.svelte';
   import TutorialAccordion from '$lib/components/tutorials/TutorialAccordion.svelte';
+  import { getTutorialTheme } from '$lib/utils/tutorial-theme';
   import type { DocsNavGroup, TocItem, Tutorial } from '$lib/data/tutorials';
 
   let {
@@ -30,6 +29,7 @@
   const tutorial = $derived(data.tutorial);
   const docsNavGroups = $derived(data.docsNavGroups);
   const toc = $derived(data.toc);
+  const theme = $derived(getTutorialTheme(tutorial.category));
 
   let showMobileDocs = $state(false);
   let showMobileToc = $state(false);
@@ -85,13 +85,13 @@
         ← Retour à la documentation
       </a>
 
-      <header class="mt-4 overflow-hidden rounded-[1.5rem] border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:rounded-[2rem]">
-        <div class="bg-gradient-to-br from-zinc-50 to-white p-4 dark:from-zinc-900 dark:to-zinc-900/70 sm:p-8">
+      <header class={`mt-4 overflow-hidden rounded-[1.5rem] border shadow-sm sm:rounded-[2rem] ${theme.panel}`}>
+        <div class={`p-4 sm:p-8 ${theme.panelSoft}`}>
           <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
             <div class="min-w-0 max-w-4xl">
               <div class="flex flex-wrap items-center gap-2">
                 {#if tutorial.icon}
-                  <div class="mr-1 flex h-10 w-10 items-center justify-center rounded-2xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 sm:h-11 sm:w-11">
+                  <div class={`mr-1 flex h-10 w-10 items-center justify-center rounded-2xl border sm:h-11 sm:w-11 ${theme.badge}`}>
                     <TutorialIcon name={tutorial.icon} className="h-5 w-5" />
                   </div>
                 {/if}
@@ -101,7 +101,7 @@
                 <TutorialBadge text={tutorial.duration} />
               </div>
 
-              <h1 class="mt-4 text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 sm:mt-5 sm:text-4xl">
+              <h1 class={`mt-4 text-2xl font-semibold tracking-tight sm:mt-5 sm:text-4xl ${theme.title}`}>
                 {tutorial.title}
               </h1>
 
@@ -110,7 +110,7 @@
               </p>
 
               {#if tutorial.summary}
-                <div class="mt-4 rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-sm leading-6 text-zinc-700 dark:border-zinc-800 dark:bg-zinc-950/50 dark:text-zinc-300 sm:mt-5">
+                <div class={`mt-4 rounded-2xl border p-4 text-sm leading-6 sm:mt-5 ${theme.callout}`}>
                   {tutorial.summary}
                 </div>
               {/if}
@@ -118,7 +118,7 @@
               {#if tutorial.tags?.length}
                 <div class="mt-4 flex flex-wrap gap-2 sm:mt-5">
                   {#each tutorial.tags as tag}
-                    <span class="inline-flex items-center rounded-full bg-zinc-100 px-3 py-1 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                    <span class={`inline-flex items-center rounded-full border px-3 py-1 text-xs ${theme.badge}`}>
                       #{tag}
                     </span>
                   {/each}
@@ -132,14 +132,14 @@
       {#if tutorial.callouts?.length}
         <section id="introduction" class="mt-6 space-y-4 scroll-mt-24 sm:mt-8">
           {#each tutorial.callouts as callout}
-            <TutorialCallout {callout} />
+            <TutorialCallout {callout} {theme} />
           {/each}
         </section>
       {/if}
 
       {#if tutorial.images?.length}
         <section id="captures" class="mt-6 space-y-4 scroll-mt-24 sm:mt-8">
-          <h2 class="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 sm:text-2xl">
+          <h2 class={`text-xl font-semibold tracking-tight sm:text-2xl ${theme.sectionTitle}`}>
             Captures
           </h2>
 
@@ -151,7 +151,7 @@
 
       {#if tutorial.diagrams?.length}
         <section id="diagrammes" class="mt-6 space-y-4 scroll-mt-24 sm:mt-8">
-          <h2 class="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 sm:text-2xl">
+          <h2 class={`text-xl font-semibold tracking-tight sm:text-2xl ${theme.sectionTitle}`}>
             Diagrammes
           </h2>
 
@@ -163,12 +163,12 @@
 
       {#if tutorial.codeBlocks?.length}
         <section id="blocs-configuration" class="mt-6 space-y-4 scroll-mt-24 sm:mt-8">
-          <h2 class="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 sm:text-2xl">
+          <h2 class={`text-xl font-semibold tracking-tight sm:text-2xl ${theme.sectionTitle}`}>
             Blocs de configuration
           </h2>
 
           {#each tutorial.codeBlocks as block}
-            <TutorialCodeBlock {block} />
+            <TutorialCodeBlock {block} {theme} />
           {/each}
         </section>
       {/if}
@@ -176,13 +176,13 @@
       <section id="etapes" class="mt-6 space-y-5 scroll-mt-24 sm:mt-8 sm:space-y-6">
         <div class="flex items-center justify-between gap-3">
           <div>
-            <h2 class="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 sm:text-2xl">
+            <h2 class={`text-xl font-semibold tracking-tight sm:text-2xl ${theme.sectionTitle}`}>
               Étapes
             </h2>
             <p class="mt-1 text-sm text-zinc-500">{tutorial.steps.length} étapes</p>
           </div>
 
-          <div class="hidden rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 sm:inline-flex">
+          <div class={`hidden rounded-full border px-3 py-1.5 text-xs font-medium sm:inline-flex ${theme.badge}`}>
             Timeline
           </div>
         </div>
@@ -192,6 +192,7 @@
             <TutorialStepCard
               {step}
               {index}
+              {theme}
               open={openStepIndex === index}
               onToggle={() => (openStepIndex = openStepIndex === index ? -1 : index)}
             />
@@ -205,16 +206,16 @@
             id={sectionId(section)}
             class="mt-6 space-y-4 scroll-mt-24 sm:mt-8"
           >
-            <h2 class="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 sm:text-2xl">
+            <h2 class={`text-xl font-semibold tracking-tight sm:text-2xl ${theme.sectionTitle}`}>
               {section.title}
             </h2>
 
             {#if section.items?.length}
-              <TutorialSectionCard title={section.title} items={section.items} icon={section.icon} />
+              <TutorialSectionCard title={section.title} items={section.items} icon={section.icon} {theme} />
             {/if}
 
             {#if section.body?.length}
-              <section class="rounded-3xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:p-6">
+              <section class={`rounded-3xl border p-4 shadow-sm sm:p-6 ${theme.panel}`}>
                 <div class="space-y-3 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
                   {#each section.body as paragraph}
                     <p>{@html linkify(paragraph)}</p>
@@ -225,7 +226,7 @@
 
             {#if section.callouts?.length}
               {#each section.callouts as callout}
-                <TutorialCallout {callout} />
+                <TutorialCallout {callout} {theme} />
               {/each}
             {/if}
 
@@ -243,7 +244,7 @@
 
             {#if section.codeBlocks?.length}
               {#each section.codeBlocks as block}
-                <TutorialCodeBlock {block} />
+                <TutorialCodeBlock {block} {theme} />
               {/each}
             {/if}
 
@@ -264,20 +265,20 @@
 
       <div class="mt-6 grid gap-4 sm:mt-8 sm:gap-6 lg:grid-cols-2">
         {#if tutorial.prerequisites?.length}
-          <TutorialSectionCard title="Prérequis" items={tutorial.prerequisites} icon="rocket" />
+          <TutorialSectionCard title="Prérequis" items={tutorial.prerequisites} icon="rocket" {theme} />
         {/if}
 
         {#if tutorial.warnings?.length}
-          <TutorialSectionCard title="Points d’attention" items={tutorial.warnings} tone="warning" icon="shield" />
+          <TutorialSectionCard title="Points d’attention" items={tutorial.warnings} tone="warning" icon="shield" {theme} />
         {/if}
 
         {#if tutorial.troubleshooting?.length}
-          <TutorialSectionCard title="En cas de problème" items={tutorial.troubleshooting} tone="warning" icon="bug" />
+          <TutorialSectionCard title="En cas de problème" items={tutorial.troubleshooting} tone="warning" icon="bug" {theme} />
         {/if}
 
         {#if tutorial.finalChecklist?.length}
-          <section class="rounded-3xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:p-6">
-            <h2 class="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+          <section class={`rounded-3xl border p-4 shadow-sm sm:p-6 ${theme.panel}`}>
+            <h2 class={`text-xl font-semibold tracking-tight ${theme.sectionTitle}`}>
               Checklist finale
             </h2>
 
