@@ -96,16 +96,16 @@
 	<title>Applications</title>
 </svelte:head>
 
-<section class="relative isolate bg-zinc-50 dark:bg-[#07111f]">
-	<div class="mx-auto max-w-7xl px-4 pb-6 pt-6 sm:px-6 lg:px-8 lg:pt-8">
-		<div class="relative overflow-hidden rounded-[24px] border border-black/5 bg-white/80 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.045] dark:shadow-[0_18px_50px_rgba(0,0,0,0.32)]">
+<section class="relative isolate overflow-x-hidden bg-zinc-50 dark:bg-[#07111f]">
+	<div class="mx-auto max-w-7xl pb-6 pt-6 sm:px-6 lg:px-8 lg:pt-8">
+		<div class="border-y border-black/5 bg-white/80 backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.045] sm:overflow-hidden sm:rounded-[24px] sm:border sm:shadow-[0_18px_50px_rgba(15,23,42,0.08)] dark:sm:shadow-[0_18px_50px_rgba(0,0,0,0.32)]">
 			<div class="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(255,255,255,0.72)_45%,rgba(255,255,255,0.62)_100%)] dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.03)_45%,rgba(255,255,255,0.02)_100%)]"></div>
-			<div class="pointer-events-none absolute inset-0 rounded-[24px] ring-1 ring-inset ring-white/70 dark:ring-white/10"></div>
+			<div class="pointer-events-none absolute inset-0 hidden rounded-[24px] ring-1 ring-inset ring-white/70 dark:ring-white/10 sm:block"></div>
 
-			<div class="relative p-5 sm:p-6">
+			<div class="relative px-4 py-5 sm:p-6">
 				<div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-					<div>
-						<h1 class="text-3xl font-semibold tracking-[-0.06em] text-zinc-950 dark:text-zinc-50 sm:text-4xl">
+					<div class="min-w-0">
+						<h1 class="break-words text-3xl font-semibold tracking-[-0.06em] text-zinc-950 dark:text-zinc-50 sm:text-4xl">
 							Pilote tes Applications
 						</h1>
 						<p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600 dark:text-zinc-300 sm:text-[15px]">

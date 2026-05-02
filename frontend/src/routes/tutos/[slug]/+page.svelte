@@ -71,63 +71,65 @@
 </svelte:head>
 
 {#key tutorial.slug}
-<section class="mx-auto max-w-[1500px] px-3 py-6 pb-28 sm:px-6 sm:py-10 sm:pb-10 lg:px-8">
+<section class="mx-auto max-w-[1500px] overflow-x-hidden py-6 pb-28 sm:px-6 sm:py-10 sm:pb-10 lg:px-8">
   <div class="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)_280px] xl:gap-8">
     <div class="hidden space-y-4 sm:space-y-6 xl:block">
       <DocsSidebar groups={docsNavGroups} currentSlug={tutorial.slug} />
     </div>
 
     <div class="min-w-0">
-      <a
-        href="/tutos"
-        class="inline-flex items-center text-sm text-zinc-500 transition hover:text-zinc-900 dark:hover:text-zinc-100"
-      >
-        ← Retour à la documentation
-      </a>
+      <div class="px-3 sm:px-0">
+        <a
+          href="/tutos"
+          class="inline-flex items-center text-sm text-zinc-500 transition hover:text-zinc-900 dark:hover:text-zinc-100"
+        >
+          ← Retour à la documentation
+        </a>
 
-      <header class={`mt-4 overflow-hidden rounded-[1.5rem] border shadow-sm sm:rounded-[2rem] ${theme.panel}`}>
-        <div class={`p-4 sm:p-8 ${theme.panelSoft}`}>
-          <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-            <div class="min-w-0 max-w-4xl">
-              <div class="flex flex-wrap items-center gap-2">
-                {#if tutorial.icon}
-                  <div class={`mr-1 flex h-10 w-10 items-center justify-center rounded-2xl border sm:h-11 sm:w-11 ${theme.badge}`}>
-                    <TutorialIcon name={tutorial.icon} className="h-5 w-5" />
+        <header class={`mt-4 overflow-hidden border-y sm:rounded-[2rem] sm:border sm:shadow-sm ${theme.panel}`}>
+          <div class={`p-4 sm:p-8 ${theme.panelSoft}`}>
+            <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+              <div class="min-w-0 max-w-4xl">
+                <div class="flex min-w-0 flex-wrap items-center gap-2">
+                  {#if tutorial.icon}
+                    <div class={`mr-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border sm:h-11 sm:w-11 ${theme.badge}`}>
+                      <TutorialIcon name={tutorial.icon} className="h-5 w-5" />
+                    </div>
+                  {/if}
+
+                  <TutorialBadge text={tutorial.level} variant="level" />
+                  <TutorialBadge text={tutorial.category} variant="category" />
+                  <TutorialBadge text={tutorial.duration} />
+                </div>
+
+                <h1 class={`mt-4 break-words text-2xl font-semibold tracking-tight sm:mt-5 sm:text-4xl ${theme.title}`}>
+                  {tutorial.title}
+                </h1>
+
+                <p class="mt-3 max-w-3xl break-words text-sm leading-6 text-zinc-600 dark:text-zinc-300 sm:mt-4 sm:text-base sm:leading-7">
+                  {tutorial.description}
+                </p>
+
+                {#if tutorial.summary}
+                  <div class={`mt-4 rounded-2xl border p-4 text-sm leading-6 sm:mt-5 ${theme.callout}`}>
+                    {tutorial.summary}
                   </div>
                 {/if}
 
-                <TutorialBadge text={tutorial.level} variant="level" />
-                <TutorialBadge text={tutorial.category} variant="category" />
-                <TutorialBadge text={tutorial.duration} />
+                {#if tutorial.tags?.length}
+                  <div class="mt-4 flex flex-wrap gap-2 sm:mt-5">
+                    {#each tutorial.tags as tag}
+                      <span class={`inline-flex max-w-full items-center rounded-full border px-3 py-1 text-xs ${theme.badge}`}>
+                        <span class="truncate">#{tag}</span>
+                      </span>
+                    {/each}
+                  </div>
+                {/if}
               </div>
-
-              <h1 class={`mt-4 text-2xl font-semibold tracking-tight sm:mt-5 sm:text-4xl ${theme.title}`}>
-                {tutorial.title}
-              </h1>
-
-              <p class="mt-3 max-w-3xl text-sm leading-6 text-zinc-600 dark:text-zinc-300 sm:mt-4 sm:text-base sm:leading-7">
-                {tutorial.description}
-              </p>
-
-              {#if tutorial.summary}
-                <div class={`mt-4 rounded-2xl border p-4 text-sm leading-6 sm:mt-5 ${theme.callout}`}>
-                  {tutorial.summary}
-                </div>
-              {/if}
-
-              {#if tutorial.tags?.length}
-                <div class="mt-4 flex flex-wrap gap-2 sm:mt-5">
-                  {#each tutorial.tags as tag}
-                    <span class={`inline-flex items-center rounded-full border px-3 py-1 text-xs ${theme.badge}`}>
-                      #{tag}
-                    </span>
-                  {/each}
-                </div>
-              {/if}
             </div>
           </div>
-        </div>
-      </header>
+        </header>
+      </div>
 
       {#if tutorial.callouts?.length}
         <section id="introduction" class="mt-6 space-y-4 scroll-mt-24 sm:mt-8">
@@ -139,9 +141,11 @@
 
       {#if tutorial.images?.length}
         <section id="captures" class="mt-6 space-y-4 scroll-mt-24 sm:mt-8">
-          <h2 class={`text-xl font-semibold tracking-tight sm:text-2xl ${theme.sectionTitle}`}>
-            Captures
-          </h2>
+          <div class="px-3 sm:px-0">
+            <h2 class={`text-xl font-semibold tracking-tight sm:text-2xl ${theme.sectionTitle}`}>
+              Captures
+            </h2>
+          </div>
 
           {#each tutorial.images as image}
             <TutorialImageCard {image} />
@@ -151,9 +155,11 @@
 
       {#if tutorial.diagrams?.length}
         <section id="diagrammes" class="mt-6 space-y-4 scroll-mt-24 sm:mt-8">
-          <h2 class={`text-xl font-semibold tracking-tight sm:text-2xl ${theme.sectionTitle}`}>
-            Diagrammes
-          </h2>
+          <div class="px-3 sm:px-0">
+            <h2 class={`text-xl font-semibold tracking-tight sm:text-2xl ${theme.sectionTitle}`}>
+              Diagrammes
+            </h2>
+          </div>
 
           {#each tutorial.diagrams as diagram}
             <TutorialDiagramCard {diagram} />
@@ -163,9 +169,11 @@
 
       {#if tutorial.codeBlocks?.length}
         <section id="blocs-configuration" class="mt-6 space-y-4 scroll-mt-24 sm:mt-8">
-          <h2 class={`text-xl font-semibold tracking-tight sm:text-2xl ${theme.sectionTitle}`}>
-            Blocs de configuration
-          </h2>
+          <div class="px-3 sm:px-0">
+            <h2 class={`text-xl font-semibold tracking-tight sm:text-2xl ${theme.sectionTitle}`}>
+              Blocs de configuration
+            </h2>
+          </div>
 
           {#each tutorial.codeBlocks as block}
             <TutorialCodeBlock {block} {theme} />
@@ -174,16 +182,18 @@
       {/if}
 
       <section id="etapes" class="mt-6 space-y-5 scroll-mt-24 sm:mt-8 sm:space-y-6">
-        <div class="flex items-center justify-between gap-3">
-          <div>
-            <h2 class={`text-xl font-semibold tracking-tight sm:text-2xl ${theme.sectionTitle}`}>
-              Étapes
-            </h2>
-            <p class="mt-1 text-sm text-zinc-500">{tutorial.steps.length} étapes</p>
-          </div>
+        <div class="px-3 sm:px-0">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <h2 class={`text-xl font-semibold tracking-tight sm:text-2xl ${theme.sectionTitle}`}>
+                Étapes
+              </h2>
+              <p class="mt-1 text-sm text-zinc-500">{tutorial.steps.length} étapes</p>
+            </div>
 
-          <div class={`hidden rounded-full border px-3 py-1.5 text-xs font-medium sm:inline-flex ${theme.badge}`}>
-            Timeline
+            <div class={`hidden rounded-full border px-3 py-1.5 text-xs font-medium sm:inline-flex ${theme.badge}`}>
+              Timeline
+            </div>
           </div>
         </div>
 
@@ -206,16 +216,18 @@
             id={sectionId(section)}
             class="mt-6 space-y-4 scroll-mt-24 sm:mt-8"
           >
-            <h2 class={`text-xl font-semibold tracking-tight sm:text-2xl ${theme.sectionTitle}`}>
-              {section.title}
-            </h2>
+            <div class="px-3 sm:px-0">
+              <h2 class={`text-xl font-semibold tracking-tight sm:text-2xl ${theme.sectionTitle}`}>
+                {section.title}
+              </h2>
+            </div>
 
             {#if section.items?.length}
               <TutorialSectionCard title={section.title} items={section.items} icon={section.icon} {theme} />
             {/if}
 
             {#if section.body?.length}
-              <section class={`rounded-3xl border p-4 shadow-sm sm:p-6 ${theme.panel}`}>
+              <section class={`border-y p-4 sm:rounded-3xl sm:border sm:p-6 sm:shadow-sm ${theme.panel}`}>
                 <div class="space-y-3 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
                   {#each section.body as paragraph}
                     <p>{@html linkify(paragraph)}</p>
@@ -277,10 +289,12 @@
         {/if}
 
         {#if tutorial.finalChecklist?.length}
-          <section class={`rounded-3xl border p-4 shadow-sm sm:p-6 ${theme.panel}`}>
-            <h2 class={`text-xl font-semibold tracking-tight ${theme.sectionTitle}`}>
-              Checklist finale
-            </h2>
+          <section class={`border-y p-4 sm:rounded-3xl sm:border sm:p-6 sm:shadow-sm ${theme.panel}`}>
+            <div class="px-3 sm:px-0">
+              <h2 class={`text-xl font-semibold tracking-tight ${theme.sectionTitle}`}>
+                Checklist finale
+              </h2>
+            </div>
 
             <ul class="mt-4 space-y-3 text-sm text-zinc-600 dark:text-zinc-300">
               {#each tutorial.finalChecklist as item}

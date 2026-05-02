@@ -20,7 +20,7 @@
 			<h2
 				class="px-2 text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-100"
 			>
-				<span class="bg-gradient-to-r from-sky-500 via-blue-600 to-violet-600 bg-clip-text text-transparent">
+				<span class="break-words bg-gradient-to-r from-sky-500 via-blue-600 to-violet-600 bg-clip-text text-transparent">
 					{group.name}
 				</span>
 			</h2>
@@ -29,7 +29,7 @@
 				{#each group.categories as category}
 					<div>
 						<h3
-							class="px-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400"
+							class="break-words px-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400"
 						>
 							{category.name}
 						</h3>
@@ -38,9 +38,9 @@
 							{#each category.items as item}
 								<a
 									href={`/tutos/${item.slug}`}
-									class="group flex items-center justify-between rounded-xl px-3 py-2 text-sm text-zinc-600 transition hover:bg-white hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
+									class="group flex min-w-0 items-center justify-between rounded-xl px-3 py-2 text-sm text-zinc-600 transition hover:bg-white hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
 								>
-									<span class="truncate">{item.title}</span>
+									<span class="min-w-0 truncate">{item.title}</span>
 									<span
 										class="ml-3 shrink-0 text-zinc-400 transition-transform duration-200 group-hover:translate-x-0.5 dark:text-zinc-500"
 									>

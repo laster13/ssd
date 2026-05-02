@@ -72,18 +72,18 @@
 	<title>Suivi de désinstallation</title>
 </svelte:head>
 
-<section class="relative isolate min-h-screen overflow-hidden bg-[linear-gradient(180deg,#f8fafc_0%,#eef6ff_38%,#f8fafc_100%)] dark:bg-[linear-gradient(180deg,#07111f_0%,#0a1324_38%,#07111f_100%)]">
+<section class="relative isolate min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#f8fafc_0%,#eef6ff_38%,#f8fafc_100%)] dark:bg-[linear-gradient(180deg,#07111f_0%,#0a1324_38%,#07111f_100%)]">
 	<div class="pointer-events-none absolute inset-0">
 		<div class="absolute left-[-6rem] top-[-4rem] h-72 w-72 rounded-full bg-cyan-300/18 blur-3xl dark:bg-cyan-400/10"></div>
 		<div class="absolute right-[-5rem] top-[-2rem] h-80 w-80 rounded-full bg-emerald-300/16 blur-3xl dark:bg-emerald-400/10"></div>
 	</div>
 
-	<section class="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
-		<div class="overflow-hidden rounded-[30px] border border-black/5 bg-white/78 shadow-[0_20px_80px_rgba(15,23,42,0.08)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.035] dark:shadow-[0_20px_80px_rgba(0,0,0,0.28)]">
+	<section class="mx-auto max-w-5xl py-8 sm:px-6 lg:px-8">
+		<div class="border-y border-black/5 bg-white/78 backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.035] sm:overflow-hidden sm:rounded-[30px] sm:border sm:shadow-[0_20px_80px_rgba(15,23,42,0.08)] dark:sm:shadow-[0_20px_80px_rgba(0,0,0,0.28)]">
 			<div class="relative">
 				<div class="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.84),rgba(255,255,255,0.58))] dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))]"></div>
 
-				<div class="relative p-6 sm:p-8">
+				<div class="relative px-4 py-6 sm:p-8">
 					<p class="mb-5">
 						<a
 							href="/applications"
@@ -98,7 +98,7 @@
 						Désinstallation
 					</div>
 
-					<h1 class="mb-2 text-3xl font-semibold tracking-[-0.05em] text-zinc-950 dark:text-white sm:text-4xl">
+					<h1 class="mb-2 break-words text-3xl font-semibold tracking-[-0.05em] text-zinc-950 dark:text-white sm:text-4xl">
 						Suivi de désinstallation
 					</h1>
 
@@ -106,7 +106,7 @@
 						Suivi en temps réel de la suppression de ton application.
 					</p>
 
-					<div class="mb-6 rounded-[22px] border border-black/5 bg-white/78 px-5 py-5 text-sm text-zinc-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-300">
+					<div class="mb-6 border-y border-black/5 bg-white/78 px-4 py-5 text-sm text-zinc-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-300 sm:rounded-[22px] sm:border">
 						<div class="grid gap-4 sm:grid-cols-2">
 							<div>
 								<strong class="text-zinc-900 dark:text-zinc-100">Application :</strong>
@@ -128,19 +128,19 @@
 					</div>
 
 					{#if !isFinished()}
-						<div class="mb-5 rounded-[18px] border border-orange-200 bg-orange-50/80 px-4 py-4 text-sm text-orange-700 dark:border-orange-500/20 dark:bg-orange-500/10 dark:text-orange-300">
+						<div class="mb-5 border-y border-orange-200 bg-orange-50/80 px-4 py-4 text-sm text-orange-700 dark:border-orange-500/20 dark:bg-orange-500/10 dark:text-orange-300 sm:rounded-[18px] sm:border">
 							Connexion temps réel active…
 						</div>
 					{/if}
 
 					{#if job.status === 'completed'}
-						<div class="mb-5 rounded-[18px] border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300">
+						<div class="mb-5 border-y border-emerald-200 bg-emerald-50 px-4 py-4 text-sm text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300 sm:rounded-[18px] sm:border">
 							La désinstallation est terminée avec succès.
 						</div>
 					{/if}
 
 					{#if job.status === 'failed'}
-						<div class="mb-5 rounded-[18px] border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300">
+						<div class="mb-5 border-y border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300 sm:rounded-[18px] sm:border">
 							La désinstallation a échoué.
 						</div>
 					{/if}
@@ -150,7 +150,7 @@
 					</h2>
 
 					{#if logs.length > 0}
-						<div class="max-h-[500px] overflow-auto rounded-[22px] border border-zinc-200 bg-zinc-50 p-4 font-mono text-[0.92rem] text-zinc-800 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100">
+						<div class="max-h-[500px] overflow-auto border-y border-zinc-200 bg-zinc-50 p-4 font-mono text-[0.92rem] text-zinc-800 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 sm:rounded-[22px] sm:border">
 							{#each logs as log}
 								<div class="border-b border-zinc-200 py-2 last:border-b-0 dark:border-zinc-800">
 									<span class="mr-2 text-zinc-500 dark:text-zinc-400">[{log.level}]</span>

@@ -142,34 +142,34 @@
 	<title>Mes serveurs</title>
 </svelte:head>
 
-<section class="relative overflow-hidden">
+<section class="relative overflow-x-hidden">
 	<div class="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_22%),radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_20%),radial-gradient(circle_at_bottom,rgba(168,85,247,0.12),transparent_26%)]"></div>
 	<div class="absolute left-[-12rem] top-[-10rem] -z-10 h-[26rem] w-[26rem] rounded-full bg-cyan-400/10 blur-3xl"></div>
 	<div class="absolute right-[-10rem] top-[4rem] -z-10 h-[24rem] w-[24rem] rounded-full bg-blue-500/10 blur-3xl"></div>
 	<div class="absolute bottom-[-10rem] left-1/2 -z-10 h-[22rem] w-[22rem] -translate-x-1/2 rounded-full bg-fuchsia-500/10 blur-3xl"></div>
 
-	<div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-		<header class="mb-8 overflow-hidden rounded-[36px] border border-black/5 bg-white/80 shadow-[0_35px_120px_rgba(15,23,42,0.12)] backdrop-blur dark:border-white/10 dark:bg-white/[0.05] dark:shadow-[0_35px_120px_rgba(0,0,0,0.36)]">
-			<div class="relative p-6 sm:p-8 lg:p-10">
+	<div class="mx-auto max-w-7xl py-8 sm:px-6 lg:px-8">
+		<header class="mb-8 border-y border-black/5 bg-white/80 backdrop-blur dark:border-white/10 dark:bg-white/[0.05] sm:overflow-hidden sm:rounded-[36px] sm:border sm:shadow-[0_35px_120px_rgba(15,23,42,0.12)] dark:sm:shadow-[0_35px_120px_rgba(0,0,0,0.36)]">
+			<div class="relative py-6 sm:p-8 lg:p-10">
 				<div class="absolute inset-0 bg-[linear-gradient(135deg,rgba(6,182,212,0.08),rgba(37,99,235,0.06),rgba(139,92,246,0.08))]"></div>
 
 				<div class="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-					<div class="max-w-3xl">
-						<div class="mb-4 inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-cyan-50/90 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-700 dark:border-cyan-400/20 dark:bg-cyan-400/10 dark:text-cyan-300">
-							<span class="h-2 w-2 rounded-full bg-cyan-500"></span>
-							Servers
+					<div class="max-w-3xl min-w-0 px-4 sm:px-0">
+						<div class="mb-4 inline-flex max-w-full items-center gap-2 rounded-full border border-cyan-200 bg-cyan-50/90 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-700 dark:border-cyan-400/20 dark:bg-cyan-400/10 dark:text-cyan-300">
+							<span class="h-2 w-2 shrink-0 rounded-full bg-cyan-500"></span>
+							<span class="truncate">Servers</span>
 						</div>
 
-						<h1 class="text-2xl font-semibold tracking-[-0.04em] text-zinc-950 dark:text-white sm:text-3xl xl:text-[2.4rem]">
+						<h1 class="break-words text-2xl font-semibold tracking-[-0.04em] text-zinc-950 dark:text-white sm:text-3xl xl:text-[2.4rem]">
 							Gestion des serveurs
 						</h1>
 
-						<p class="mt-4 max-w-2xl text-sm leading-7 text-zinc-600 dark:text-zinc-400 sm:text-base">
+						<p class="mt-4 max-w-2xl break-words text-sm leading-7 text-zinc-600 dark:text-zinc-400 sm:text-base">
 							Connecte, surveille et administre tes serveurs depuis le dashboard avec une vue claire de leur état, de l’agent installé et du dernier contact remonté en temps réel.
 						</p>
 					</div>
 
-					<div class="flex flex-col gap-3 sm:flex-row">
+					<div class="flex flex-col gap-3 px-4 sm:flex-row sm:px-0">
 						<a
 							href="/install"
 							class="inline-flex items-center justify-center rounded-[18px] border border-zinc-200 bg-white px-5 py-3 text-sm font-semibold text-zinc-900 shadow-[0_12px_28px_rgba(15,23,42,0.06)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(15,23,42,0.10)] dark:border-white/10 dark:bg-white/[0.05] dark:text-white"
@@ -189,33 +189,33 @@
 		</header>
 
 		{#if form?.success}
-			<div class="mb-6 rounded-[22px] border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm font-medium text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300">
+			<div class="mb-6 border-y border-emerald-200 bg-emerald-50 px-4 py-4 text-sm font-medium text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300 sm:rounded-[22px] sm:border">
 				Le serveur a bien été désappairé du dashboard.
 			</div>
 		{/if}
 
 		{#if form?.error}
-			<div class="mb-6 rounded-[22px] border border-red-200 bg-red-50 px-4 py-4 text-sm font-medium text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300">
+			<div class="mb-6 border-y border-red-200 bg-red-50 px-4 py-4 text-sm font-medium text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300 sm:rounded-[22px] sm:border">
 				{form.error}
 			</div>
 		{/if}
 
 		<div class="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-2">
-			<div class="group relative overflow-hidden rounded-[34px] border border-black/5 bg-white/80 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.10)] backdrop-blur transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_32px_90px_rgba(15,23,42,0.14)] dark:border-white/10 dark:bg-white/[0.05] dark:shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
+			<div class="group relative overflow-hidden border-y border-black/5 bg-white/80 px-4 py-6 backdrop-blur transition-all duration-300 dark:border-white/10 dark:bg-white/[0.05] sm:rounded-[34px] sm:border sm:p-6 sm:shadow-[0_24px_70px_rgba(15,23,42,0.10)] sm:hover:-translate-y-1 sm:hover:shadow-[0_32px_90px_rgba(15,23,42,0.14)] dark:sm:shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
 				<div class="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(6,182,212,0.18),transparent_40%),linear-gradient(135deg,rgba(255,255,255,0.40),transparent_55%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(6,182,212,0.18),transparent_40%),linear-gradient(135deg,rgba(255,255,255,0.03),transparent_55%)]"></div>
 				<div class="absolute right-[-2rem] top-[-2rem] h-28 w-28 rounded-full bg-cyan-400/15 blur-2xl"></div>
 
 				<div class="relative">
-					<div class="mb-4 inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-cyan-700 dark:border-cyan-400/20 dark:bg-cyan-400/10 dark:text-cyan-300">
-						<span class="h-2 w-2 rounded-full bg-cyan-500"></span>
-						Dashboard
+					<div class="mb-4 inline-flex max-w-full items-center gap-2 rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-cyan-700 dark:border-cyan-400/20 dark:bg-cyan-400/10 dark:text-cyan-300">
+						<span class="h-2 w-2 shrink-0 rounded-full bg-cyan-500"></span>
+						<span class="truncate">Dashboard</span>
 					</div>
 
-					<h2 class="text-xl font-semibold tracking-[-0.04em] text-zinc-950 dark:text-white">
+					<h2 class="break-words text-xl font-semibold tracking-[-0.04em] text-zinc-950 dark:text-white">
 						Désappairer un serveur
 					</h2>
 
-					<p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-400">
+					<p class="mt-3 break-words text-sm leading-7 text-zinc-600 dark:text-zinc-400">
 						Le bouton <span class="font-semibold text-zinc-900 dark:text-zinc-100">Désappairer</span> retire le serveur de cette interface et coupe son association avec ton compte, sans forcément supprimer les fichiers présents sur la machine.
 					</p>
 
@@ -224,11 +224,11 @@
 							<div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-cyan-600 shadow-[0_10px_24px_rgba(6,182,212,0.18)] dark:bg-white/10 dark:text-cyan-300">
 								✦
 							</div>
-							<div>
+							<div class="min-w-0">
 								<p class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
 									À retenir
 								</p>
-								<p class="mt-1 text-sm leading-6 text-zinc-600 dark:text-zinc-400">
+								<p class="mt-1 break-words text-sm leading-6 text-zinc-600 dark:text-zinc-400">
 									Désappairer agit sur le lien entre le dashboard et le serveur. Cela ne constitue pas une désinstallation complète de l’agent côté machine.
 								</p>
 							</div>
@@ -237,21 +237,21 @@
 				</div>
 			</div>
 
-			<div class="group relative overflow-hidden rounded-[34px] border border-black/5 bg-white/80 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.10)] backdrop-blur transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_32px_90px_rgba(15,23,42,0.14)] dark:border-white/10 dark:bg-white/[0.05] dark:shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
+			<div class="group relative overflow-hidden border-y border-black/5 bg-white/80 px-4 py-6 backdrop-blur transition-all duration-300 dark:border-white/10 dark:bg-white/[0.05] sm:rounded-[34px] sm:border sm:p-6 sm:shadow-[0_24px_70px_rgba(15,23,42,0.10)] sm:hover:-translate-y-1 sm:hover:shadow-[0_32px_90px_rgba(15,23,42,0.14)] dark:sm:shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
 				<div class="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(249,115,22,0.18),transparent_38%),linear-gradient(135deg,rgba(255,255,255,0.40),transparent_55%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(249,115,22,0.16),transparent_38%),linear-gradient(135deg,rgba(255,255,255,0.03),transparent_55%)]"></div>
 				<div class="absolute left-[-1rem] bottom-[-2rem] h-28 w-28 rounded-full bg-orange-400/15 blur-2xl"></div>
 
 				<div class="relative">
-					<div class="mb-4 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-700 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-300">
-						<span class="h-2 w-2 rounded-full bg-amber-500"></span>
-						Suppression complète
+					<div class="mb-4 inline-flex max-w-full items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-700 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-300">
+						<span class="h-2 w-2 shrink-0 rounded-full bg-amber-500"></span>
+						<span class="truncate">Suppression complète</span>
 					</div>
 
-					<h2 class="text-xl font-semibold tracking-[-0.04em] text-zinc-950 dark:text-white">
+					<h2 class="break-words text-xl font-semibold tracking-[-0.04em] text-zinc-950 dark:text-white">
 						Retirer totalement l’agent du serveur
 					</h2>
 
-					<p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-400">
+					<p class="mt-3 break-words text-sm leading-7 text-zinc-600 dark:text-zinc-400">
 						Si tu veux supprimer le service systemd, les fichiers de l’agent et le dossier d’installation sur le serveur cible, exécute cette commande directement sur la machine concernée.
 					</p>
 
@@ -298,10 +298,10 @@
 				{#each servers as server}
 					{@const badge = connectionBadgeFor(server)}
 
-					<article class="group overflow-hidden rounded-[30px] border border-black/5 bg-white/75 shadow-[0_18px_48px_rgba(15,23,42,0.08)] ring-1 ring-inset ring-black/[0.03] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_24px_60px_rgba(15,23,42,0.12)] dark:border-white/10 dark:bg-white/[0.045] dark:ring-white/[0.04] dark:shadow-[0_18px_48px_rgba(0,0,0,0.24)]">
+					<article class="group overflow-hidden border-y border-black/5 bg-white/75 transition-all duration-200 dark:border-white/10 dark:bg-white/[0.045] sm:rounded-[30px] sm:border sm:ring-1 sm:ring-inset sm:ring-black/[0.03] sm:shadow-[0_18px_48px_rgba(15,23,42,0.08)] sm:hover:-translate-y-1 sm:hover:shadow-[0_24px_60px_rgba(15,23,42,0.12)] dark:sm:ring-white/[0.04] dark:sm:shadow-[0_18px_48px_rgba(0,0,0,0.24)]">
 						<div class="h-1.5 bg-[linear-gradient(90deg,#06b6d4,#2563eb,#8b5cf6)]"></div>
 
-						<div class="p-5">
+						<div class="px-4 py-5 sm:p-5">
 							<div class="mb-5 flex items-start justify-between gap-3">
 								<div class="min-w-0">
 									<h2 class="truncate text-[1.1rem] font-semibold tracking-[-0.03em] text-zinc-950 dark:text-white">
@@ -378,7 +378,7 @@
 				{/each}
 			</div>
 		{:else}
-			<div class="rounded-[30px] border border-dashed border-black/10 bg-white/70 px-6 py-14 text-center dark:border-white/10 dark:bg-white/[0.03]">
+			<div class="border-y border-dashed border-black/10 bg-white/70 px-4 py-14 text-center dark:border-white/10 dark:bg-white/[0.03] sm:rounded-[30px] sm:border sm:px-6">
 				<h3 class="text-xl font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50">
 					Aucun serveur
 				</h3>

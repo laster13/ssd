@@ -1,6 +1,11 @@
 import type { DocsNavGroup, Tutorial } from './types';
+import { introductionPrerequisSsdv2 } from './install_ssdv2';
+import { prerequisNomDomaineCloudflareSsdv2 } from './install_ssdv2.0';
+import { configurationInitialeSshUtilisateurNonRootSsdv2 } from './install_ssdv2.1';
+import { lancementScriptConfigurationSsdv2 } from './install_ssdv2.2';
 import { configurationStreamFusion } from './configuration-streamfusion';
 import { googleOAuth2TraefikSsdv2 } from './google-oauth2-traefik-ssdv2';
+
 
 export type {
   Tutorial,
@@ -23,6 +28,10 @@ export type {
 } from './types';
 
 export const tutorials: Tutorial[] = [
+  introductionPrerequisSsdv2,
+  prerequisNomDomaineCloudflareSsdv2,
+  configurationInitialeSshUtilisateurNonRootSsdv2,
+  lancementScriptConfigurationSsdv2,
   configurationStreamFusion,
   googleOAuth2TraefikSsdv2
 ];

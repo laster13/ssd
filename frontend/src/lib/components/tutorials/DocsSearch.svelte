@@ -82,7 +82,7 @@
 							href={`/tutos/${tutorial.slug}`}
 							class="group block rounded-xl px-3 py-3 transition hover:bg-white dark:hover:bg-zinc-900"
 						>
-							<div class="flex items-start justify-between gap-3">
+							<div class="flex min-w-0 items-start justify-between gap-3">
 								<div class="min-w-0">
 									<p class="truncate text-sm font-semibold text-zinc-900 group-hover:text-sky-700 dark:text-zinc-100 dark:group-hover:text-sky-300">
 										{tutorial.title}
@@ -96,14 +96,14 @@
 
 									<div class="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
 										{#if tutorial.category}
-											<span class="rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-violet-700 dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-300">
-												{tutorial.category}
+											<span class="inline-flex max-w-full rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-violet-700 dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-300">
+												<span class="truncate">{tutorial.category}</span>
 											</span>
 										{/if}
 
 										{#if tutorial.level}
-											<span class="rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-sky-700 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-300">
-												{tutorial.level}
+											<span class="inline-flex max-w-full rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-sky-700 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-300">
+												<span class="truncate">{tutorial.level}</span>
 											</span>
 										{/if}
 									</div>

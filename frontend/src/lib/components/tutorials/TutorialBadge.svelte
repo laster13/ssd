@@ -88,7 +88,7 @@
 </script>
 
 <span
-	class={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${getClass(text, variant)}`}
+	class={`inline-flex max-w-full items-center rounded-full px-3 py-1 text-xs font-semibold ${getClass(text, variant)}`}
 >
-	{text}
+	<span class="truncate">{text}</span>
 </span>
