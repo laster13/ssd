@@ -2,3 +2,53 @@
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
+
+.forum-markdown pre {
+	overflow-x: auto;
+	border-radius: 1rem;
+	padding: 1rem;
+	background: rgba(24, 24, 27, 0.95);
+	color: white;
+}
+
+.forum-markdown code {
+	border-radius: 0.4rem;
+	padding: 0.15rem 0.4rem;
+	font-size: 0.9em;
+}
+
+.forum-markdown pre code {
+	padding: 0;
+	background: transparent;
+	color: inherit;
+}
+
+.forum-markdown blockquote {
+	border-left: 4px solid rgba(113, 113, 122, 0.35);
+	padding-left: 1rem;
+	font-style: italic;
+	opacity: 0.95;
+}
+
+.forum-markdown img {
+	border-radius: 1rem;
+}
+
+.forum-markdown a {
+	text-decoration: underline;
+	text-underline-offset: 4px;
+}
+
+.forum-markdown table {
+	display: block;
+	overflow-x: auto;
+	border-collapse: collapse;
+	width: 100%;
+}
+
+.forum-markdown th,
+.forum-markdown td {
+	border: 1px solid rgba(113, 113, 122, 0.25);
+	padding: 0.65rem 0.8rem;
+	text-align: left;
+}

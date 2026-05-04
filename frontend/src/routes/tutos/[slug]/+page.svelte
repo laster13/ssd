@@ -13,22 +13,37 @@
   import TutorialDiagramCard from '$lib/components/tutorials/TutorialDiagramCard.svelte';
   import TutorialTabs from '$lib/components/tutorials/TutorialTabs.svelte';
   import TutorialAccordion from '$lib/components/tutorials/TutorialAccordion.svelte';
+  import TutorialDiscussion from '$lib/components/forum/TutorialDiscussion.svelte';
   import { getTutorialTheme } from '$lib/utils/tutorial-theme';
   import type { DocsNavGroup, TocItem, Tutorial } from '$lib/data/tutorials';
+  import type { ForumTopicListItem } from '$lib/types/forum';
 
   let {
-    data
+    data,
+    form
   }: {
     data: {
       tutorial: Tutorial;
       docsNavGroups: DocsNavGroup[];
       toc: TocItem[];
+      forumTopics: ForumTopicListItem[];
+      user: { email: string } | null;
+      csrfToken: string;
     };
+    form?: {
+      createTopicError?: string;
+      createTopicSuccess?: boolean;
+      title?: string;
+      content?: string;
+    } | null;
   } = $props();
 
   const tutorial = $derived(data.tutorial);
   const docsNavGroups = $derived(data.docsNavGroups);
   const toc = $derived(data.toc);
+  const forumTopics = $derived(data.forumTopics ?? []);
+  const user = $derived(data.user ?? null);
+  const csrfToken = $derived(data.csrfToken);
   const theme = $derived(getTutorialTheme(tutorial.category));
 
   let showMobileDocs = $state(false);
@@ -307,6 +322,14 @@
           </section>
         {/if}
       </div>
+
+      <TutorialDiscussion
+        tutorial={{ slug: tutorial.slug, title: tutorial.title }}
+        topics={forumTopics}
+        {user}
+        {csrfToken}
+        {form}
+      />
     </div>
 
     <div class="hidden xl:block">

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ThemeToggle from '$lib/components/common/ThemeToggle.svelte';
+	import NotificationBell from '$lib/components/navigation/NotificationBell.svelte';
 
 	type User = {
 		email?: string;
@@ -9,11 +10,13 @@
 	let {
 		user,
 		csrfToken,
-		pathname = '/'
+		pathname = '/',
+		unreadNotifications = 0
 	}: {
 		user?: User | null;
 		csrfToken?: string;
 		pathname?: string;
+		unreadNotifications?: number;
 	} = $props();
 
 	let mobileMenuOpen = $state(false);
@@ -154,6 +157,8 @@
 			<ThemeToggle />
 
 			{#if user}
+				<NotificationBell count={unreadNotifications} className="hidden sm:inline-flex" />
+
 				<div class="relative hidden sm:block">
 					<button
 						type="button"
@@ -193,6 +198,20 @@
 							</div>
 
 							<a
+								href="/notifications"
+								onclick={() => (userMenuOpen = false)}
+								class="flex items-center justify-between rounded-[16px] px-3 py-3 text-sm font-medium text-zinc-700 transition hover:bg-black/[0.04] hover:text-zinc-950 dark:text-zinc-300 dark:hover:bg-white/[0.05] dark:hover:text-white"
+							>
+								<span>Notifications</span>
+
+								{#if unreadNotifications > 0}
+									<span class="inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-semibold leading-none text-white">
+										{unreadNotifications > 99 ? '99+' : unreadNotifications}
+									</span>
+								{/if}
+							</a>
+
+							<a
 								href="/settings/security"
 								onclick={() => (userMenuOpen = false)}
 								class="flex items-center rounded-[16px] px-3 py-3 text-sm font-medium text-zinc-700 transition hover:bg-black/[0.04] hover:text-zinc-950 dark:text-zinc-300 dark:hover:bg-white/[0.05] dark:hover:text-white"
@@ -225,15 +244,19 @@
 					{/if}
 				</div>
 
-				<form method="POST" action="/logout" class="m-0 sm:hidden">
-					<input type="hidden" name="_csrf" value={csrfToken} />
-					<button
-						type="submit"
-						class="inline-flex items-center rounded-[16px] border border-black/8 bg-white/70 px-4 py-2.5 text-[12px] font-semibold uppercase tracking-[0.1em] text-zinc-900 shadow-[0_8px_24px_rgba(15,23,42,0.05),inset_0_1px_0_rgba(255,255,255,0.8)] transition-all duration-300 hover:-translate-y-0.5 hover:border-black/12 hover:bg-white dark:border-white/10 dark:bg-white/[0.05] dark:text-white"
-					>
-						Logout
-					</button>
-				</form>
+				<div class="flex items-center gap-2 sm:hidden">
+					<NotificationBell count={unreadNotifications} />
+
+					<form method="POST" action="/logout" class="m-0">
+						<input type="hidden" name="_csrf" value={csrfToken} />
+						<button
+							type="submit"
+							class="inline-flex items-center rounded-[16px] border border-black/8 bg-white/70 px-4 py-2.5 text-[12px] font-semibold uppercase tracking-[0.1em] text-zinc-900 shadow-[0_8px_24px_rgba(15,23,42,0.05),inset_0_1px_0_rgba(255,255,255,0.8)] transition-all duration-300 hover:-translate-y-0.5 hover:border-black/12 hover:bg-white dark:border-white/10 dark:bg-white/[0.05] dark:text-white"
+						>
+							Logout
+						</button>
+					</form>
+				</div>
 			{:else}
 				<div class="flex items-center gap-2">
 					<a
@@ -282,6 +305,26 @@
 					{/each}
 
 					{#if user}
+						<a
+							href="/notifications"
+							onclick={() => (mobileMenuOpen = false)}
+							class={`rounded-[18px] px-4 py-3 text-sm font-semibold transition ${
+								isActive('/notifications')
+									? 'border border-black/8 bg-black/[0.05] text-zinc-950 dark:border-white/15 dark:bg-white/[0.10] dark:text-white'
+									: 'text-zinc-700 hover:bg-black/[0.04] hover:text-zinc-950 dark:text-zinc-300 dark:hover:bg-white/[0.05] dark:hover:text-white'
+							}`}
+						>
+							<div class="flex items-center justify-between gap-3">
+								<span>Notifications</span>
+
+								{#if unreadNotifications > 0}
+									<span class="inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-semibold leading-none text-white">
+										{unreadNotifications > 99 ? '99+' : unreadNotifications}
+									</span>
+								{/if}
+							</div>
+						</a>
+
 						<a
 							href="/settings/security"
 							onclick={() => (mobileMenuOpen = false)}

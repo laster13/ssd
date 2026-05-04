@@ -15,6 +15,7 @@
 			user={data.user}
 			csrfToken={data.csrfToken}
 			pathname={data.pathname ?? '/'}
+			unreadNotifications={data.unreadNotifications ?? 0}
 		/>
 	{/if}
 
