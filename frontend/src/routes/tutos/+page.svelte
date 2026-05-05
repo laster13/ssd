@@ -31,6 +31,14 @@
 				← Retour à l’accueil
 			</a>
 
+			<a
+				href="/forum"
+				class="flex w-full min-w-0 items-center justify-between rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm font-semibold text-violet-700 shadow-sm transition hover:border-violet-300 hover:bg-violet-100 dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-300 dark:hover:border-violet-500/30 dark:hover:bg-violet-500/15"
+			>
+				<span class="truncate">Espace de discussion</span>
+				<span aria-hidden="true">→</span>
+			</a>
+
 			<div class="min-w-0 rounded-3xl border border-zinc-200 bg-white p-2 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
 				<DocsSearch tutorials={data.tutorials} />
 			</div>
@@ -129,61 +137,61 @@
 										</div>
 									</div>
 
-                                                                        <div class="mt-4 overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                                                                        	{#each category.items as item, index}
-                                                                        		{@const tutorial = data.tutorials.find((t) => t.slug === item.slug)}
-                                                                        		{#if tutorial}
-                                                                        			<a
-                                                                        				href={`/tutos/${tutorial.slug}`}
-                                                                        				class="group block min-w-0 px-4 py-4 transition hover:bg-zinc-50 dark:hover:bg-zinc-800/50 sm:px-5"
-                                                                        			>
-                                                                        				<div class="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-                                                                        					<div class="min-w-0 flex-1">
-                                                                        						<div class="flex min-w-0 flex-wrap items-center gap-2">
-                                                                        							<TutorialBadge text={tutorial.level} variant="level" />
-                                                                        							<TutorialBadge text={tutorial.category} variant="category" />
-                                                                        						</div>
+									<div class="mt-4 overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+										{#each category.items as item, index}
+											{@const tutorial = data.tutorials.find((t) => t.slug === item.slug)}
+											{#if tutorial}
+												<a
+													href={`/tutos/${tutorial.slug}`}
+													class="group block min-w-0 px-4 py-4 transition hover:bg-zinc-50 dark:hover:bg-zinc-800/50 sm:px-5"
+												>
+													<div class="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+														<div class="min-w-0 flex-1">
+															<div class="flex min-w-0 flex-wrap items-center gap-2">
+																<TutorialBadge text={tutorial.level} variant="level" />
+																<TutorialBadge text={tutorial.category} variant="category" />
+															</div>
 
-                                                                        						<div class="mt-3 flex min-w-0 items-start gap-3">
-                                                                        							<div class="mt-1 hidden h-2.5 w-2.5 shrink-0 rounded-full bg-gradient-to-br from-sky-500 to-violet-500 sm:block"></div>
+															<div class="mt-3 flex min-w-0 items-start gap-3">
+																<div class="mt-1 hidden h-2.5 w-2.5 shrink-0 rounded-full bg-gradient-to-br from-sky-500 to-violet-500 sm:block"></div>
 
-                                                                        							<div class="min-w-0">
-                                                                        								<h4 class="break-words text-base font-semibold tracking-tight text-zinc-900 transition-colors group-hover:text-sky-700 dark:text-zinc-100 dark:group-hover:text-sky-300 sm:text-lg">
-                                                                        									{tutorial.title}
-                                                                        								</h4>
+																<div class="min-w-0">
+																	<h4 class="break-words text-base font-semibold tracking-tight text-zinc-900 transition-colors group-hover:text-sky-700 dark:text-zinc-100 dark:group-hover:text-sky-300 sm:text-lg">
+																		{tutorial.title}
+																	</h4>
 
-                                                                        								<p class="mt-1 line-clamp-2 break-words text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-                                                                        									{tutorial.description}
-                                                                        								</p>
-                                                                        							</div>
-                                                                        						</div>
-                                                                        					</div>
+																	<p class="mt-1 line-clamp-2 break-words text-sm leading-6 text-zinc-600 dark:text-zinc-300">
+																		{tutorial.description}
+																	</p>
+																</div>
+															</div>
+														</div>
 
-                                                                        					<div class="flex min-w-0 flex-wrap items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400 xl:ml-6 xl:shrink-0 xl:justify-end">
-                                                                        						<span class="inline-flex items-center rounded-full bg-zinc-100 px-2.5 py-1 dark:bg-zinc-800">
-                                                                        							{tutorial.duration}
-                                                                        						</span>
+														<div class="flex min-w-0 flex-wrap items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400 xl:ml-6 xl:shrink-0 xl:justify-end">
+															<span class="inline-flex items-center rounded-full bg-zinc-100 px-2.5 py-1 dark:bg-zinc-800">
+																{tutorial.duration}
+															</span>
 
-                                                                        						<span class="inline-flex items-center rounded-full bg-zinc-100 px-2.5 py-1 dark:bg-zinc-800">
-                                                                        							{tutorial.steps.length} étapes
-                                                                        						</span>
+															<span class="inline-flex items-center rounded-full bg-zinc-100 px-2.5 py-1 dark:bg-zinc-800">
+																{tutorial.steps.length} étapes
+															</span>
 
-                                                                        						<span
-                                                                        							class="inline-flex items-center gap-2 font-medium text-sky-700 transition-transform duration-200 group-hover:translate-x-0.5 dark:text-sky-300"
-                                                                        						>
-                                                                        							Ouvrir
-                                                                        							<span aria-hidden="true">→</span>
-                                                                        						</span>
-                                                                        					</div>
-                                                                        				</div>
-                                                                        			</a>
+															<span
+																class="inline-flex items-center gap-2 font-medium text-sky-700 transition-transform duration-200 group-hover:translate-x-0.5 dark:text-sky-300"
+															>
+																Ouvrir
+																<span aria-hidden="true">→</span>
+															</span>
+														</div>
+													</div>
+												</a>
 
-                                                                        			{#if index < category.items.length - 1}
-                                                                        				<div class="mx-4 border-t border-zinc-200 dark:border-zinc-800 sm:mx-5"></div>
-                                                                        			{/if}
-                                                                        		{/if}
-                                                                        	{/each}
-                                                                        </div>
+												{#if index < category.items.length - 1}
+													<div class="mx-4 border-t border-zinc-200 dark:border-zinc-800 sm:mx-5"></div>
+												{/if}
+											{/if}
+										{/each}
+									</div>
 								</div>
 							{/each}
 						</div>
@@ -235,13 +243,21 @@
 
 <div class="fixed inset-x-0 bottom-0 z-30 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
 	<div class="mx-auto max-w-sm rounded-[1.5rem] border border-zinc-200/70 bg-white/80 p-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.10)] backdrop-blur-xl dark:border-zinc-800/70 dark:bg-zinc-900/80">
-		<div class="grid grid-cols-2 gap-1.5">
+		<div class="grid grid-cols-3 gap-1.5">
 			<a
 				href="/"
 				class="inline-flex items-center justify-center gap-2 rounded-[1.1rem] px-3 py-2.5 text-sm font-medium text-zinc-600 transition hover:bg-zinc-100/80 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800/80 dark:hover:text-zinc-100"
 			>
 				<span class="text-base leading-none">⌂</span>
 				<span>Accueil</span>
+			</a>
+
+			<a
+				href="/forum"
+				class="inline-flex items-center justify-center gap-2 rounded-[1.1rem] px-3 py-2.5 text-sm font-medium text-zinc-600 transition hover:bg-zinc-100/80 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800/80 dark:hover:text-zinc-100"
+			>
+				<span class="text-base leading-none">💬</span>
+				<span>Discussion</span>
 			</a>
 
 			<button

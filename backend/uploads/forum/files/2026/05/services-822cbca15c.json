@@ -1,0 +1,684 @@
+{
+  "items": [
+    {
+      "id": 0,
+      "label": "actualbudget"
+    },
+    {
+      "id": 1,
+      "label": "airdcpp"
+    },
+    {
+      "id": 2,
+      "label": "alfred"
+    },
+    {
+      "id": 3,
+      "label": "authelia"
+    },
+    {
+      "id": 4,
+      "label": "autoindex"
+    },
+    {
+      "id": 5,
+      "label": "baikal"
+    },
+    {
+      "id": 6,
+      "label": "bazarr"
+    },
+    {
+      "id": 7,
+      "label": "benphelps"
+    },
+    {
+      "id": 8,
+      "label": "bitwarden"
+    },
+    {
+      "id": 9,
+      "label": "bookstack"
+    },
+    {
+      "id": 10,
+      "label": "cadvisor"
+    },
+    {
+      "id": 11,
+      "label": "calibre"
+    },
+    {
+      "id": 12,
+      "label": "calibreweb"
+    },
+    {
+      "id": 13,
+      "label": "changedetection"
+    },
+    {
+      "id": 14,
+      "label": "chevereto"
+    },
+    {
+      "id": 15,
+      "label": "cloudcmd"
+    },
+    {
+      "id": 16,
+      "label": "codif"
+    },
+    {
+      "id": 17,
+      "label": "cops"
+    },
+    {
+      "id": 18,
+      "label": "cypht"
+    },
+    {
+      "id": 19,
+      "label": "decypharr"
+    },
+    {
+      "id": 20,
+      "label": "dashdot"
+    },
+    {
+      "id": 21,
+      "label": "davos"
+    },
+    {
+      "id": 22,
+      "label": "deemixrr"
+    },
+    {
+      "id": 23,
+      "label": "deluge"
+    },
+    {
+      "id": 24,
+      "label": "digikam"
+    },
+    {
+      "id": 25,
+      "label": "dozzle"
+    },
+    {
+      "id": 26,
+      "label": "duplicati"
+    },
+    {
+      "id": 27,
+      "label": "espocrm"
+    },
+    {
+      "id": 28,
+      "label": "emby"
+    },
+    {
+      "id": 29,
+      "label": "fenrus"
+    },
+    {
+      "id": 30,
+      "label": "filebot"
+    },
+    {
+      "id": 31,
+      "label": "filebrowser"
+    },
+    {
+      "id": 32,
+      "label": "filerun"
+    },
+    {
+      "id": 33,
+      "label": "firefox"
+    },
+    {
+      "id": 34,
+      "label": "firefoxsyncserver"
+    },
+    {
+      "id": 35,
+      "label": "foptimum"
+    },
+    {
+      "id": 36,
+      "label": "freshrss"
+    },
+    {
+      "id": 37,
+      "label": "gethomepage"
+    },
+    {
+      "id": 38,
+      "label": "gitea"
+    },
+    {
+      "id": 39,
+      "label": "gitlab"
+    },
+    {
+      "id": 40,
+      "label": "glftpd"
+    },
+    {
+      "id": 41,
+      "label": "goaccess"
+    },
+    {
+      "id": 42,
+      "label": "gotify"
+    },
+    {
+      "id": 43,
+      "label": "grocy"
+    },
+    {
+      "id": 44,
+      "label": "guacamole"
+    },
+    {
+      "id": 45,
+      "label": "handbrake"
+    },
+    {
+      "id": 46,
+      "label": "heimdall"
+    },
+    {
+      "id": 47,
+      "label": "homarr"
+    },
+    {
+      "id": 48,
+      "label": "imagmaid"
+    },
+    {
+      "id": 49,
+      "label": "immich"
+    },
+    {
+      "id": 50,
+      "label": "jackett"
+    },
+    {
+      "id": 51,
+      "label": "jackettstremio"
+    },
+    {
+      "id": 52,
+      "label": "jackettvpn"
+    },
+    {
+      "id": 53,
+      "label": "jdownloader"
+    },
+    {
+      "id": 54,
+      "label": "jellyseerr"
+    },
+    {
+      "id": 55,
+      "label": "jellyfin"
+    },
+    {
+      "id": 56,
+      "label": "jellygrail"
+    },
+    {
+      "id": 57,
+      "label": "jfago"
+    },
+    {
+      "id": 58,
+      "label": "jitsi"
+    },
+    {
+      "id": 59,
+      "label": "kasm"
+    },
+    {
+      "id": 60,
+      "label": "kavita"
+    },
+    {
+      "id": 61,
+      "label": "kitana"
+    },
+    {
+      "id": 62,
+      "label": "komga"
+    },
+    {
+      "id": 63,
+      "label": "kresus"
+    },
+    {
+      "id": 64,
+      "label": "kuma"
+    },
+    {
+      "id": 65,
+      "label": "librespeed"
+    },
+    {
+      "id": 66,
+      "label": "lidarr"
+    },
+    {
+      "id": 67,
+      "label": "linkding"
+    },
+    {
+      "id": 68,
+      "label": "logarr"
+    },
+    {
+      "id": 69,
+      "label": "mango"
+    },
+    {
+      "id": 70,
+      "label": "Mattermost"
+    },
+    {
+      "id": 71,
+      "label": "mealie"
+    },
+    {
+      "id": 72,
+      "label": "mediawiki"
+    },
+    {
+      "id": 73,
+      "label": "medusa"
+    },
+    {
+      "id": 74,
+      "label": "mellow"
+    },
+    {
+      "id": 75,
+      "label": "metube"
+    },
+    {
+      "id": 76,
+      "label": "microbin"
+    },
+    {
+      "id": 77,
+      "label": "minecraft"
+    },
+    {
+      "id": 78,
+      "label": "mkvtoolnix"
+    },
+    {
+      "id": 79,
+      "label": "monicaHQ"
+    },
+    {
+      "id": 80,
+      "label": "monitorr"
+    },
+    {
+      "id": 81,
+      "label": "n8nio"
+    },
+    {
+      "id": 82,
+      "label": "navidrome"
+    },
+    {
+      "id": 83,
+      "label": "netdata"
+    },
+    {
+      "id": 84,
+      "label": "nextcloud"
+    },
+    {
+      "id": 85,
+      "label": "nocodb"
+    },
+    {
+      "id": 86,
+      "label": "nowshowing"
+    },
+    {
+      "id": 87,
+      "label": "ntopng"
+    },
+    {
+      "id": 88,
+      "label": "nZBHydra"
+    },
+    {
+      "id": 89,
+      "label": "ombi"
+    },
+    {
+      "id": 90,
+      "label": "openvpn"
+    },
+    {
+      "id": 91,
+      "label": "organizr"
+    },
+    {
+      "id": 92,
+      "label": "overseerr"
+    },
+    {
+      "id": 93,
+      "label": "pastebin"
+    },
+    {
+      "id": 94,
+      "label": "paperless"
+    },
+    {
+      "id": 95,
+      "label": "petio"
+    },
+    {
+      "id": 96,
+      "label": "picapport"
+    },
+    {
+      "id": 97,
+      "label": "pingvin"
+    },
+    {
+      "id": 98,
+      "label": "piped"
+    },
+    {
+      "id": 99,
+      "label": "piwigo"
+    },
+    {
+      "id": 100,
+      "label": "plausible"
+    },
+    {
+      "id": 101,
+      "label": "plexautolanguages"
+    },
+    {
+      "id": 102,
+      "label": "plex"
+    },
+    {
+      "id": 103,
+      "label": "portainer"
+    },
+    {
+      "id": 104,
+      "label": "prowlarr"
+    },
+    {
+      "id": 105,
+      "label": "pureftpd"
+    },
+    {
+      "id": 106,
+      "label": "pyload"
+    },
+    {
+      "id": 107,
+      "label": "qbittorrent"
+    },
+    {
+      "id": 108,
+      "label": "qbitorrentvpn"
+    },
+    {
+      "id": 109,
+      "label": "qflood"
+    },
+    {
+      "id": 110,
+      "label": "radarr4k"
+    },
+    {
+      "id": 111,
+      "label": "radarr"
+    },
+    {
+      "id": 112,
+      "label": "rdtclient"
+    },
+    {
+      "id": 113,
+      "label": "readarr"
+    },
+    {
+      "id": 114,
+      "label": "recyclarr"
+    },
+    {
+      "id": 115,
+      "label": "rflood"
+    },
+    {
+      "id": 116,
+      "label": "rtorrentvpn"
+    },
+    {
+      "id": 117,
+      "label": "rutorrent_2"
+    },
+    {
+      "id": 118,
+      "label": "rutorrent_3"
+    },
+    {
+      "id": 119,
+      "label": "rutorrent_4"
+    },
+    {
+      "id": 120,
+      "label": "rutorrentcm"
+    },
+    {
+      "id": 121,
+      "label": "rutorrent"
+    },
+    {
+      "id": 122,
+      "label": "sabnzbd"
+    },
+    {
+      "id": 123,
+      "label": "scrutiny"
+    },
+    {
+      "id": 124,
+      "label": "seafile"
+    },
+    {
+      "id": 125,
+      "label": "sensorr"
+    },
+    {
+      "id": 126,
+      "label": "shaarli"
+    },
+    {
+      "id": 127,
+      "label": "sickchill"
+    },
+    {
+      "id": 128,
+      "label": "sickgear"
+    },
+    {
+      "id": 129,
+      "label": "sismicsreader"
+    },
+    {
+      "id": 130,
+      "label": "sonarr4k"
+    },
+    {
+      "id": 131,
+      "label": "sonarr"
+    },
+    {
+      "id": 132,
+      "label": "speedtest"
+    },
+    {
+      "id": 133,
+      "label": "speedtesttracker"
+    },
+    {
+      "id": 134,
+      "label": "statping"
+    },
+    {
+      "id": 135,
+      "label": "stirlingpdf"
+    },
+    {
+      "id": 136,
+      "label": "streamfusion"
+    },
+    {
+      "id": 137,
+      "label": "stremiocatalogs"
+    },
+    {
+      "id": 138,
+      "label": "stremiotrakt"
+    },
+    {
+      "id": 139,
+      "label": "stremiosaga"
+    },
+    {
+      "id": 140,
+      "label": "stremiotmdbdice"
+    },
+    {
+      "id": 141,
+      "label": "stremiomanager"
+    },
+    {
+      "id": 142,
+      "label": "subsonic"
+    },
+    {
+      "id": 143,
+      "label": "synclounge"
+    },
+    {
+      "id": 144,
+      "label": "syncthing"
+    },
+    {
+      "id": 145,
+      "label": "tautulli"
+    },
+    {
+      "id": 146,
+      "label": "thelounge"
+    },
+    {
+      "id": 147,
+      "label": "transmission"
+    },
+    {
+      "id": 148,
+      "label": "transmissionvpn"
+    },
+    {
+      "id": 149,
+      "label": "ttrss"
+    },
+    {
+      "id": 150,
+      "label": "ubooquity"
+    },
+    {
+      "id": 151,
+      "label": "usenet"
+    },
+    {
+      "id": 152,
+      "label": "varken"
+    },
+    {
+      "id": 153,
+      "label": "vaultwarden"
+    },
+    {
+      "id": 154,
+      "label": "vikunja"
+    },
+    {
+      "id": 155,
+      "label": "wallos"
+    },
+    {
+      "id": 156,
+      "label": "webdav"
+    },
+    {
+      "id": 157,
+      "label": "webtop"
+    },
+    {
+      "id": 158,
+      "label": "wetty"
+    },
+    {
+      "id": 159,
+      "label": "wgeasy"
+    },
+    {
+      "id": 160,
+      "label": "whisparr"
+    },
+    {
+      "id": 161,
+      "label": "wikijs"
+    },
+    {
+      "id": 162,
+      "label": "wireguardui"
+    },
+    {
+      "id": 163,
+      "label": "wireguard"
+    },
+    {
+      "id": 164,
+      "label": "wizarr"
+    },
+    {
+      "id": 165,
+      "label": "wordpress"
+    },
+    {
+      "id": 166,
+      "label": "xteve"
+    },
+    {
+      "id": 167,
+      "label": "yacht"
+    },
+    {
+      "id": 168,
+      "label": "yourls"
+    },
+    {
+      "id": 169,
+      "label": "zilean"
+    }
+  ]
+}

@@ -15,6 +15,19 @@
 		</p>
 	</div>
 
+	<a
+		href="/forum"
+		class="group flex min-w-0 items-center justify-between rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm font-semibold text-violet-700 transition hover:border-violet-300 hover:bg-violet-100 dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-300 dark:hover:border-violet-500/30 dark:hover:bg-violet-500/15"
+	>
+		<span class="min-w-0 truncate">Espace de discussion</span>
+		<span
+			class="ml-3 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5"
+			aria-hidden="true"
+		>
+			→
+		</span>
+	</a>
+
 	{#each groups as group}
 		<section class="rounded-2xl border border-zinc-200 bg-zinc-50/80 p-3 dark:border-zinc-800 dark:bg-zinc-950/40">
 			<h2

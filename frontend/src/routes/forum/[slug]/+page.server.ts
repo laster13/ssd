@@ -1,10 +1,49 @@
-import { fail, redirect } from '@sveltejs/kit';
+import { error as svelteError, fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { apiFetch, apiFetchWithAuth } from '$lib/server/api';
 import { validateCsrf } from '$lib/server/security';
 import type { ForumTopic, ForumTopicListItem } from '$lib/types/forum';
 
-export const load: PageServerLoad = async ({ params, url }) => {
+async function getApiErrorMessage(response: Response, fallback: string): Promise<string> {
+	try {
+		const payload = await response.json();
+
+		if (typeof payload?.detail === 'string' && payload.detail.trim()) {
+			return payload.detail.trim();
+		}
+
+		if (Array.isArray(payload?.detail)) {
+			const messages = payload.detail
+				.map((item: unknown) => {
+					if (typeof item === 'string') return item.trim();
+
+					if (
+						item &&
+						typeof item === 'object' &&
+						'msg' in item &&
+						typeof (item as { msg?: unknown }).msg === 'string'
+					) {
+						return (item as { msg: string }).msg.trim();
+					}
+
+					return '';
+				})
+				.filter(Boolean);
+
+			if (messages.length > 0) {
+				return messages.join(' · ');
+			}
+		}
+	} catch {
+		// noop
+	}
+
+	return fallback;
+}
+
+export const load: PageServerLoad = async ({ params, url, cookies }) => {
+
+        const csrfToken = cookies.get('csrf_token') ?? '';
 	const postsSort = url.searchParams.get('posts_sort')?.trim() || 'oldest';
 
 	const response = await apiFetch(
@@ -12,12 +51,13 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	);
 
 	if (!response.ok) {
-		throw redirect(303, '/forum');
+		const message = await getApiErrorMessage(response, 'Impossible de charger le sujet.');
+		throw svelteError(response.status, message);
 	}
 
 	const topic: ForumTopic = await response.json();
-
 	let relatedTopics: ForumTopicListItem[] = [];
+
 	if (topic.related_tutorial_slug) {
 		const relatedResponse = await apiFetch(
 			`/forum/topics?related_tutorial_slug=${encodeURIComponent(topic.related_tutorial_slug)}&sort=active&limit=5`
@@ -32,7 +72,8 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	return {
 		topic,
 		relatedTopics,
-		postsSort
+		postsSort,
+	        csrfToken
 	};
 };
 
@@ -78,15 +119,10 @@ export const actions: Actions = {
 		});
 
 		if (!response.ok) {
-			let replyError = 'Impossible d’ajouter la réponse.';
-			try {
-				const payload = await response.json();
-				if (typeof payload?.detail === 'string' && payload.detail.trim()) {
-					replyError = payload.detail.trim();
-				}
-			} catch {
-				// noop
-			}
+			const replyError = await getApiErrorMessage(
+				response,
+				'Impossible d’ajouter la réponse.'
+			);
 
 			return fail(response.status, {
 				replyError,
@@ -126,15 +162,11 @@ export const actions: Actions = {
 		});
 
 		if (!response.ok) {
-			let replyError = 'Impossible de marquer cette réponse comme solution.';
-			try {
-				const payload = await response.json();
-				if (typeof payload?.detail === 'string' && payload.detail.trim()) {
-					replyError = payload.detail.trim();
-				}
-			} catch {
-				// noop
-			}
+			const replyError = await getApiErrorMessage(
+				response,
+				'Impossible de marquer cette réponse comme solution.'
+			);
+
 			return fail(response.status, { replyError });
 		}
 
@@ -162,15 +194,11 @@ export const actions: Actions = {
 		});
 
 		if (!response.ok) {
-			let replyError = 'Impossible de voter pour cette réponse.';
-			try {
-				const payload = await response.json();
-				if (typeof payload?.detail === 'string' && payload.detail.trim()) {
-					replyError = payload.detail.trim();
-				}
-			} catch {
-				// noop
-			}
+			const replyError = await getApiErrorMessage(
+				response,
+				'Impossible de voter pour cette réponse.'
+			);
+
 			return fail(response.status, { replyError });
 		}
 
@@ -204,15 +232,11 @@ export const actions: Actions = {
 		});
 
 		if (!response.ok) {
-			let replyError = 'Impossible de signaler ce message.';
-			try {
-				const payload = await response.json();
-				if (typeof payload?.detail === 'string' && payload.detail.trim()) {
-					replyError = payload.detail.trim();
-				}
-			} catch {
-				// noop
-			}
+			const replyError = await getApiErrorMessage(
+				response,
+				'Impossible de signaler ce message.'
+			);
+
 			return fail(response.status, { replyError });
 		}
 
@@ -242,15 +266,11 @@ export const actions: Actions = {
 		});
 
 		if (!response.ok) {
-			let replyError = 'Impossible de modifier cette réponse.';
-			try {
-				const payload = await response.json();
-				if (typeof payload?.detail === 'string' && payload.detail.trim()) {
-					replyError = payload.detail.trim();
-				}
-			} catch {
-				// noop
-			}
+			const replyError = await getApiErrorMessage(
+				response,
+				'Impossible de modifier cette réponse.'
+			);
+
 			return fail(response.status, { replyError });
 		}
 
@@ -278,15 +298,11 @@ export const actions: Actions = {
 		});
 
 		if (!response.ok) {
-			let replyError = 'Impossible de supprimer cette réponse.';
-			try {
-				const payload = await response.json();
-				if (typeof payload?.detail === 'string' && payload.detail.trim()) {
-					replyError = payload.detail.trim();
-				}
-			} catch {
-				// noop
-			}
+			const replyError = await getApiErrorMessage(
+				response,
+				'Impossible de supprimer cette réponse.'
+			);
+
 			return fail(response.status, { replyError });
 		}
 
@@ -322,15 +338,11 @@ export const actions: Actions = {
 		});
 
 		if (!response.ok) {
-			let topicError = 'Impossible de modifier le sujet.';
-			try {
-				const payload = await response.json();
-				if (typeof payload?.detail === 'string' && payload.detail.trim()) {
-					topicError = payload.detail.trim();
-				}
-			} catch {
-				// noop
-			}
+			const topicError = await getApiErrorMessage(
+				response,
+				'Impossible de modifier le sujet.'
+			);
+
 			return fail(response.status, { topicError });
 		}
 
@@ -359,15 +371,11 @@ export const actions: Actions = {
 		});
 
 		if (!response.ok) {
-			let topicError = 'Impossible de supprimer le sujet.';
-			try {
-				const payload = await response.json();
-				if (typeof payload?.detail === 'string' && payload.detail.trim()) {
-					topicError = payload.detail.trim();
-				}
-			} catch {
-				// noop
-			}
+			const topicError = await getApiErrorMessage(
+				response,
+				'Impossible de supprimer le sujet.'
+			);
+
 			return fail(response.status, { topicError });
 		}
 
@@ -376,7 +384,9 @@ export const actions: Actions = {
 
 	pinTopic: async ({ request, cookies, url, locals, params }) => {
 		if (!locals.user || !locals.token) {
-			return fail(401, { topicError: 'Connexion requise.' });
+			return fail(401, {
+				topicError: 'Connexion requise.'
+			});
 		}
 
 		const formData = await validateCsrf({
@@ -393,13 +403,11 @@ export const actions: Actions = {
 		});
 
 		if (!response.ok) {
-			let topicError = 'Impossible d’épingler le sujet.';
-			try {
-				const payload = await response.json();
-				if (typeof payload?.detail === 'string' && payload.detail.trim()) topicError = payload.detail.trim();
-			} catch {
-				// noop
-			}
+			const topicError = await getApiErrorMessage(
+				response,
+				'Impossible d’épingler le sujet.'
+			);
+
 			return fail(response.status, { topicError });
 		}
 
@@ -408,7 +416,9 @@ export const actions: Actions = {
 
 	unpinTopic: async ({ request, cookies, url, locals, params }) => {
 		if (!locals.user || !locals.token) {
-			return fail(401, { topicError: 'Connexion requise.' });
+			return fail(401, {
+				topicError: 'Connexion requise.'
+			});
 		}
 
 		const formData = await validateCsrf({
@@ -425,13 +435,75 @@ export const actions: Actions = {
 		});
 
 		if (!response.ok) {
-			let topicError = 'Impossible de désépingler le sujet.';
-			try {
-				const payload = await response.json();
-				if (typeof payload?.detail === 'string' && payload.detail.trim()) topicError = payload.detail.trim();
-			} catch {
-				// noop
-			}
+			const topicError = await getApiErrorMessage(
+				response,
+				'Impossible de désépingler le sujet.'
+			);
+
+			return fail(response.status, { topicError });
+		}
+
+		throw redirect(303, `/forum/${params.slug}`);
+	},
+
+	lockTopic: async ({ request, cookies, url, locals, params }) => {
+		if (!locals.user || !locals.token) {
+			return fail(401, {
+				topicError: 'Connexion requise.'
+			});
+		}
+
+		const formData = await validateCsrf({
+			request,
+			cookies,
+			url,
+			sessionToken: locals.token
+		});
+
+		const topic_id = String(formData.get('topic_id') ?? '').trim();
+
+		const response = await apiFetchWithAuth(locals.token, `/forum/topics/${topic_id}/lock`, {
+			method: 'POST'
+		});
+
+		if (!response.ok) {
+			const topicError = await getApiErrorMessage(
+				response,
+				'Impossible de verrouiller le sujet.'
+			);
+
+			return fail(response.status, { topicError });
+		}
+
+		throw redirect(303, `/forum/${params.slug}`);
+	},
+
+	unlockTopic: async ({ request, cookies, url, locals, params }) => {
+		if (!locals.user || !locals.token) {
+			return fail(401, {
+				topicError: 'Connexion requise.'
+			});
+		}
+
+		const formData = await validateCsrf({
+			request,
+			cookies,
+			url,
+			sessionToken: locals.token
+		});
+
+		const topic_id = String(formData.get('topic_id') ?? '').trim();
+
+		const response = await apiFetchWithAuth(locals.token, `/forum/topics/${topic_id}/unlock`, {
+			method: 'POST'
+		});
+
+		if (!response.ok) {
+			const topicError = await getApiErrorMessage(
+				response,
+				'Impossible de déverrouiller le sujet.'
+			);
+
 			return fail(response.status, { topicError });
 		}
 

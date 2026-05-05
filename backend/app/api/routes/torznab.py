@@ -22,10 +22,6 @@ router = APIRouter(prefix="/torznab", tags=["torznab"])
 TORZNAB_NS = "http://torznab.com/schemas/2015/feed"
 ET.register_namespace("torznab", TORZNAB_NS)
 
-MAX_LIMIT = 100
-DEBRID_SERVICE = "alldebrid"
-MEILI_INDEX = "torrents"
-
 
 @dataclass
 class UnifiedTorrent:
@@ -78,113 +74,13 @@ def _http_json(
 
     req = urllib.request.Request(url, data=data, headers=final_headers, method=method)
     try:
-        with urllib.request.urlopen(req, timeout=20) as resp:
+        with urllib.request.urlopen(req, timeout=15) as resp:
             return json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")
         raise HTTPException(status_code=502, detail=f"Upstream error from Meilisearch: {detail}")
     except urllib.error.URLError as exc:
         raise HTTPException(status_code=502, detail=f"Cannot reach Meilisearch: {exc}")
-
-
-def _looks_like_magnet(value: str | None) -> bool:
-    return isinstance(value, str) and value.startswith("magnet:?xt=urn:btih:")
-
-
-def _is_named_title(title: str | None) -> bool:
-    if not title:
-        return False
-    t = title.strip().lower()
-    return t not in {"", "noname", "magnet"}
-
-
-def _as_int_list(value: Any) -> list[int]:
-    if not isinstance(value, list):
-        return []
-    out: list[int] = []
-    for item in value:
-        try:
-            out.append(int(item))
-        except Exception:
-            continue
-    return out
-
-
-def _clean_imdbid(imdbid: str | None) -> str | None:
-    if not imdbid:
-        return None
-    imdbid = imdbid.strip()
-    if not imdbid:
-        return None
-    return imdbid if imdbid.startswith("tt") else f"tt{imdbid}"
-
-
-def _build_magnet(info_hash: str, title: str) -> str:
-    dn = urllib.parse.quote(title or info_hash)
-    return f"magnet:?xt=urn:btih:{info_hash}&dn={dn}"
-
-
-def _ensure_named_magnet(item: UnifiedTorrent) -> str:
-    title = item.title if _is_named_title(item.title) else item.hash
-    base = item.magnet or item.link or _build_magnet(item.hash, title)
-
-    if _looks_like_magnet(base) and "dn=" not in base:
-        sep = "&" if "?" in base else "?"
-        return f"{base}{sep}dn={urllib.parse.quote(title)}"
-
-    return base
-
-
-def _infer_kind_from_cat(kind: str, cat: str | None) -> str:
-    if kind in {"movie", "tvsearch"}:
-        return kind
-
-    if not cat:
-        return "search"
-
-    cats = {c.strip() for c in cat.split(",") if c.strip()}
-    if any(c.startswith("2000") or c == "2000" for c in cats):
-        return "movie"
-    if any(c.startswith("5000") or c == "5000" for c in cats):
-        return "tvsearch"
-    return "search"
-
-
-def _category_for_item(item: UnifiedTorrent) -> str:
-    return "5000" if item.type in {"show", "series"} else "2000"
-
-
-def _pub_date_from_ts(ts: int | None) -> str:
-    dt = datetime.fromtimestamp(ts or 0, tz=timezone.utc)
-    return format_datetime(dt, usegmt=True)
-
-
-def _external_base_url(request: Request) -> str:
-    proto = request.headers.get("x-forwarded-proto") or request.url.scheme
-    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or request.url.netloc
-    return f"{proto}://{host}"
-
-
-def _download_url(request: Request, info_hash: str, apikey: str | None = None) -> str:
-    base = _external_base_url(request)
-    url = f"{base}/torznab/download/{info_hash}"
-    if apikey:
-        url = f"{url}?apikey={urllib.parse.quote(apikey)}"
-    return url
-
-
-def _item_link(request: Request, item: UnifiedTorrent, apikey: str | None = None) -> str:
-    return _download_url(request, item.hash, apikey=apikey)
-
-
-def _torznab_attr(parent: ET.Element, name: str, value: Any) -> None:
-    if value is None:
-        return
-    ET.SubElement(parent, f"{{{TORZNAB_NS}}}attr", {"name": name, "value": str(value)})
-
-
-def _now_ts() -> int:
-    return int(datetime.now(timezone.utc).timestamp())
 
 
 def _build_meili_search_payload(
@@ -199,7 +95,7 @@ def _build_meili_search_payload(
     payload: dict[str, Any] = {
         "q": (q or "").strip(),
         "offset": max(offset, 0),
-        "limit": max(1, min(max(limit * 8, 200), 1000)),
+        "limit": max(1, min(limit, 100)),
     }
 
     filters: list[str] = []
@@ -222,6 +118,19 @@ def _build_meili_search_payload(
     return payload
 
 
+def _as_int_list(value: Any) -> list[int]:
+    if not isinstance(value, list):
+        return []
+
+    out: list[int] = []
+    for item in value:
+        try:
+            out.append(int(item))
+        except Exception:
+            continue
+    return out
+
+
 def _meili_doc_to_item(doc: dict[str, Any]) -> UnifiedTorrent:
     return UnifiedTorrent(
         hash=str(doc.get("hash") or "").lower(),
@@ -234,7 +143,7 @@ def _meili_doc_to_item(doc: dict[str, Any]) -> UnifiedTorrent:
         seasons=_as_int_list(doc.get("seasons")),
         episodes=_as_int_list(doc.get("episodes")),
         indexer=doc.get("indexer") or doc.get("hash_source"),
-        source="meili+debrid_cache",
+        source="meili",
     )
 
 
@@ -246,6 +155,9 @@ def _pg_row_to_item(row: dict[str, Any]) -> UnifiedTorrent:
         except Exception:
             parsed_data = {}
 
+    seasons = _as_int_list(parsed_data.get("seasons"))
+    episodes = _as_int_list(parsed_data.get("episodes"))
+
     return UnifiedTorrent(
         hash=str(row.get("info_hash") or "").lower(),
         title=str(row.get("raw_title") or "").strip(),
@@ -254,19 +166,15 @@ def _pg_row_to_item(row: dict[str, Any]) -> UnifiedTorrent:
         added=int(row["created_at"]) if row.get("created_at") is not None else None,
         imdb_id=row.get("imdb_id"),
         tmdb_id=int(row["tmdb_id"]) if row.get("tmdb_id") is not None else None,
-        seasons=_as_int_list(parsed_data.get("seasons")),
-        episodes=_as_int_list(parsed_data.get("episodes")),
+        seasons=seasons,
+        episodes=episodes,
         magnet=row.get("magnet"),
         link=row.get("link") or row.get("torrent_download"),
         seeders=int(row["seeders"]) if row.get("seeders") is not None else None,
         indexer=row.get("indexer"),
         privacy=row.get("privacy"),
-        source="postgres+meili+debrid_cache",
+        source="postgres",
     )
-
-
-def _is_servable_item(item: UnifiedTorrent) -> bool:
-    return bool(item.hash and len(item.hash) == 40 and _is_named_title(item.title))
 
 
 def _apply_episode_filters(
@@ -302,95 +210,128 @@ def _query_meili(
         tmdbid=tmdbid,
         kind=kind,
         offset=offset,
-        limit=limit,
+        limit=max(limit * 3, 50),
     )
-    url = f"{settings.streamfusion_meili_url.rstrip('/')}/indexes/{MEILI_INDEX}/search"
+    url = f"{settings.streamfusion_meili_url.rstrip('/')}/indexes/torrents/search"
     data = _http_json("POST", url, body=payload, headers=_meili_headers())
     hits = data.get("hits", [])
-    items = [_meili_doc_to_item(doc) for doc in hits if doc.get("hash") and (doc.get("raw_title") or doc.get("parsed_title"))]
-    items = [item for item in items if _is_servable_item(item)]
+    items = [_meili_doc_to_item(doc) for doc in hits if doc.get("hash") and doc.get("raw_title")]
     return _apply_episode_filters(items, season=season, ep=ep)
 
 
-def _query_cached_hashes(hashes: list[str]) -> set[str]:
-    hashes = [h for h in hashes if h and len(h) == 40]
-    if not hashes:
-        return set()
+def _query_postgres(
+    *,
+    q: str | None,
+    imdbid: str | None,
+    tmdbid: int | None,
+    kind: str,
+    season: int | None,
+    ep: int | None,
+    limit: int,
+) -> list[UnifiedTorrent]:
+    where_parts = ["1=1"]
+    params: list[Any] = []
 
-    sql = """
-        SELECT DISTINCT info_hash
-        FROM debrid_cache
-        WHERE service = %s
-          AND expires_at > %s
-          AND info_hash = ANY(%s)
-    """
-    with psycopg.connect(_pg_dsn(), row_factory=dict_row) as conn:
-        with conn.cursor() as cur:
-            cur.execute(sql, (DEBRID_SERVICE, _now_ts(), hashes))
-            rows = cur.fetchall()
+    if q and q.strip():
+        where_parts.append("raw_title ILIKE %s")
+        params.append(f"%{q.strip()}%")
 
-    return {str(row["info_hash"]).lower() for row in rows}
+    if imdbid:
+        imdbid = imdbid if imdbid.startswith("tt") else f"tt{imdbid}"
+        where_parts.append("imdb_id = %s")
+        params.append(imdbid)
 
+    if tmdbid is not None:
+        where_parts.append("tmdb_id = %s")
+        params.append(int(tmdbid))
 
-def _query_postgres_by_hashes(hashes: list[str]) -> dict[str, UnifiedTorrent]:
-    hashes = [h for h in hashes if h and len(h) == 40]
-    if not hashes:
-        return {}
+    if kind == "movie":
+        where_parts.append("type = 'movie'")
+    elif kind == "tvsearch":
+        where_parts.append("type IN ('show', 'series')")
 
-    sql = """
+    if season is not None:
+        where_parts.append(
+            """
+            EXISTS (
+                SELECT 1
+                FROM jsonb_array_elements_text(COALESCE((parsed_data::jsonb)->'seasons', '[]'::jsonb)) s(value)
+                WHERE s.value = %s
+            )
+            """
+        )
+        params.append(str(season))
+
+    if ep is not None:
+        where_parts.append(
+            """
+            EXISTS (
+                SELECT 1
+                FROM jsonb_array_elements_text(COALESCE((parsed_data::jsonb)->'episodes', '[]'::jsonb)) e(value)
+                WHERE e.value = %s
+            )
+            """
+        )
+        params.append(str(ep))
+
+    sql = f"""
         SELECT
-            info_hash,
+            id,
             raw_title,
             size,
             magnet,
+            info_hash,
             link,
-            torrent_download,
             seeders,
             indexer,
             privacy,
             type,
+            torrent_download,
             parsed_data,
             created_at,
             tmdb_id,
             imdb_id
         FROM torrent_items
-        WHERE info_hash = ANY(%s)
+        WHERE {" AND ".join(where_parts)}
+        ORDER BY seeders DESC NULLS LAST, updated_at DESC NULLS LAST, created_at DESC NULLS LAST
+        LIMIT %s
     """
+    params.append(max(limit * 3, 50))
 
     with psycopg.connect(_pg_dsn(), row_factory=dict_row) as conn:
         with conn.cursor() as cur:
-            cur.execute(sql, (hashes,))
+            cur.execute(sql, params)
             rows = cur.fetchall()
 
-    out: dict[str, UnifiedTorrent] = {}
-    for row in rows:
-        item = _pg_row_to_item(row)
-        if _is_servable_item(item):
-            out[item.hash] = item
-    return out
+    return [_pg_row_to_item(row) for row in rows if row.get("info_hash") and row.get("raw_title")]
 
 
-def _merge_items(meili_items: list[UnifiedTorrent], pg_items_by_hash: dict[str, UnifiedTorrent]) -> list[UnifiedTorrent]:
-    merged: list[UnifiedTorrent] = []
+def _merge_items(meili_items: list[UnifiedTorrent], pg_items: list[UnifiedTorrent]) -> list[UnifiedTorrent]:
+    merged: dict[str, UnifiedTorrent] = {}
 
     for item in meili_items:
-        pg = pg_items_by_hash.get(item.hash)
-        if pg:
-            pg.title = pg.title or item.title
-            pg.type = pg.type or item.type
-            pg.imdb_id = pg.imdb_id or item.imdb_id
-            pg.tmdb_id = pg.tmdb_id or item.tmdb_id
-            pg.seasons = pg.seasons or item.seasons
-            pg.episodes = pg.episodes or item.episodes
-            pg.added = pg.added or item.added
-            pg.indexer = pg.indexer or item.indexer
-            pg.source = "postgres+meili+debrid_cache"
-            merged.append(pg)
-        else:
-            item.source = "meili+debrid_cache"
-            merged.append(item)
+        merged[item.hash] = item
 
-    merged.sort(
+    for item in pg_items:
+        existing = merged.get(item.hash)
+        if not existing:
+            merged[item.hash] = item
+            continue
+
+        existing.magnet = item.magnet or existing.magnet
+        existing.link = item.link or existing.link
+        existing.seeders = item.seeders if item.seeders is not None else existing.seeders
+        existing.indexer = item.indexer or existing.indexer
+        existing.privacy = item.privacy or existing.privacy
+        existing.type = item.type or existing.type
+        existing.imdb_id = item.imdb_id or existing.imdb_id
+        existing.tmdb_id = item.tmdb_id or existing.tmdb_id
+        existing.seasons = item.seasons or existing.seasons
+        existing.episodes = item.episodes or existing.episodes
+        existing.source = "meili+postgres"
+
+    items = list(merged.values())
+    items.sort(
         key=lambda x: (
             x.seeders if x.seeders is not None else -1,
             x.added if x.added is not None else 0,
@@ -398,7 +339,77 @@ def _merge_items(meili_items: list[UnifiedTorrent], pg_items_by_hash: dict[str, 
         ),
         reverse=True,
     )
-    return merged
+    return items
+
+
+def _infer_kind_from_cat(kind: str, cat: str | None) -> str:
+    if kind in {"movie", "tvsearch"}:
+        return kind
+    if not cat:
+        return "search"
+
+    cats = {c.strip() for c in cat.split(",") if c.strip()}
+    if any(c.startswith("2000") or c == "2000" for c in cats):
+        return "movie"
+    if any(c.startswith("5000") or c == "5000" for c in cats):
+        return "tvsearch"
+    return "search"
+
+
+def _clean_imdbid(imdbid: str | None) -> str | None:
+    if not imdbid:
+        return None
+    imdbid = imdbid.strip()
+    if not imdbid:
+        return None
+    return imdbid if imdbid.startswith("tt") else f"tt{imdbid}"
+
+
+def _build_magnet(info_hash: str, title: str) -> str:
+    dn = urllib.parse.quote(title or info_hash)
+    return f"magnet:?xt=urn:btih:{info_hash}&dn={dn}"
+
+
+def _category_for_item(item: UnifiedTorrent) -> str:
+    return "5000" if item.type in {"show", "series"} else "2000"
+
+
+def _pub_date_from_ts(ts: int | None) -> str:
+    dt = datetime.fromtimestamp(ts or 0, tz=timezone.utc)
+    return format_datetime(dt, usegmt=True)
+
+
+def _external_base_url(request: Request) -> str:
+    proto = request.headers.get("x-forwarded-proto") or request.url.scheme
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or request.url.netloc
+    return f"{proto}://{host}"
+
+
+def _download_url(request: Request, info_hash: str, apikey: str | None = None) -> str:
+    base = _external_base_url(request)
+    url = f"{base}/torznab/download/{info_hash}"
+    if apikey:
+        url = f"{url}?apikey={urllib.parse.quote(apikey)}"
+    return url
+
+
+def _item_link(request: Request, item: UnifiedTorrent, apikey: str | None = None) -> str:
+    return _download_url(request, item.hash, apikey=apikey)
+
+
+def _torznab_attr(parent: ET.Element, name: str, value: Any) -> None:
+    if value is None:
+        return
+    ET.SubElement(parent, f"{{{TORZNAB_NS}}}attr", {"name": name, "value": str(value)})
+
+
+def _display_title(item: UnifiedTorrent) -> str:
+    label = {
+        "meili": "MEILI",
+        "postgres": "PG",
+        "meili+postgres": "FUSION",
+    }.get(item.source, "?")
+    return f"[{label}] {item.title}"
 
 
 def _build_caps_xml(request: Request) -> bytes:
@@ -406,13 +417,13 @@ def _build_caps_xml(request: Request) -> bytes:
 
     server = ET.SubElement(caps, "server")
     server.set("version", "1.0")
-    server.set("title", "SSD StreamFusion Cached Torznab")
-    server.set("strapline", "Debrid cache + Meili metadata")
+    server.set("title", "SSD StreamFusion Fusion Torznab")
+    server.set("strapline", "Meilisearch + Postgres fusion")
     server.set("email", "noreply@example.invalid")
     server.set("url", _external_base_url(request))
 
     limits = ET.SubElement(caps, "limits")
-    limits.set("max", str(MAX_LIMIT))
+    limits.set("max", "100")
     limits.set("default", "50")
 
     searching = ET.SubElement(caps, "searching")
@@ -431,13 +442,13 @@ def _build_caps_xml(request: Request) -> bytes:
 def _build_search_xml(request: Request, items: list[UnifiedTorrent], apikey: str | None = None) -> bytes:
     rss = ET.Element("rss", {"version": "2.0"})
     channel = ET.SubElement(rss, "channel")
-    ET.SubElement(channel, "title").text = "SSD StreamFusion Cached Torznab"
-    ET.SubElement(channel, "description").text = "Debrid cache + Meili metadata"
+    ET.SubElement(channel, "title").text = "SSD StreamFusion Fusion Torznab"
+    ET.SubElement(channel, "description").text = "Meilisearch + Postgres fusion"
     ET.SubElement(channel, "link").text = _external_base_url(request)
 
     for item in items:
         entry = ET.SubElement(channel, "item")
-        ET.SubElement(entry, "title").text = item.title
+        ET.SubElement(entry, "title").text = _display_title(item)
         ET.SubElement(entry, "guid", {"isPermaLink": "false"}).text = item.hash
 
         item_link = _item_link(request, item, apikey=apikey)
@@ -457,7 +468,7 @@ def _build_search_xml(request: Request, items: list[UnifiedTorrent], apikey: str
             },
         )
 
-        magnet = _ensure_named_magnet(item)
+        magnet = item.magnet or _build_magnet(item.hash, item.title)
         _torznab_attr(entry, "magneturl", magnet)
         _torznab_attr(entry, "infohash", item.hash)
         _torznab_attr(entry, "size", item.size or 0)
@@ -490,47 +501,6 @@ def _search_fusion(
     offset: int,
     limit: int,
 ) -> list[UnifiedTorrent]:
-    q = (q or "").strip()
-
-    # Cas spécial: test Prowlarr sans terme
-    if not q and not imdbid and tmdbid is None:
-        sql = """
-            SELECT info_hash
-            FROM debrid_cache
-            WHERE service = %s
-              AND expires_at > %s
-            ORDER BY checked_at DESC
-            LIMIT %s
-        """
-        with psycopg.connect(_pg_dsn(), row_factory=dict_row) as conn:
-            with conn.cursor() as cur:
-                cur.execute(sql, (DEBRID_SERVICE, _now_ts(), max(limit * 50, 1000)))
-                rows = cur.fetchall()
-
-        hashes = [str(r["info_hash"]).lower() for r in rows if r.get("info_hash")]
-        meili_items: list[UnifiedTorrent] = []
-
-        for h in hashes:
-            try:
-                url = f"{settings.streamfusion_meili_url.rstrip('/')}/indexes/{MEILI_INDEX}/documents/{h}"
-                doc = _http_json(
-                    "GET",
-                    url,
-                    headers={"Authorization": f"Bearer {settings.streamfusion_meili_master_key}"},
-                )
-                item = _meili_doc_to_item(doc)
-                if _is_servable_item(item):
-                    meili_items.append(item)
-                if len(meili_items) >= max(limit * 3, 50):
-                    break
-            except HTTPException:
-                continue
-
-        meili_items = _apply_episode_filters(meili_items, season=season, ep=ep)
-        pg_items_by_hash = _query_postgres_by_hashes([item.hash for item in meili_items])
-        merged = _merge_items(meili_items, pg_items_by_hash)
-        return merged[offset : offset + limit]
-
     meili_items = _query_meili(
         q=q,
         imdbid=imdbid,
@@ -541,14 +511,18 @@ def _search_fusion(
         offset=offset,
         limit=limit,
     )
-
-    cached_hashes = _query_cached_hashes([item.hash for item in meili_items])
-    filtered_meili = [item for item in meili_items if item.hash in cached_hashes]
-
-    pg_items_by_hash = _query_postgres_by_hashes([item.hash for item in filtered_meili])
-    merged = _merge_items(filtered_meili, pg_items_by_hash)
-
+    pg_items = _query_postgres(
+        q=q,
+        imdbid=imdbid,
+        tmdbid=tmdbid,
+        kind=kind,
+        season=season,
+        ep=ep,
+        limit=limit,
+    )
+    merged = _merge_items(meili_items, pg_items)
     return merged[offset : offset + limit]
+
 
 @router.get("/api")
 def torznab_api(
@@ -561,7 +535,7 @@ def torznab_api(
     season: int | None = Query(default=None),
     ep: int | None = Query(default=None),
     offset: int = Query(default=0, ge=0),
-    limit: int = Query(default=50, ge=1, le=MAX_LIMIT),
+    limit: int = Query(default=50, ge=1, le=100),
     apikey: str | None = Query(default=None),
 ):
     _check_api_key(apikey)
@@ -587,7 +561,6 @@ def torznab_api(
         offset=offset,
         limit=limit,
     )
-
     return Response(
         content=_build_search_xml(request, items, apikey=apikey),
         media_type="application/xml",
@@ -605,34 +578,29 @@ def torznab_download(
     if len(info_hash) != 40:
         raise HTTPException(status_code=400, detail="Invalid info hash")
 
-    sql = """
-        SELECT 1
-        FROM debrid_cache
-        WHERE info_hash = %s
-          AND service = %s
-          AND expires_at > %s
-        LIMIT 1
-    """
-
     with psycopg.connect(_pg_dsn(), row_factory=dict_row) as conn:
         with conn.cursor() as cur:
-            cur.execute(sql, (info_hash, DEBRID_SERVICE, _now_ts()))
-            cache_row = cur.fetchone()
+            cur.execute(
+                """
+                SELECT magnet, link, torrent_download, raw_title
+                FROM torrent_items
+                WHERE info_hash = %s
+                ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST
+                LIMIT 1
+                """,
+                (info_hash,),
+            )
+            row = cur.fetchone()
 
-    if not cache_row:
-        raise HTTPException(status_code=404, detail="Torrent not found in debrid cache")
+    if row:
+        target = row.get("magnet") or row.get("link") or row.get("torrent_download")
+        if target:
+            return RedirectResponse(url=target, status_code=302)
 
-    pg_items = _query_postgres_by_hashes([info_hash])
-    item = pg_items.get(info_hash)
+        title = row.get("raw_title") or info_hash
+        return RedirectResponse(url=_build_magnet(info_hash, title), status_code=302)
 
-    if item:
-        return RedirectResponse(url=_ensure_named_magnet(item), status_code=302)
-
-    url = f"{settings.streamfusion_meili_url.rstrip('/')}/indexes/{MEILI_INDEX}/documents/{info_hash}"
+    url = f"{settings.streamfusion_meili_url.rstrip('/')}/indexes/torrents/documents/{info_hash}"
     doc = _http_json("GET", url, headers={"Authorization": f"Bearer {settings.streamfusion_meili_master_key}"})
-    meili_item = _meili_doc_to_item(doc)
-
-    if not _is_servable_item(meili_item):
-        raise HTTPException(status_code=404, detail="Torrent metadata unavailable")
-
-    return RedirectResponse(url=_ensure_named_magnet(meili_item), status_code=302)
+    title = str(doc.get("raw_title") or info_hash)
+    return RedirectResponse(url=_build_magnet(info_hash, title), status_code=302)

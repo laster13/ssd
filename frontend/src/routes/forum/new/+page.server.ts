@@ -4,6 +4,43 @@ import { apiFetch, apiFetchWithAuth } from '$lib/server/api';
 import { validateCsrf } from '$lib/server/security';
 import type { ForumCategory } from '$lib/types/forum';
 
+async function getApiErrorMessage(response: Response, fallback: string): Promise<string> {
+	try {
+		const payload = await response.json();
+
+		if (typeof payload?.detail === 'string' && payload.detail.trim()) {
+			return payload.detail.trim();
+		}
+
+		if (Array.isArray(payload?.detail)) {
+			const messages = payload.detail
+				.map((item: unknown) => {
+					if (typeof item === 'string') return item.trim();
+
+					if (
+						item &&
+						typeof item === 'object' &&
+						'msg' in item &&
+						typeof (item as { msg?: unknown }).msg === 'string'
+					) {
+						return (item as { msg: string }).msg.trim();
+					}
+
+					return '';
+				})
+				.filter(Boolean);
+
+			if (messages.length > 0) {
+				return messages.join(' · ');
+			}
+		}
+	} catch {
+		// noop
+	}
+
+	return fallback;
+}
+
 export const load: PageServerLoad = async ({ locals, cookies }) => {
 	const csrfToken = cookies.get('csrf_token') ?? '';
 
@@ -77,16 +114,7 @@ export const actions: Actions = {
 		});
 
 		if (!response.ok) {
-			let error = 'Impossible de créer le sujet.';
-
-			try {
-				const payload = await response.json();
-				if (typeof payload?.detail === 'string' && payload.detail.trim()) {
-					error = payload.detail.trim();
-				}
-			} catch {
-				// noop
-			}
+			const error = await getApiErrorMessage(response, 'Impossible de créer le sujet.');
 
 			return fail(response.status, {
 				error,
@@ -95,6 +123,7 @@ export const actions: Actions = {
 		}
 
 		const topic = await response.json();
+
 		throw redirect(303, `/forum/${topic.slug}`);
 	}
 };

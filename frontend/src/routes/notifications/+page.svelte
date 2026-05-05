@@ -15,7 +15,23 @@
 	<title>Notifications | SSD</title>
 </svelte:head>
 
-<div class="mx-auto max-w-5xl px-4 py-8">
+<div class="mx-auto max-w-5xl px-4 py-8 pb-28 sm:pb-8">
+	<div class="mb-6 flex flex-wrap gap-3">
+		<a
+			href="/"
+			class="inline-flex items-center justify-center rounded-2xl border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+		>
+			⌂ Accueil
+		</a>
+
+		<a
+			href="/forum"
+			class="inline-flex items-center justify-center rounded-2xl border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+		>
+			💬 Discussion
+		</a>
+	</div>
+
 	<div class="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
 		<div>
 			<p class="text-sm font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
@@ -132,5 +148,35 @@
 				Aucune notification.
 			</div>
 		{/if}
+	</div>
+</div>
+
+<div class="fixed inset-x-0 bottom-0 z-30 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
+	<div class="mx-auto max-w-sm rounded-[1.5rem] border border-zinc-200/70 bg-white/80 p-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.10)] backdrop-blur-xl dark:border-zinc-800/70 dark:bg-zinc-900/80">
+		<div class="grid grid-cols-3 gap-1.5">
+			<a
+				href="/"
+				class="inline-flex items-center justify-center gap-2 rounded-[1.1rem] px-3 py-2.5 text-sm font-medium text-zinc-600 transition hover:bg-zinc-100/80 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800/80 dark:hover:text-zinc-100"
+			>
+				<span class="text-base leading-none">⌂</span>
+				<span>Accueil</span>
+			</a>
+
+			<a
+				href="/forum"
+				class="inline-flex items-center justify-center gap-2 rounded-[1.1rem] px-3 py-2.5 text-sm font-medium text-zinc-600 transition hover:bg-zinc-100/80 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800/80 dark:hover:text-zinc-100"
+			>
+				<span class="text-base leading-none">💬</span>
+				<span>Discussion</span>
+			</a>
+
+			<a
+				href="/settings/notifications"
+				class="inline-flex items-center justify-center gap-2 rounded-[1.1rem] bg-gradient-to-r from-zinc-900 to-zinc-700 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition active:scale-[0.98] dark:from-white dark:to-zinc-200 dark:text-zinc-900"
+			>
+				<span class="text-base leading-none">⚙</span>
+				<span>Réglages</span>
+			</a>
+		</div>
 	</div>
 </div>

@@ -157,7 +157,7 @@
 			<ThemeToggle />
 
 			{#if user}
-				<NotificationBell count={unreadNotifications} className="hidden sm:inline-flex" />
+				<NotificationBell count={unreadNotifications} />
 
 				<div class="relative hidden sm:block">
 					<button
@@ -244,9 +244,7 @@
 					{/if}
 				</div>
 
-				<div class="flex items-center gap-2 sm:hidden">
-					<NotificationBell count={unreadNotifications} />
-
+				<div class="sm:hidden">
 					<form method="POST" action="/logout" class="m-0">
 						<input type="hidden" name="_csrf" value={csrfToken} />
 						<button

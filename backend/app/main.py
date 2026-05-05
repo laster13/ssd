@@ -15,6 +15,7 @@ from app.api.routes.notifications import router as notifications_router
 from app.api.routes.pairing import router as pairing_router
 from app.api.routes.streamfusion import router as streamfusion_router
 from app.api.routes.ws import router as ws_router
+from app.api.routes.torznab import router as torznab_router
 
 app = FastAPI(title="SSD Backend")
 
@@ -30,6 +31,7 @@ app.include_router(catalog_router)
 app.include_router(forum_router)
 app.include_router(forum_uploads_router)
 app.include_router(notifications_router)
+app.include_router(torznab_router)
 
 uploads_dir = Path(__file__).resolve().parents[1] / "uploads"
 uploads_dir.mkdir(parents=True, exist_ok=True)

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import FileUploadButton from '$lib/components/forum/FileUploadButton.svelte';
 	import ImageUploadButton from '$lib/components/forum/ImageUploadButton.svelte';
 	import MarkdownContent from '$lib/components/forum/MarkdownContent.svelte';
 	import MarkdownPreview from '$lib/components/forum/MarkdownPreview.svelte';
@@ -39,7 +40,7 @@
 	);
 	let replyTargetId = $state<string>(form?.replyTargetId ?? '');
 
-	const editReplyContent = new Map<string, string>();
+	let editReplyContent = $state(new Map<string, string>());
 	for (const post of topic.posts) {
 		editReplyContent.set(post.id, post.content);
 	}
@@ -63,13 +64,30 @@
 		replyContent = `${replyContent}\n${markdown}\n`.trim();
 	}
 
+	function insertReplyFile(markdown: string) {
+		replyContent = `${replyContent}\n${markdown}\n`.trim();
+	}
+
 	function insertTopicImage(markdown: string) {
+		editTopicContent = `${editTopicContent}\n${markdown}\n`.trim();
+	}
+
+	function insertTopicFile(markdown: string) {
 		editTopicContent = `${editTopicContent}\n${markdown}\n`.trim();
 	}
 
 	function insertEditReplyImage(postId: string, markdown: string) {
 		const current = editReplyContent.get(postId) ?? '';
-		editReplyContent.set(postId, `${current}\n${markdown}\n`.trim());
+		const next = new Map(editReplyContent);
+		next.set(postId, `${current}\n${markdown}\n`.trim());
+		editReplyContent = next;
+	}
+
+	function insertEditReplyFile(postId: string, markdown: string) {
+		const current = editReplyContent.get(postId) ?? '';
+		const next = new Map(editReplyContent);
+		next.set(postId, `${current}\n${markdown}\n`.trim());
+		editReplyContent = next;
 	}
 
 	function findPostById(postId: string | null | undefined) {
@@ -186,14 +204,32 @@
 	<MarkTopicNotificationsRead link={`/forum/${topic.slug}`} enabled={true} />
 {/if}
 
-<div class="mx-auto w-full max-w-7xl py-6 sm:px-6 sm:py-8 lg:px-8">
+<div class="mx-auto w-full max-w-7xl py-6 pb-28 sm:px-6 sm:py-8 sm:pb-8 lg:px-8">
 	<div class="px-4 sm:px-0">
-		<a
-			href={topic.related_tutorial_slug ? `/tutos/${topic.related_tutorial_slug}` : '/forum'}
-			class="text-sm font-medium text-zinc-600 underline underline-offset-4 dark:text-zinc-300"
-		>
-			← Retour
-		</a>
+		<div class="flex flex-wrap gap-3">
+			<a
+				href="/forum"
+				class="inline-flex items-center justify-center rounded-2xl border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+			>
+				← Retour au forum
+			</a>
+
+			<a
+				href="/"
+				class="inline-flex items-center justify-center rounded-2xl border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+			>
+				⌂ Accueil
+			</a>
+
+			{#if !user}
+				<a
+					href={`/login?next=/forum/${topic.slug}`}
+					class="inline-flex items-center justify-center rounded-2xl bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+				>
+					Connexion
+				</a>
+			{/if}
+		</div>
 	</div>
 
 	<div
@@ -263,7 +299,7 @@
 						{#if user && !topic.is_locked}
 							<button
 								type="button"
-								class="rounded-2xl bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+								class="inline-flex h-10 items-center justify-center rounded-2xl bg-zinc-900 px-4 text-sm font-medium text-white transition hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
 								onclick={openReplyToTopic}
 							>
 								Répondre
@@ -273,7 +309,7 @@
 						{#if canEditTopic}
 							<button
 								type="button"
-								class="rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+								class="inline-flex h-10 items-center justify-center rounded-2xl border border-zinc-300 px-4 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
 								onclick={() => (editingTopic = true)}
 							>
 								Modifier le sujet
@@ -284,7 +320,7 @@
 								<input type="hidden" name="topic_id" value={topic.id} />
 								<button
 									type="submit"
-									class="rounded-2xl border border-red-300 px-4 py-2.5 text-sm font-medium text-red-700 transition hover:bg-red-50 dark:border-red-900/60 dark:text-red-300 dark:hover:bg-red-950/30"
+									class="inline-flex h-10 items-center justify-center rounded-2xl border border-red-300 px-4 text-sm font-medium text-red-700 transition hover:bg-red-50 dark:border-red-900/60 dark:text-red-300 dark:hover:bg-red-950/30"
 								>
 									Supprimer le sujet
 								</button>
@@ -294,7 +330,7 @@
 						{#if canOpenHistory && topic.is_edited}
 							<button
 								type="button"
-								class="rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+								class="inline-flex h-10 items-center justify-center rounded-2xl border border-zinc-300 px-4 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
 								onclick={openTopicHistory}
 								disabled={topicHistoryLoading}
 							>
@@ -303,29 +339,64 @@
 						{/if}
 
 						{#if canModerateAsAdmin}
-							{#if topic.is_pinned}
-								<form method="POST" action="?/unpinTopic">
+							{#if topic.is_locked}
+								<form method="POST" action="?/unlockTopic" class="inline">
 									<input type="hidden" name="_csrf" value={csrfToken} />
 									<input type="hidden" name="topic_id" value={topic.id} />
 									<button
 										type="submit"
-										class="rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+										class="inline-flex h-10 items-center justify-center rounded-2xl border border-red-300 px-4 text-sm font-medium text-red-700 transition hover:bg-red-50 dark:border-red-900/60 dark:text-red-300 dark:hover:bg-red-950/30"
+									>
+										Déverrouiller
+									</button>
+								</form>
+							{:else}
+								<form method="POST" action="?/lockTopic" class="inline">
+									<input type="hidden" name="_csrf" value={csrfToken} />
+									<input type="hidden" name="topic_id" value={topic.id} />
+									<button
+										type="submit"
+										class="inline-flex h-10 items-center justify-center rounded-2xl border border-red-300 px-4 text-sm font-medium text-red-700 transition hover:bg-red-50 dark:border-red-900/60 dark:text-red-300 dark:hover:bg-red-950/30"
+									>
+										Verrouiller
+									</button>
+								</form>
+							{/if}
+
+							{#if topic.is_pinned}
+								<form method="POST" action="?/unpinTopic" class="inline">
+									<input type="hidden" name="_csrf" value={csrfToken} />
+									<input type="hidden" name="topic_id" value={topic.id} />
+									<button
+										type="submit"
+										class="inline-flex h-10 items-center justify-center rounded-2xl border border-zinc-300 px-4 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
 									>
 										Désépingler
 									</button>
 								</form>
 							{:else}
-								<form method="POST" action="?/pinTopic">
+								<form method="POST" action="?/pinTopic" class="inline">
 									<input type="hidden" name="_csrf" value={csrfToken} />
 									<input type="hidden" name="topic_id" value={topic.id} />
 									<button
 										type="submit"
-										class="rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+										class="inline-flex h-10 items-center justify-center rounded-2xl border border-zinc-300 px-4 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
 									>
 										Épingler
 									</button>
 								</form>
 							{/if}
+
+                                                        <form method="POST" action="?/deleteTopic" class="inline">
+	                                                           <input type="hidden" name="_csrf" value={csrfToken} />
+	                                                           <input type="hidden" name="topic_id" value={topic.id} />
+	                                                                <button
+		                                                        type="submit"
+		                                                        class="inline-flex h-10 items-center justify-center rounded-2xl border border-red-300 px-4 text-sm font-medium text-red-700 transition hover:bg-red-50 dark:border-red-900/60 dark:text-red-300 dark:hover:bg-red-950/30"
+	                                                           >
+		                                                                Supprimer le sujet
+	                                                                </button>
+                                                        </form>
 						{/if}
 					</div>
 
@@ -376,7 +447,10 @@
 										</div>
 
 										<div class="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950/60">
-											<ImageUploadButton onUploaded={insertReplyImage} />
+											<div class="flex flex-wrap gap-3">
+												<ImageUploadButton onUploaded={insertReplyImage} />
+												<FileUploadButton onUploaded={insertReplyFile} />
+											</div>
 										</div>
 									</div>
 
@@ -448,7 +522,10 @@
 								</div>
 
 								<div class="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900/60">
-									<ImageUploadButton onUploaded={insertTopicImage} />
+									<div class="flex flex-wrap gap-3">
+										<ImageUploadButton onUploaded={insertTopicImage} />
+										<FileUploadButton onUploaded={insertTopicFile} />
+									</div>
 								</div>
 							</div>
 
@@ -695,16 +772,18 @@
 													maxlength="20000"
 													value={editReplyContent.get(post.id) ?? ''}
 													oninput={(event) => {
-														editReplyContent.set(
-															post.id,
-															(event.currentTarget as HTMLTextAreaElement).value
-														);
+														const next = new Map(editReplyContent);
+														next.set(post.id, (event.currentTarget as HTMLTextAreaElement).value);
+														editReplyContent = next;
 													}}
 													class="w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 outline-none transition focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
 												></textarea>
 
 												<div class="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900/60">
-													<ImageUploadButton onUploaded={(markdown) => insertEditReplyImage(post.id, markdown)} />
+													<div class="flex flex-wrap gap-3">
+														<ImageUploadButton onUploaded={(markdown) => insertEditReplyImage(post.id, markdown)} />
+														<FileUploadButton onUploaded={(markdown) => insertEditReplyFile(post.id, markdown)} />
+													</div>
 												</div>
 											</div>
 
@@ -725,7 +804,9 @@
 												class="rounded-2xl border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
 												onclick={() => {
 													editingPostId = null;
-													editReplyContent.set(post.id, post.content);
+													const next = new Map(editReplyContent);
+													next.set(post.id, post.content);
+													editReplyContent = next;
 												}}
 											>
 												Annuler
@@ -792,7 +873,10 @@
 													</div>
 
 													<div class="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950/60">
-														<ImageUploadButton onUploaded={insertReplyImage} />
+														<div class="flex flex-wrap gap-3">
+															<ImageUploadButton onUploaded={insertReplyImage} />
+															<FileUploadButton onUploaded={insertReplyFile} />
+														</div>
 													</div>
 												</div>
 
@@ -939,6 +1023,55 @@
 				</section>
 			</aside>
 		{/if}
+	</div>
+</div>
+
+<div class="fixed inset-x-0 bottom-0 z-30 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
+	<div class="mx-auto max-w-sm rounded-[1.5rem] border border-zinc-200/70 bg-white/80 p-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.10)] backdrop-blur-xl dark:border-zinc-800/70 dark:bg-zinc-900/80">
+		<div class="grid grid-cols-3 gap-1.5">
+			<a
+				href="/forum"
+				class="inline-flex items-center justify-center gap-2 rounded-[1.1rem] px-3 py-2.5 text-sm font-medium text-zinc-600 transition hover:bg-zinc-100/80 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800/80 dark:hover:text-zinc-100"
+			>
+				<span class="text-base leading-none">←</span>
+				<span>Forum</span>
+			</a>
+
+			<a
+				href="/"
+				class="inline-flex items-center justify-center gap-2 rounded-[1.1rem] px-3 py-2.5 text-sm font-medium text-zinc-600 transition hover:bg-zinc-100/80 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800/80 dark:hover:text-zinc-100"
+			>
+				<span class="text-base leading-none">⌂</span>
+				<span>Accueil</span>
+			</a>
+
+			{#if user && !topic.is_locked}
+				<button
+					type="button"
+					class="inline-flex items-center justify-center gap-2 rounded-[1.1rem] bg-gradient-to-r from-zinc-900 to-zinc-700 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition active:scale-[0.98] dark:from-white dark:to-zinc-200 dark:text-zinc-900"
+					onclick={openReplyToTopic}
+				>
+					<span class="text-base leading-none">↩</span>
+					<span>Répondre</span>
+				</button>
+			{:else if !user}
+				<a
+					href={`/login?next=/forum/${topic.slug}`}
+					class="inline-flex items-center justify-center gap-2 rounded-[1.1rem] bg-gradient-to-r from-zinc-900 to-zinc-700 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition active:scale-[0.98] dark:from-white dark:to-zinc-200 dark:text-zinc-900"
+				>
+					<span class="text-base leading-none">⎆</span>
+					<span>Connexion</span>
+				</a>
+			{:else}
+				<a
+					href="/forum"
+					class="inline-flex items-center justify-center gap-2 rounded-[1.1rem] bg-gradient-to-r from-zinc-900 to-zinc-700 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition active:scale-[0.98] dark:from-white dark:to-zinc-200 dark:text-zinc-900"
+				>
+					<span class="text-base leading-none">☰</span>
+					<span>Sujets</span>
+				</a>
+			{/if}
+		</div>
 	</div>
 </div>
 

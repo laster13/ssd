@@ -80,11 +80,10 @@ def _serialize_post(post: ForumPost) -> ForumPostResponse:
 
     parent_author = None
     parent_excerpt = None
-
-    if post.parent is not None and not post.parent.is_deleted:
-        if post.parent.author is not None:
-            parent_author = _serialize_author(post.parent.author)
-        parent_excerpt = _build_excerpt(post.parent.content)
+    if post.parent_post is not None and not post.parent_post.is_deleted:
+        if post.parent_post.author is not None:
+            parent_author = _serialize_author(post.parent_post.author)
+        parent_excerpt = _build_excerpt(post.parent_post.content)
 
     return ForumPostResponse(
         id=post.id,
@@ -201,7 +200,7 @@ def _get_topic_by_slug(db: Session, slug: str) -> ForumTopic:
             joinedload(ForumTopic.author),
             joinedload(ForumTopic.category),
             joinedload(ForumTopic.posts).joinedload(ForumPost.author),
-            joinedload(ForumTopic.posts).joinedload(ForumPost.parent).joinedload(ForumPost.author),
+            joinedload(ForumTopic.posts).joinedload(ForumPost.parent_post).joinedload(ForumPost.author),
         )
         .where(ForumTopic.slug == slug)
         .limit(1)
@@ -233,7 +232,7 @@ def _get_post_by_id(db: Session, post_id: UUID) -> ForumPost:
         select(ForumPost)
         .options(
             joinedload(ForumPost.author),
-            joinedload(ForumPost.parent).joinedload(ForumPost.author),
+            joinedload(ForumPost.parent_post).joinedload(ForumPost.author),
             joinedload(ForumPost.topic).joinedload(ForumTopic.author),
             joinedload(ForumPost.topic).joinedload(ForumTopic.category),
         )
@@ -686,7 +685,7 @@ def create_forum_post(
         select(ForumPost)
         .options(
             joinedload(ForumPost.author),
-            joinedload(ForumPost.parent).joinedload(ForumPost.author),
+            joinedload(ForumPost.parent_post).joinedload(ForumPost.author),
         )
         .where(ForumPost.id == post.id)
         .limit(1)
@@ -728,7 +727,7 @@ def update_forum_post(
         select(ForumPost)
         .options(
             joinedload(ForumPost.author),
-            joinedload(ForumPost.parent).joinedload(ForumPost.author),
+            joinedload(ForumPost.parent_post).joinedload(ForumPost.author),
         )
         .where(ForumPost.id == post.id)
         .limit(1)
