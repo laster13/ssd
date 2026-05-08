@@ -1,8 +1,56 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
+
 import { apiFetch, apiFetchWithAuth } from '$lib/server/api';
 import { validateCsrf } from '$lib/server/security';
 import type { ForumCategory } from '$lib/types/forum';
+
+type ForumNewValues = {
+	category_slug: string;
+	related_tutorial_slug: string;
+	title: string;
+	content: string;
+};
+
+function cleanQueryValue(value: string | null) {
+	return (value ?? '').trim().slice(0, 300);
+}
+
+function buildPrefilledValues(url: URL): ForumNewValues {
+	const relatedTutorialSlug = cleanQueryValue(url.searchParams.get('tutorial'));
+	const queryTitle = cleanQueryValue(url.searchParams.get('title'));
+	const queryContent = cleanQueryValue(url.searchParams.get('content'));
+
+	const title = queryTitle || (relatedTutorialSlug ? `[Aide] ${relatedTutorialSlug}` : '');
+
+	const content =
+		queryContent ||
+		(relatedTutorialSlug
+			? `Bonjour,
+
+Je bloque sur le tutoriel : ${queryTitle || relatedTutorialSlug}
+Lien : /tutos/${relatedTutorialSlug}
+
+Mon problème :
+...
+
+L'étape où je bloque :
+...
+
+Ce que j'ai déjà essayé :
+...
+
+Message d'erreur éventuel :
+...`
+			: '');
+
+	return {
+		category_slug: 'tutoriels',
+		related_tutorial_slug: relatedTutorialSlug,
+		title,
+		content
+	};
+}
 
 async function getApiErrorMessage(response: Response, fallback: string): Promise<string> {
 	try {
@@ -41,16 +89,17 @@ async function getApiErrorMessage(response: Response, fallback: string): Promise
 	return fallback;
 }
 
-export const load: PageServerLoad = async ({ locals, cookies }) => {
+export const load: PageServerLoad = async ({ locals, cookies, url }) => {
 	const csrfToken = cookies.get('csrf_token') ?? '';
-
 	const categoriesResponse = await apiFetch('/forum/categories');
+	const values = buildPrefilledValues(url);
 
 	if (!categoriesResponse.ok) {
 		return {
 			categories: [],
 			user: locals.user ?? null,
-			csrfToken
+			csrfToken,
+			values
 		};
 	}
 
@@ -59,7 +108,8 @@ export const load: PageServerLoad = async ({ locals, cookies }) => {
 	return {
 		categories,
 		user: locals.user ?? null,
-		csrfToken
+		csrfToken,
+		values
 	};
 };
 
@@ -68,12 +118,7 @@ export const actions: Actions = {
 		if (!locals.user || !locals.token) {
 			return fail(401, {
 				error: 'Tu dois être connecté pour créer un sujet.',
-				values: {
-					category_slug: 'tutoriels',
-					related_tutorial_slug: '',
-					title: '',
-					content: ''
-				}
+				values: buildPrefilledValues(url)
 			});
 		}
 

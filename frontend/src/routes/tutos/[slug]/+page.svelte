@@ -46,6 +46,10 @@
   const csrfToken = $derived(data.csrfToken);
   const theme = $derived(getTutorialTheme(tutorial.category));
 
+  const createDiscussionHref = $derived(
+    `/forum/new?tutorial=${encodeURIComponent(tutorial.slug)}&title=${encodeURIComponent(`[Aide] ${tutorial.title}`)}`
+  );
+
   let showMobileDocs = $state(false);
   let showMobileToc = $state(false);
   let openStepIndex = $state(0);
@@ -124,6 +128,22 @@
                 <p class="mt-3 max-w-3xl break-words text-sm leading-6 text-zinc-600 dark:text-zinc-300 sm:mt-4 sm:text-base sm:leading-7">
                   {tutorial.description}
                 </p>
+
+                <div class="mt-5 flex flex-wrap gap-3">
+                  <a
+                    href={createDiscussionHref}
+                    class="inline-flex items-center justify-center rounded-2xl bg-zinc-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+                  >
+                    💬 Poser une question sur ce tutoriel
+                  </a>
+
+                  <a
+                    href={`/forum?tutorial=${tutorial.slug}`}
+                    class="inline-flex items-center justify-center rounded-2xl border border-zinc-300 px-5 py-3 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  >
+                    Voir les discussions liées
+                  </a>
+                </div>
 
                 {#if tutorial.summary}
                   <div class={`mt-4 rounded-2xl border p-4 text-sm leading-6 sm:mt-5 ${theme.callout}`}>
@@ -323,13 +343,15 @@
         {/if}
       </div>
 
-      <TutorialDiscussion
-        tutorial={{ slug: tutorial.slug, title: tutorial.title }}
-        topics={forumTopics}
-        {user}
-        {csrfToken}
-        {form}
-      />
+      <div id="discussion">
+        <TutorialDiscussion
+          tutorial={{ slug: tutorial.slug, title: tutorial.title }}
+          topics={forumTopics}
+          {user}
+          {csrfToken}
+          {form}
+        />
+      </div>
     </div>
 
     <div class="hidden xl:block">
@@ -381,6 +403,14 @@
                   class="rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm font-medium text-zinc-800 transition hover:bg-white dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-zinc-100"
                 >
                   Voir toute la documentation
+                </a>
+
+                <a
+                  href="/forum"
+                  onclick={() => (showMobileDocs = false)}
+                  class="rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm font-semibold text-violet-700 transition hover:bg-violet-100 dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-300"
+                >
+                  Espace de discussion
                 </a>
               </div>
 
