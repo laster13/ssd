@@ -1,4 +1,22 @@
-from pydantic import BaseModel, ConfigDict
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class CatalogAppFieldOption(BaseModel):
+    value: str
+    label: str
+
+
+class CatalogAppField(BaseModel):
+    name: str
+    label: str
+    type: str = "text"
+    required: bool = False
+    secret: bool = False
+    placeholder: str | None = None
+    default: Any | None = None
+    options: list[CatalogAppFieldOption] = Field(default_factory=list)
 
 
 class CatalogAppItem(BaseModel):
@@ -19,4 +37,5 @@ class CatalogAppItem(BaseModel):
     docs_url: str | None = None
 
     variant_of: str | None = None
-    aliases: list[str] = []
+    aliases: list[str] = Field(default_factory=list)
+    form_fields: list[CatalogAppField] = Field(default_factory=list)

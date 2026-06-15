@@ -56,14 +56,70 @@ export const actions: Actions = {
 		const auth_type = String(formData.get('auth_type') ?? '').trim();
 		const app_slug = String(formData.get('app_slug') ?? '').trim();
 
+		const catalogResponse = await apiFetchWithAuth(locals.token, '/catalog/apps', {
+			method: 'GET'
+		});
+
+		const apps = catalogResponse.ok ? await catalogResponse.json() : [];
+		const app = apps.find((item: any) => sameSlug(item.slug, app_slug));
+
+		if (!app) {
+			return fail(404, {
+				error: 'Application introuvable',
+				machine_id,
+				subdomain,
+				auth_type,
+				app_slug
+			});
+		}
+
+		const app_config: Record<string, unknown> = {};
+
+		for (const field of app.form_fields ?? []) {
+			if (field.type === 'checkbox') {
+				app_config[field.name] = formData.get(field.name) === 'true';
+			} else {
+				app_config[field.name] = String(formData.get(field.name) ?? '').trim();
+			}
+		}
+
 		if (!machine_id || !subdomain || !auth_type || !app_slug) {
 			return fail(400, {
 				error: 'Tous les champs sont requis',
 				machine_id,
 				subdomain,
 				auth_type,
-				app_slug
+				app_slug,
+				app_config
 			});
+		}
+
+		for (const field of app.form_fields ?? []) {
+			if (!field.required) continue;
+
+			const value = app_config[field.name];
+
+			if (field.type === 'checkbox') {
+				if (value === undefined || value === null) {
+					return fail(400, {
+						error: `Le champ ${field.label} est requis`,
+						machine_id,
+						subdomain,
+						auth_type,
+						app_slug,
+						app_config
+					});
+				}
+			} else if (!String(value ?? '').trim()) {
+				return fail(400, {
+					error: `Le champ ${field.label} est requis`,
+					machine_id,
+					subdomain,
+					auth_type,
+					app_slug,
+					app_config
+				});
+			}
 		}
 
 		const response = await apiFetchWithAuth(locals.token, '/me/installations', {
@@ -72,7 +128,8 @@ export const actions: Actions = {
 				machine_id,
 				app_slug,
 				subdomain,
-				auth_type
+				auth_type,
+				app_config
 			})
 		});
 
@@ -93,7 +150,8 @@ export const actions: Actions = {
 				machine_id,
 				subdomain,
 				auth_type,
-				app_slug
+				app_slug,
+				app_config
 			});
 		}
 

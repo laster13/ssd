@@ -1,8 +1,8 @@
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
-from pydantic import BaseModel, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints
 
 ErrorMessage = Annotated[str, StringConstraints(max_length=4000)]
 
@@ -11,6 +11,7 @@ class CreateMachineJobRequest(BaseModel):
     app_slug: str
     subdomain: str
     auth_type: str
+    app_config: dict[str, Any] = Field(default_factory=dict)
 
 
 class CreateMachineJobResponse(BaseModel):
@@ -26,6 +27,7 @@ class CreateMyInstallationRequest(BaseModel):
     app_slug: str
     subdomain: str
     auth_type: str
+    app_config: dict[str, Any] = Field(default_factory=dict)
 
 
 class AgentFetchJobResponse(BaseModel):

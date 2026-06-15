@@ -823,8 +823,11 @@ if __name__ == "__main__":
 PY
 
 cat > "${INSTALL_DIR}/agent/runner.py" <<'PY'
+import os
 import shlex
 import subprocess
+import tempfile
+from pathlib import Path
 
 from agent.api import complete_job, send_log
 
@@ -869,6 +872,42 @@ def compose_runtime_prefix(compose_dir: str = "~/seedbox-compose") -> str:
     )
 
 
+def write_temp_yaml_vars(app_slug: str, app_config: dict) -> str:
+    tmp_dir = Path("/tmp")
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+
+    fd, temp_path = tempfile.mkstemp(prefix=f"{app_slug}-vars-", suffix=".yml", dir=str(tmp_dir))
+    os.close(fd)
+
+    lines: list[str] = []
+
+    for key, value in app_config.items():
+        var_name = f"{app_slug}_{key}"
+
+        if isinstance(value, bool):
+            yaml_value = "true" if value else "false"
+        elif value is None:
+            yaml_value = '""'
+        else:
+            escaped = str(value).replace("\\", "\\\\").replace('"', '\\"')
+            yaml_value = f'"{escaped}"'
+
+        lines.append(f"{var_name}: {yaml_value}")
+
+    Path(temp_path).write_text("\n".join(lines) + "\n", encoding="utf-8")
+    os.chmod(temp_path, 0o600)
+    return temp_path
+
+
+def cleanup_temp_file(path: str | None) -> None:
+    if not path:
+        return
+    try:
+        os.remove(path)
+    except FileNotFoundError:
+        pass
+
+
 def run_logged_command(
     job_id: str,
     seq: int,
@@ -900,8 +939,14 @@ def run_streaming_command(
     job_id: str,
     seq: int,
     command: str,
+    *,
+    reveal_command: bool = True,
+    label: str | None = None,
 ) -> tuple[int, int]:
-    send_log(job_id, seq, "info", f"running command: {command}")
+    if reveal_command:
+        send_log(job_id, seq, "info", f"running command: {command}")
+    else:
+        send_log(job_id, seq, "info", label or "running hidden command")
     seq += 1
 
     process = subprocess.Popen(
@@ -929,6 +974,7 @@ def run_install_app(job_id: str, payload: dict, seq: int) -> tuple[bool, int, di
     app_slug = payload.get("app_slug")
     subdomain = payload.get("subdomain")
     auth_type = payload.get("auth_type")
+    app_config = payload.get("app_config") or {}
 
     if not app_slug:
         return False, seq, None, "Missing app_slug in payload"
@@ -964,20 +1010,47 @@ def run_install_app(job_id: str, payload: dict, seq: int) -> tuple[bool, int, di
             seq += 1
             return False, seq, None, f"Preparation command failed with return code {return_code}"
 
-    command = f"{prefix} && launch_service {quote(app_slug)}"
-    return_code, seq = run_streaming_command(job_id, seq, command)
+    temp_vars_file: str | None = None
 
-    if return_code == 0:
-        result = {
-            "message": "install finished",
-            "app_slug": app_slug,
-            "subdomain": subdomain,
-            "auth_type": auth_type,
-            "return_code": return_code,
-        }
-        return True, seq, result, None
+    try:
+        if app_config:
+            temp_vars_file = write_temp_yaml_vars(str(app_slug), app_config)
+            send_log(job_id, seq, "info", f"temporary vars file created for {app_slug}")
+            seq += 1
 
-    return False, seq, None, f"Command failed with return code {return_code}"
+        if temp_vars_file:
+            command = (
+                f"{prefix} && "
+                f"export ANSIBLE_EXTRA_VARS_FILE={quote(temp_vars_file)} && "
+                f"launch_service {quote(app_slug)}"
+            )
+            return_code, seq = run_streaming_command(
+                job_id,
+                seq,
+                command,
+                reveal_command=False,
+                label=f"launching service {app_slug} with temporary vars file",
+            )
+        else:
+            command = f"{prefix} && launch_service {quote(app_slug)}"
+            return_code, seq = run_streaming_command(job_id, seq, command)
+
+        if return_code == 0:
+            result = {
+                "message": "install finished",
+                "app_slug": app_slug,
+                "subdomain": subdomain,
+                "auth_type": auth_type,
+                "configured_fields": sorted(list(app_config.keys())),
+                "return_code": return_code,
+            }
+            return True, seq, result, None
+
+        return False, seq, None, f"Command failed with return code {return_code}"
+
+    finally:
+        if temp_vars_file:
+            cleanup_temp_file(temp_vars_file)
 
 
 def run_uninstall_app(job_id: str, payload: dict, seq: int) -> tuple[bool, int, dict | None, str | None]:
@@ -1034,6 +1107,7 @@ def run_job(job: dict) -> None:
             pass
         raise
 PY
+
 
 cat > "${INSTALL_DIR}/.env" <<EOF
 BACKEND_URL=${BACKEND_URL}

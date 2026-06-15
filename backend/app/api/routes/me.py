@@ -443,61 +443,148 @@ def create_ssdv2_installation(
         payload=job.payload,
     )
 
+def validate_app_config(catalog_app: dict, app_config: dict | None) -> dict:
+    app_config = app_config or {}
+    fields = catalog_app.get("form_fields", [])
+    validated: dict = {}
+
+    for field in fields:
+        name = field["name"]
+        field_type = field.get("type", "text")
+        required = field.get("required", False)
+        default = field.get("default")
+
+        value = app_config.get(name, default)
+
+        if field_type == "checkbox":
+            if value in (True, False):
+                pass
+            elif value in ("true", "1", "on", "yes"):
+                value = True
+            elif value in ("false", "0", "", None, "off", "no"):
+                value = False
+            else:
+                raise HTTPException(status_code=400, detail=f"{name} must be a boolean")
+        else:
+            if value is None:
+                value = ""
+            value = str(value).strip()
+
+        if required:
+            if field_type == "checkbox":
+                if value is None:
+                    raise HTTPException(status_code=400, detail=f"{name} is required")
+            else:
+                if value == "":
+                    raise HTTPException(status_code=400, detail=f"{name} is required")
+
+        if field_type == "select":
+            allowed = [opt["value"] for opt in field.get("options", [])]
+            if value and value not in allowed:
+                raise HTTPException(status_code=400, detail=f"{name} has an invalid value")
+
+        validated[name] = value
+
+    return validated
+
+
+def mask_secret_fields(catalog_app: dict, job_payload: dict) -> dict:
+    masked = dict(job_payload)
+    masked_config = dict(masked.get("app_config", {}))
+
+    for field in catalog_app.get("form_fields", []):
+        if field.get("secret") is True:
+            name = field["name"]
+            if name in masked_config and masked_config[name]:
+                masked_config[name] = "***"
+
+    masked["app_config"] = masked_config
+    return masked
+
 
 @router.post("/installations", response_model=CreateMachineJobResponse)
-def create_my_installation(
+def create_installation(
     payload: CreateMyInstallationRequest,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
 ):
-    machine = get_owned_machine_or_404(db, payload.machine_id, current_user)
+    catalog_app = get_catalog_app(payload.app_slug)
+    if not catalog_app:
+        raise HTTPException(status_code=400, detail="Unsupported app_slug")
+
+    if not catalog_app.get("enabled", False):
+        raise HTTPException(status_code=400, detail="App is currently disabled")
+
+    auth_type = payload.auth_type.strip().lower()
+    if auth_type not in set(catalog_app["allowed_auth_types"]):
+        raise HTTPException(status_code=400, detail="Unsupported auth_type for this app")
+
+    machine = db.get(Machine, payload.machine_id)
+    if not machine:
+        audit_event(
+            event_type="installation.create.failed",
+            severity="warning",
+            success=False,
+            status_code=404,
+            actor_type="user",
+            actor_user_id=user.id,
+            target_machine_id=payload.machine_id,
+            request=request,
+            description="User installation create failed: machine not found",
+        )
+        raise HTTPException(status_code=404, detail="Machine not found")
+
+    if machine.owner_id != user.id:
+        audit_event(
+            event_type="installation.create.failed",
+            severity="warning",
+            success=False,
+            status_code=403,
+            actor_type="user",
+            actor_user_id=user.id,
+            target_machine_id=machine.id,
+            request=request,
+            description="User installation create failed: forbidden machine access",
+        )
+        raise HTTPException(status_code=403, detail="Forbidden")
+
     ensure_machine_online_for_jobs(machine)
-    app_slug, subdomain, auth_type, install_profile = normalize_and_validate_installation_payload(payload)
 
-    catalog_app = get_catalog_app(app_slug)
-    app_name = str(catalog_app.get("name") or app_slug) if catalog_app else app_slug
+    validated_app_config = validate_app_config(catalog_app, payload.app_config)
 
-    ensure_no_active_installation_for_machine(db, machine)
+    job_payload = {
+        "app_slug": catalog_app["slug"],
+        "install_profile": catalog_app["install_profile"],
+        "subdomain": payload.subdomain.strip().lower(),
+        "auth_type": auth_type,
+        "app_config": validated_app_config,
+    }
 
     job = Job(
         machine_id=machine.id,
         type="install_app",
         status="pending",
-        payload={
-            "app_slug": app_slug,
-            "app_name": app_name,
-            "install_profile": install_profile,
-            "subdomain": subdomain,
-            "auth_type": auth_type,
-        },
+        payload=job_payload,
     )
+
     db.add(job)
-    db.flush()
-
-    queue_application_state_for_new_job(
-        db,
-        machine_id=machine.id,
-        app_slug=app_slug,
-        app_name=app_name,
-        operation="install",
-        job=job,
-    )
-
     db.commit()
     db.refresh(job)
 
+    audit_payload = mask_secret_fields(catalog_app, job_payload)
+
     audit_event(
-        event_type="job.create.user.success",
+        event_type="installation.create.success",
         severity="info",
         success=True,
         status_code=200,
         actor_type="user",
-        actor_user_id=current_user.id,
+        actor_user_id=user.id,
         target_machine_id=machine.id,
         request=request,
-        description="User created install job",
-        details={"job_id": str(job.id), "payload": job.payload},
+        description="User created installation job",
+        details={"job_id": str(job.id), "payload": audit_payload},
     )
 
     return CreateMachineJobResponse(

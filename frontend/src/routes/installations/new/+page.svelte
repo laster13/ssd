@@ -9,6 +9,9 @@
 			: ['aucune', 'basique', 'oauth', 'authelia', 'oauth2-proxy'];
 	const docsUrl = app.docs_url ?? '';
 	const hasDocs = Boolean(docsUrl);
+
+	const inputClass =
+		'rounded-[16px] border border-black/8 bg-black/[0.03] px-4 py-4 text-zinc-900 placeholder:text-zinc-500 outline-none transition-all duration-200 focus:border-black/12 focus:bg-black/[0.05] dark:border-white/10 dark:bg-[rgba(15,23,42,0.85)] dark:text-white dark:placeholder:text-zinc-500 dark:focus:border-white/20 dark:focus:bg-[rgba(15,23,42,0.95)]';
 </script>
 
 <svelte:head>
@@ -105,7 +108,7 @@
 						name="machine_id"
 						required
 						disabled={machines.length === 0}
-						class="rounded-[16px] border border-black/8 bg-black/[0.03] px-4 py-4 text-zinc-900 outline-none transition-all duration-200 focus:border-black/12 focus:bg-black/[0.05] disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-[rgba(15,23,42,0.85)] dark:text-white dark:focus:border-white/20 dark:focus:bg-[rgba(15,23,42,0.95)]"
+						class={inputClass}
 					>
 						<option value="">Sélectionne un serveur</option>
 						{#each machines as machine}
@@ -126,7 +129,7 @@
 						required
 						placeholder={app.slug}
 						value={form?.subdomain ?? app.slug}
-						class="rounded-[16px] border border-black/8 bg-black/[0.03] px-4 py-4 text-zinc-900 placeholder:text-zinc-500 outline-none transition-all duration-200 focus:border-black/12 focus:bg-black/[0.05] dark:border-white/10 dark:bg-[rgba(15,23,42,0.85)] dark:text-white dark:placeholder:text-zinc-500 dark:focus:border-white/20 dark:focus:bg-[rgba(15,23,42,0.95)]"
+						class={inputClass}
 					/>
 				</div>
 
@@ -134,12 +137,7 @@
 					<label for="auth_type" class="text-sm font-medium text-zinc-800 dark:text-zinc-200">
 						Auth
 					</label>
-					<select
-						id="auth_type"
-						name="auth_type"
-						required
-						class="rounded-[16px] border border-black/8 bg-black/[0.03] px-4 py-4 text-zinc-900 outline-none transition-all duration-200 focus:border-black/12 focus:bg-black/[0.05] dark:border-white/10 dark:bg-[rgba(15,23,42,0.85)] dark:text-white dark:focus:border-white/20 dark:focus:bg-[rgba(15,23,42,0.95)]"
-					>
+					<select id="auth_type" name="auth_type" required class={inputClass}>
 						{#each authOptions as option}
 							<option value={option} selected={(form?.auth_type ?? 'aucune') === option}>
 								{option}
@@ -148,6 +146,51 @@
 					</select>
 				</div>
 
+				{#each app.form_fields ?? [] as field}
+					<div class="grid gap-2">
+						<label for={field.name} class="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+							{field.label}
+						</label>
+
+						{#if field.type === 'select'}
+							<select
+								id={field.name}
+								name={field.name}
+								required={Boolean(field.required)}
+								class={inputClass}
+							>
+								{#each field.options ?? [] as option}
+									<option
+										value={option.value}
+										selected={(form?.app_config?.[field.name] ?? field.default ?? '') === option.value}
+									>
+										{option.label}
+									</option>
+								{/each}
+							</select>
+						{:else if field.type === 'checkbox'}
+							<input
+								id={field.name}
+								type="checkbox"
+								name={field.name}
+								value="true"
+								checked={Boolean(form?.app_config?.[field.name] ?? field.default ?? false)}
+								class="h-5 w-5 rounded border border-black/10 text-sky-600 focus:ring-sky-500 dark:border-white/10"
+							/>
+						{:else}
+							<input
+								id={field.name}
+								name={field.name}
+								type={field.type === 'password' ? 'password' : field.type ?? 'text'}
+								required={Boolean(field.required)}
+								value={form?.app_config?.[field.name] ?? field.default ?? ''}
+								placeholder={field.placeholder ?? ''}
+								class={inputClass}
+							/>
+						{/if}
+					</div>
+				{/each}
+
 				<div class="mt-2 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
 					<a
 						class="inline-flex items-center justify-center rounded-[16px] border border-black/8 bg-black/[0.04] px-4 py-3 text-sm font-medium text-zinc-700 transition-all duration-200 hover:border-black/12 hover:bg-black/[0.06] hover:text-zinc-950 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-300 dark:hover:border-white/20 dark:hover:bg-white/[0.07] dark:hover:text-white"
@@ -155,7 +198,6 @@
 					>
 						Annuler
 					</a>
-
 					<button
 						type="submit"
 						disabled={machines.length === 0}

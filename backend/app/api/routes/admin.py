@@ -84,6 +84,64 @@ def broadcast_machine_removed_to_owner(owner_id: UUID | str | None, machine_id: 
         return
     asyncio.run(machine_presence_manager.broadcast_to_user(owner_id, build_machine_removed_payload(machine_id)))
 
+def validate_app_config(catalog_app: dict, app_config: dict | None) -> dict:
+    app_config = app_config or {}
+    fields = catalog_app.get("form_fields", [])
+    validated: dict = {}
+
+    for field in fields:
+        name = field["name"]
+        field_type = field.get("type", "text")
+        required = field.get("required", False)
+        default = field.get("default")
+
+        value = app_config.get(name, default)
+
+        if field_type == "checkbox":
+            if value in (True, False):
+                pass
+            elif value in ("true", "1", "on", "yes"):
+                value = True
+            elif value in ("false", "0", "", None, "off", "no"):
+                value = False
+            else:
+                raise HTTPException(status_code=400, detail=f"{name} must be a boolean")
+        else:
+            if value is None:
+                value = ""
+            value = str(value).strip()
+
+        if required:
+            if field_type == "checkbox":
+                if value is None:
+                    raise HTTPException(status_code=400, detail=f"{name} is required")
+            else:
+                if value == "":
+                    raise HTTPException(status_code=400, detail=f"{name} is required")
+
+        if field_type == "select":
+            allowed = [opt["value"] for opt in field.get("options", [])]
+            if value and value not in allowed:
+                raise HTTPException(status_code=400, detail=f"{name} has an invalid value")
+
+        validated[name] = value
+
+    return validated
+
+
+def mask_secret_fields(catalog_app: dict, job_payload: dict) -> dict:
+    masked = dict(job_payload)
+    masked_config = dict(masked.get("app_config", {}))
+
+    for field in catalog_app.get("form_fields", []):
+        if field.get("secret") is True:
+            name = field["name"]
+            if name in masked_config and masked_config[name]:
+                masked_config[name] = "***"
+
+    masked["app_config"] = masked_config
+    return masked
+
 
 @router.get("/users", response_model=list[UserResponse])
 def list_users(
@@ -702,21 +760,28 @@ def create_job(
 
     ensure_machine_online_for_jobs(machine)
 
+    validated_app_config = validate_app_config(catalog_app, payload.app_config)
+
+    job_payload = {
+        "app_slug": catalog_app["slug"],
+        "install_profile": catalog_app["install_profile"],
+        "subdomain": payload.subdomain.strip().lower(),
+        "auth_type": auth_type,
+        "app_config": validated_app_config,
+    }
+
     job = Job(
         machine_id=machine.id,
         type="install_app",
         status="pending",
-        payload={
-            "app_slug": catalog_app["slug"],
-            "install_profile": catalog_app["install_profile"],
-            "subdomain": payload.subdomain.strip().lower(),
-            "auth_type": auth_type,
-        },
+        payload=job_payload,
     )
 
     db.add(job)
     db.commit()
     db.refresh(job)
+
+    audit_payload = mask_secret_fields(catalog_app, job_payload)
 
     audit_event(
         event_type="job.create.success",
@@ -728,7 +793,7 @@ def create_job(
         target_machine_id=machine.id,
         request=request,
         description="Admin created install job",
-        details={"job_id": str(job.id), "payload": job.payload},
+        details={"job_id": str(job.id), "payload": audit_payload},
     )
 
     return CreateMachineJobResponse(

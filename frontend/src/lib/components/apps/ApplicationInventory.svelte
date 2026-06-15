@@ -201,21 +201,15 @@
 		}
 	});
 
-	function isStreamfusion(item: InventoryItem) {
-		return item.appSlug === 'streamfusion';
-	}
-
 	function canOpen(item: InventoryItem) {
 		if (item.machineStatus !== 'online') return false;
 		if (!item.present) return false;
 		if (item.transition !== 'idle') return false;
-		if (isStreamfusion(item)) return true;
 		return Boolean(item.publicUrl);
 	}
 
 	function appHref(item: InventoryItem) {
 		if (!canOpen(item)) return null;
-		if (isStreamfusion(item)) return null;
 		return item.publicUrl ?? null;
 	}
 
@@ -402,20 +396,7 @@
 						</div>
 
 						<div class="flex flex-wrap items-center gap-2">
-							{#if isStreamfusion(item) && canOpen(item)}
-								<form method="POST" action="?/openApplication">
-									<input type="hidden" name="app_slug" value={item.appSlug} />
-									<input type="hidden" name="app_title" value={item.appTitle} />
-									<input type="hidden" name="machine_name" value={item.machineName} />
-									<input type="hidden" name="public_url" value={item.publicUrl ?? ''} />
-									<button
-										type="submit"
-										class="inline-flex items-center justify-center rounded-[14px] border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-medium text-sky-700 transition hover:border-sky-300 hover:bg-sky-100 dark:border-sky-400/20 dark:bg-sky-500/10 dark:text-sky-200 dark:hover:border-sky-400/30 dark:hover:bg-sky-500/15"
-									>
-										Ouvrir
-									</button>
-								</form>
-							{:else if appHref(item)}
+							{#if appHref(item)}
 								<a
 									href={appHref(item) ?? '#'}
 									target="_blank"

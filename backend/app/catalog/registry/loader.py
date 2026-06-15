@@ -148,6 +148,10 @@ def load_catalog_registry() -> tuple[dict, ...]:
         highlight = docs_ref or slug
         docs_url = build_public_docs_url(docs_repo_path, highlight) if docs_repo_path else None
 
+        form_fields = raw_app.get("form_fields") or []
+        if not isinstance(form_fields, list):
+            raise ValueError(f"apps.yaml: form_fields for '{slug}' must be a list")
+
         resolved.append(
             {
                 "slug": slug,
@@ -164,6 +168,7 @@ def load_catalog_registry() -> tuple[dict, ...]:
                 "docs_url": docs_url,
                 "variant_of": variant_of,
                 "aliases": aliases,
+                "form_fields": form_fields,
             }
         )
 

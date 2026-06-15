@@ -875,8 +875,32 @@ apps:
   title: streamfusion
   category: media
   tagline: addon for Stremio streaming
+  enabled: true
+  install_profile: docker
+  allowed_auth_types:
+    - basique
+    - oauth
+    - authelia
+    - aucune
+    - oauth2-proxy
+  aliases:
+    - stream-fusion
   docs:
     path: docs/fr/applications/media/streamfusion.md
+  form_fields:
+    - name: secret_api_key
+      label: Secret API Key
+      type: password
+      required: true
+      secret: true
+      placeholder: Entrez la Secret API Key
+
+    - name: tmdb_api_key
+      label: TMDB API Key
+      type: password
+      required: true
+      secret: true
+      placeholder: Entrez la clé API TMDB
 - slug: stremiocatalogs
   title: stremiocatalogs
   category: media
